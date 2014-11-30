@@ -3,3 +3,8 @@
 
 *.o
 *.bin
+
+# codelite files
+*/.codelite
+*.project
+*.workspace
