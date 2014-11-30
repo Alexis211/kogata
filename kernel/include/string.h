@@ -3,8 +3,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void *memcpy(void *dest, const void *src, int count);
-void *memset(void *dest, int val, int count);
+void *memcpy(void *dest, const void *src, size_t count);
+void *memset(void *dest, int val, size_t count);
+int memcmp(const void *s1, const void *s2, size_t n);
+void *memmove(void *dest, const void *src, size_t count);
 
 size_t strlen(const char *str);
 char *strchr(const char *str, char c);
