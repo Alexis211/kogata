@@ -5,6 +5,7 @@
 *.bin
 
 # codelite files
+.codelite
 */.codelite
 *.project
 *.workspace
