@@ -3,15 +3,18 @@ AS = nasm
 ASFLAGS = -felf
 
 CC = i586-elf-gcc
-CFLAGS = -ffreestanding -O2 -std=gnu99 -Wall -Wextra -I ./include
+CFLAGS = -ffreestanding -O2 -std=gnu99 -Wall -Wextra -I . -I ./include
+# CXX = i586-elf-g++
+# CXFLAGS = -ffreestanding -O2 -Wall -Wextra -I . -I ./include -fno-exceptions -fno-rtti
 LD = i586-elf-gcc
 LDFLAGS = -T linker.ld -ffreestanding -O2 -nostdlib -lgcc
 
-OBJ = l0/loader.o l0/kmain.o
+OBJ = lib/stdlib.o lib/printf.o l0/loader.o l0/kmain.o l0/dbglog.o l0/sys.o
+OUT = kernel.bin
 
-all: kernel.bin
+all: $(OUT)
 
-kernel.bin: $(OBJ)
+$(OUT): $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 %.o: %.s
@@ -19,3 +22,11 @@ kernel.bin: $(OBJ)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS)
+
+# %.o: %.cpp
+#	$(CXX) -c $< -o $@ $(CXFLAGS)
+
+clean:
+	rm */*.o || true
+mrproper: clean
+	rm $(OUT)

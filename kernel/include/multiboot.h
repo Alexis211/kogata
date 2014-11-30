@@ -1,5 +1,5 @@
-#ifndef HDR_MULTIBOOT
-#define HDR_MULTIBOOT
+#pragma once
+
 #define MULTIBOOT_HEADER_MAGIC          0x1BADB002
 #define MULTIBOOT_BOOTLOADER_MAGIC      0x2BADB002
 
@@ -59,6 +59,4 @@ struct memory_map_t {
 	unsigned long length_high;
 	unsigned long type;
 };
-
-#endif
 
