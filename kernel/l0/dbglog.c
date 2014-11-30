@@ -1,5 +1,5 @@
 #include <stdarg.h>
-#include <stdlib.h>
+#include <string.h>
 #include <printf.h>
 #include <dbglog.h>
 #include <config.h>

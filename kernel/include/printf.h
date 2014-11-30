@@ -1,6 +1,7 @@
 #pragma once
 
-#include <stdlib.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdarg.h>
 
 int snprintf(char* s, size_t n, const char* format, ...);
