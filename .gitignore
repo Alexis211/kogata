@@ -4,8 +4,14 @@
 *.o
 *.bin
 
+*.iso
+cdrom/
+
 # codelite files
 .codelite
 */.codelite
 *.project
 *.workspace
+
+# bochs debugger
+bx_enh_dbg.ini

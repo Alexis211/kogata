@@ -149,3 +149,5 @@ void dbg_printf(const char* fmt, ...) {
 
 	dbg_print(buffer);
 }
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/

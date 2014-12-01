@@ -1,0 +1,4 @@
+timeout	10
+
+title	Macroscope
+kernel	/kernel.bin

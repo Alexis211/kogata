@@ -71,8 +71,7 @@ int vsnprintf(char *buff, size_t len, const char* format, va_list ap){
 					 unsigned int hexa = va_arg(ap,int);
 					 unsigned int nb;
 					 int j, had_nonzero = 0;
-					 for(j = 0; j < 8; j++)
-					 {
+					 for(j = 0; j < 8; j++) {
 						 nb = (unsigned int)(hexa << (j*4));
 						 nb = (nb >> 28) & 0xf;
 						 // Skip the leading zeros
@@ -89,6 +88,20 @@ int vsnprintf(char *buff, size_t len, const char* format, va_list ap){
 					 }
 					 if (!had_nonzero)
 						 PUTCHAR('0');
+					 break;
+				}
+				case 'p': {
+					 unsigned int hexa = va_arg(ap,int);
+					 unsigned int nb;
+					 int j;
+					 for (j = 0; j < 8; j++) {
+						 nb = (unsigned int)(hexa << (j*4));
+						 nb = (nb >> 28) & 0xf;
+						 if (nb < 10)
+							 PUTCHAR('0'+nb);
+						 else
+							 PUTCHAR('a'+(nb-10));
+					 }
 					 break;
 				}
 				default:

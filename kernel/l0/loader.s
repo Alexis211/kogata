@@ -1,69 +1,79 @@
-[EXTERN k_highhalf_addr]
-
+[EXTERN kmain]            ; kmain is defined in kmain.c
 [GLOBAL loader]           ; making entry point visible to linker
 
-[EXTERN kmain]            ; kmain is defined in kmain.c
+; higher-half kernel setup
+K_HIGHHALF_ADDR     equ 0xC0000000
+K_PAGE_NUMBER       equ (K_HIGHHALF_ADDR >> 22)
 
 ; loader stack size
-LOADER_STACK_SIZE	equ		0x8000		; 8Kb
+LOADER_STACK_SIZE   equ 0x8000		; 8Kb
 
 ; setting up the Multiboot header - see GRUB docs for details
-MODULEALIGN equ  1<<0                   ; align loaded modules on page boundaries
-MEMINFO     equ  1<<1                   ; provide memory map
-FLAGS       equ  MODULEALIGN | MEMINFO  ; this is the Multiboot 'flag' field
-MAGIC       equ    0x1BADB002           ; 'magic number' lets bootloader find the header
-CHECKSUM    equ -(MAGIC + FLAGS)        ; checksum required
- 
-section .text
+MODULEALIGN         equ 1<<0                   ; align loaded modules on page boundaries
+MEMINFO             equ 1<<1                   ; provide memory map
+FLAGS               equ MODULEALIGN | MEMINFO  ; this is the Multiboot 'flag' field
+MAGIC               equ 0x1BADB002           ; 'magic number' lets bootloader find the header
+CHECKSUM            equ -(MAGIC + FLAGS)        ; checksum required
+
+[section .setup]
 align 4
-MultiBootHeader:
-   dd MAGIC
-   dd FLAGS
-   dd CHECKSUM
- 
-section .setup
-loader:		;here, we load our false GDT, used for having the kernel in higher half
-	lgdt [trickgdt]
-	mov cx, 0x10;
-	mov ds, cx;
-	mov es, cx;
-	mov fs, cx;
-	mov gs, cx;
-	mov ss, cx;
+multiboot_header:
+	dd MAGIC
+	dd FLAGS
+	dd CHECKSUM
 
-	jmp 0x08:higherhalf
+loader:	
+	; setup the boot page directory used for higher-half
+	mov ecx, boot_pagedir
+	mov cr3, ecx
 
-section .text
+	; Set PSE bit in CR4 to enable 4MB pages.
+	mov ecx, cr4
+	or ecx, 0x00000010
+	mov cr4, ecx
+
+	; Set PG bit in CR0 to enable paging.
+	mov ecx, cr0
+	or ecx, 0x80000000
+	mov cr0, ecx
+
+	; long jump required
+	lea ecx, [higherhalf]
+	jmp ecx
+
+align 0x1000
+boot_pagedir:
+	; uses 4MB pages
+	; identity-maps the first 4Mb of RAM, and also maps them with offset += k_highhalf_addr
+	dd 0x00000083
+	times (K_PAGE_NUMBER - 1) dd 0
+	dd 0x00000083
+	times (1024 - K_PAGE_NUMBER - 1) dd 0
+
+[section .text]
 higherhalf:		; now we're running in higher half
-   mov esp, stack_top                 ; set up the stack
+	; unmap first 4Mb
+	mov dword [boot_pagedir], 0
+	invlpg [0]
 
-   push eax                           ; pass Multiboot magic number
-   add ebx, k_highhalf_addr			  ; update the MB info structure so that it is in the new seg
-   push ebx                           ; pass Multiboot info structure
+	mov esp, stack_top          ; set up the stack
 
-   call  kmain                       ; call kernel proper
+	push eax                    ; pass Multiboot magic number
+	add ebx, K_HIGHHALF_ADDR    ; update the MB info structure so that it is in higher half
+	push ebx                    ; pass Multiboot info structure
 
-   cli		; disable interupts
+	call  kmain                 ; call kernel proper
 
 hang:
-   hlt                                ; halt machine should kernel return
-   jmp   hang
-
-[section .setup]	; this is included in the .setup section, so that it thinks it is at 0x00100000
-
-trickgdt:		; our false GDT
-   dw gdt_end - gdt - 1		; gdt limit
-   dd gdt					; gdt base
-
-gdt:
-   dd 0, 0					; null GDT entry
-   db 0xFF, 0xFF, 0, 0, 0, 10011010b, 11001111b, 0x40	; kernel code segment
-   db 0xFF, 0xFF, 0, 0, 0, 10010010b, 11001111b, 0x40	; kernel data segment
-
-gdt_end:
+	; halt machine should kernel return
+	cli
+	hlt
+	jmp   hang
 
 [section .bss]
 align 4
 stack_bottom:
 	resb LOADER_STACK_SIZE
 stack_top:
+
+; vim: set ts=4 sw=4 tw=0 noet :
