@@ -62,19 +62,22 @@ static idt_entry_t idt_entries[256];
 static idt_ptr_t idt_ptr;
 
 static isr_handler_t irq_handlers[16] = {0};
+static isr_handler_t ex_handlers[32] = {0};
 
-/*	Called in idt_.asm when an exception fires (interrupt 0 to 31).
-	Tries to handle the exception, panics if fails. */
-void idt_isrHandler(registers_t *regs) {
-	dbg_printf("/ ISR %i\n", regs->int_no);
+/*	Called in interrupt.s when an exception fires (interrupt 0 to 31) */
+void idt_exHandler(registers_t *regs) {
+	dbg_printf("/ Exception %i\n", regs->int_no);
 	dbg_printf("| EAX: 0x%p   EBX: 0x%p   ECX: 0x%p   EDX: 0x%p\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
 	dbg_printf("| EDI: 0x%p   ESI: 0x%p   ESP: 0x%p   EBP: 0x%p\n", regs->edi, regs->esi, regs->esp, regs->ebp);
 	dbg_printf("| EIP: 0x%p   CS : 0x%p   DS : 0x%p   SS : 0x%p\n", regs->eip, regs->cs, regs->ds, regs->ss);
 	dbg_printf("\\ EFl: 0x%p   I# : 0x%p   Err: 0x%p\n", regs->eflags, regs->int_no, regs->err_code);
+
+	if (ex_handlers[regs->int_no] != 0) {
+		ex_handlers[regs->int_no](regs);
+	}
 } 
 
-/*	Called in interrupt.asm when an IRQ fires (interrupt 32 to 47)
-	Possibly wakes up a thread that was waiting, possibly calls a handler. */
+/*	Called in interrupt.s when an IRQ fires (interrupt 32 to 47) */
 void idt_irqHandler(registers_t *regs) {
 	if (regs->err_code > 7) {
 		outb(0xA0, 0x20);
@@ -87,10 +90,10 @@ void idt_irqHandler(registers_t *regs) {
 	}
 }
 
-/* syscall handler */
+/* Caled in interrupt.s when a syscall is called */
 void idt_syscallHandler(registers_t *regs) {
 	dbg_printf("Syscall %i\n", regs->int_no);
-	// do nothing...
+	// do nothing, yet.
 }
 
 /*	For internal use only. Sets up an entry of the IDT with given parameters. */
@@ -178,9 +181,16 @@ void idt_init() {
 }
 
 /*	Sets up an IRQ handler for given IRQ. */
-void idt_handleIrq(int number, isr_handler_t func) {
+void idt_set_irq_handler(int number, isr_handler_t func) {
 	if (number < 16 && number >= 0) {
 		irq_handlers[number] = func;
+	}
+}
+
+/*	Sets up a handler for a processor exception */
+void idt_set_ex_handler(int number, isr_handler_t func) {
+	if (number >= 0 && number < 32) {
+		ex_handlers[number] = func;
 	}
 }
 

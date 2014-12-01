@@ -31,6 +31,6 @@ $(OUT): $(OBJ)
 clean:
 	rm */*.o || true
 mrproper: clean
-	rm $(OUT)
+	rm $(OUT) || true
 
 rebuild: mrproper all

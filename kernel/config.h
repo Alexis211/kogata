@@ -24,5 +24,4 @@ extern char k_highhalf_addr;	// defined in linker script : 0xC0000000
 #define DBGLOG_TO_SERIAL
 #define DBGLOG_TO_SCREEN
 
-
 /* vim: set ts=4 sw=4 tw=0 noet :*/

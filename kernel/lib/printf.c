@@ -116,3 +116,5 @@ int vsnprintf(char *buff, size_t len, const char* format, va_list ap){
 	*buff = '\0';
 	return result;
 }
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -5,6 +5,11 @@
 
 #include <gdt.h>
 #include <idt.h>
+
+void breakpoint_handler(registers_t *regs) {
+	dbg_printf("Breakpoint! (int3)\n");
+	BOCHS_BREAKPOINT;
+}
  
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
@@ -17,6 +22,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	gdt_init(); dbg_printf("GDT set up.\n");
 
 	idt_init(); dbg_printf("IDT set up.\n");
+	idt_set_ex_handler(EX_BREAKPOINT, breakpoint_handler);
 
 	asm volatile("int $0x3");
 

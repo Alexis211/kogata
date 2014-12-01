@@ -87,3 +87,4 @@ void *memset(void *dest, int val, size_t count) {
 	return dest;
 }
 
+/* vim: set ts=4 sw=4 tw=0 noet :*/
