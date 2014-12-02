@@ -7,6 +7,7 @@
 #include <idt.h>
 #include <frame.h>
 #include <paging.h>
+#include <region.h>
 
 void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
@@ -42,6 +43,34 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 
 	paging_setup(kernel_data_end);
 	dbg_printf("Paging seems to be working!\n");
+
+	region_allocator_init(kernel_data_end);
+	dbg_print_region_stats();
+
+	size_t p = region_alloc(0x1000, REGION_T_HW, 0);
+	dbg_printf("Allocated one-page region: 0x%p\n", p);
+	dbg_print_region_stats();
+	size_t q = region_alloc(0x1000, REGION_T_HW, 0);
+	dbg_printf("Allocated one-page region: 0x%p\n", q);
+	dbg_print_region_stats();
+	size_t r = region_alloc(0x2000, REGION_T_HW, 0);
+	dbg_printf("Allocated two-page region: 0x%p\n", r);
+	dbg_print_region_stats();
+	size_t s = region_alloc(0x10000, REGION_T_CORE_HEAP, 0);
+	dbg_printf("Allocated 16-page region: 0x%p\n", s);
+	dbg_print_region_stats();
+	region_free(p);
+	dbg_printf("Freed region 0x%p\n", p);
+	dbg_print_region_stats();
+	region_free(q);
+	dbg_printf("Freed region 0x%p\n", q);
+	dbg_print_region_stats();
+	region_free(r);
+	dbg_printf("Freed region 0x%p\n", r);
+	dbg_print_region_stats();
+	region_free(s);
+	dbg_printf("Freed region 0x%p\n", s);
+	dbg_print_region_stats();
 
 	// TODO:
 	// - setup allocator for physical pages (eg: buddy allocator, see OSDev wiki)

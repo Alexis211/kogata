@@ -1,5 +1,7 @@
 #include <paging.h>
 #include <frame.h>
+#include <idt.h>
+#include <dbglog.h>
 
 typedef union page {
 	struct {
@@ -37,6 +39,14 @@ static pagetable_t __attribute__((aligned(PAGE_SIZE))) kernel_pt768;
 static pagedir_t kernel_pd;
 
 static pagedir_t *current_pd;
+
+void page_fault_handler(registers_t *regs) {
+	size_t addr;
+	asm volatile("movl %%cr2, %0":"=r"(addr));
+	dbg_printf("Page fault at 0x%p\n", addr);
+	PANIC("PAGE FAULT");
+	// not handled yet
+}
 
 void paging_setup(void* kernel_data_end) {
 	size_t n_kernel_pages =
@@ -76,7 +86,7 @@ void paging_setup(void* kernel_data_end) {
 	cr4 &= ~0x00000010;
 	asm volatile("movl %0, %%cr4":: "r"(cr4));
 
-	// TODO : setup page fault handler
+	idt_set_ex_handler(EX_PAGE_FAULT, page_fault_handler);
 }
 
 pagedir_t *get_current_pagedir() {
