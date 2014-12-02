@@ -6,6 +6,7 @@
 #include <gdt.h>
 #include <idt.h>
 #include <frame.h>
+#include <paging.h>
 
 void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
@@ -34,9 +35,13 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	// a pointer to this pointer is passed to the functions that might have
 	// to allocate memory ; they just increment it of the allocated quantity
 	void* kernel_data_end = (void*)K_END_ADDR;
+
 	frame_init_allocator(total_ram, &kernel_data_end);
 	dbg_printf("kernel_data_end: 0x%p\n", kernel_data_end);
 	dbg_print_frame_stats();
+
+	paging_setup(kernel_data_end);
+	dbg_printf("Paging seems to be working!\n");
 
 	// TODO:
 	// - setup allocator for physical pages (eg: buddy allocator, see OSDev wiki)
