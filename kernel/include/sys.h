@@ -29,4 +29,18 @@ void panic_assert(const char* assertion, const char* file, int line);
 
 #define BOCHS_BREAKPOINT asm volatile("xchg %bx, %bx")
 
+
+// Utility functions for memory alignment
+
+#define PAGE_SIZE		0x1000
+#define PAGE_MASK		0xFFFFF000
+#define PAGE_ALIGN_DOWN(x)	(((size_t)x) & PAGE_MASK) 
+#define PAGE_ALIGN_UP(x)  	((((size_t)x)&(~PAGE_MASK)) == 0 ? ((size_t)x) : (((size_t)x) & PAGE_MASK) + PAGE_SIZE)
+#define PAGE_ID(x)			(((size_t)x) / PAGE_SIZE)
+
+#define MASK4			0xFFFFFFFC
+#define ALIGN4_UP(x)	((((size_t)x)&(~MASK4)) == 0 ? ((size_t)x) : (((size_t)x) & MASK4) + 4)
+#define ALIGN4_DOWN(x)	(((size_t)x)&MASK4)
+
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

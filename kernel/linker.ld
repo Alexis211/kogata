@@ -36,7 +36,7 @@ SECTIONS{
 		ebss = .;
 	}
 
-	end = .; _end = .; __end = .;
+	k_end_addr = .;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

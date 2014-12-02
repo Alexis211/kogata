@@ -11,7 +11,8 @@ LDFLAGS = -T linker.ld -ffreestanding -O2 -nostdlib -lgcc
 
 OBJ = lib/string.o lib/printf.o \
 	l0/loader.o l0/kmain.o l0/dbglog.o l0/sys.o \
-	l0/gdt.o l0/idt.o l0/interrupt.o
+	l0/gdt.o l0/idt.o l0/interrupt.o \
+	l0/frame.o
 OUT = kernel.bin
 
 all: $(OUT)
