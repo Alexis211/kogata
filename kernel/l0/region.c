@@ -1,5 +1,6 @@
 #include <region.h>
 #include <dbglog.h>
+#include <frame.h>
 
 typedef union region_descriptor {
 	struct {
@@ -16,10 +17,13 @@ typedef union region_descriptor {
 	} used;
 } descriptor_t;
 
+#define N_RESERVE_DESCRIPTORS 3		// always keep at least 3 unused descriptors
+
 #define N_BASE_DESCRIPTORS 12		// pre-allocate memory for 12 descriptors
 static descriptor_t base_descriptors[N_BASE_DESCRIPTORS];
 
 static descriptor_t *first_unused_descriptor; 
+uint32_t n_unused_descriptors;
 static descriptor_t *first_free_region_by_addr, *first_free_region_by_size;
 static descriptor_t *first_used_region;
 
@@ -28,13 +32,17 @@ static descriptor_t *first_used_region;
 // ========================================================= //
 
 static void add_unused_descriptor(descriptor_t *d) {
+	n_unused_descriptors++;
 	d->unused_descriptor.next = first_unused_descriptor;
 	first_unused_descriptor = d;
 }
 
 static descriptor_t *get_unused_descriptor() {
 	descriptor_t *r = first_unused_descriptor;
-	if (r != 0) first_unused_descriptor = r->unused_descriptor.next;
+	if (r != 0) {
+		first_unused_descriptor = r->unused_descriptor.next;
+		n_unused_descriptors--;
+	}
 	return r;
 }
 
@@ -207,24 +215,33 @@ void region_allocator_init(void* kernel_data_end) {
 	f0->free.first_bigger = 0;
 	first_free_region_by_size = first_free_region_by_addr = f0;
 
+	n_unused_descriptors = 0;
 	first_unused_descriptor = 0;
 	for (int i = 2; i < N_BASE_DESCRIPTORS; i++) {
 		add_unused_descriptor(&base_descriptors[i]);
 	}
 }
 
-size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
+static size_t region_alloc_inner(size_t size, uint32_t type, page_fault_handler_t pf, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
 	for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.first_bigger) {
 		if (i->free.size >= size) {
-			remove_free_region(i);
+			// region i is the one we want to allocate in
+			descriptor_t *x = 0;
 			if (i->free.size > size) {
-				descriptor_t *x = get_unused_descriptor();
-				if (x == 0) {
+				if (n_unused_descriptors <= N_RESERVE_DESCRIPTORS && !use_reserve) {
 					return 0;
-					// TODO: allocate more descriptors
 				}
+
+				// this assert is a bit tricky to prove,
+				// but basically it means that the allocation function
+				// is called less than N_RESERVE_DESCRIPTORS times with
+				// the use_reserve flag before more descriptors
+				// are allocated.
+				x = get_unused_descriptor();
+				ASSERT(x != 0);
+
 				x->free.size = i->free.size - size;
 				if (size >= 0x4000) {
 					x->free.addr = i->free.addr + size;
@@ -232,18 +249,63 @@ size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 					x->free.addr = i->free.addr;
 					i->free.addr += x->free.size;
 				}
-				add_free_region(x);
 			}
+			// do the allocation
+			remove_free_region(i);
+			if (x != 0) add_free_region(x);
+
 			size_t addr = i->free.addr;
 			i->used.i.addr = addr;
 			i->used.i.size = size;
 			i->used.i.type = type;
 			i->used.i.pf = pf;
 			add_used_region(i);
+
 			return addr;
 		}
 	}
-	return 0;	//Not found
+	return 0;	//No big enough block found
+}
+
+bool region_alloc_for_pt_use_reserve = false;
+size_t region_alloc_for_pt() {
+	if (region_alloc_for_pt_use_reserve) {
+		return region_alloc_inner(
+			N_PAGES_IN_PT_REGION * PAGE_SIZE,
+			REGION_T_PAGETABLE,
+			0, true);
+	} else {
+		return region_alloc(
+			N_PAGES_IN_PT_REGION * PAGE_SIZE,
+			REGION_T_PAGETABLE, 0);
+	}
+}
+
+size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
+	if (n_unused_descriptors <= N_RESERVE_DESCRIPTORS) {
+		uint32_t frame = frame_alloc(1);
+		if (frame == 0) return 0;
+
+		size_t descriptor_region = region_alloc_inner(PAGE_SIZE, REGION_T_DESCRIPTORS, 0, true);
+		ASSERT(descriptor_region != 0);
+
+		region_alloc_for_pt_use_reserve = true;
+		int error = pd_map_page(0, descriptor_region, frame, 1);
+		region_alloc_for_pt_use_reserve = false;
+		if (error) {
+			// this can happen if we weren't able to allocate a frame for
+			// a new pagetable
+			frame_free(frame, 1);
+			return 0;
+		}
+		
+		for (descriptor_t *d = (descriptor_t*)descriptor_region;
+				(size_t)(d+1) <= (descriptor_region + PAGE_SIZE);
+				d++) {
+			add_unused_descriptor(d);
+		}
+	}
+	return region_alloc_inner(size, type, pf, false);
 }
 
 region_info_t *find_region(size_t addr) {
@@ -280,8 +342,7 @@ void dbg_print_region_stats() {
 		dbg_printf("| 0x%p - 0x%p", d->used.i.addr, d->used.i.addr + d->used.i.size);
 		if (d->used.i.type & REGION_T_KERNEL_BASE)	dbg_printf("  Kernel code & base data");
 		if (d->used.i.type & REGION_T_DESCRIPTORS)	dbg_printf("  Region descriptors");
-		if (d->used.i.type & REGION_T_PAGEDIR) 		dbg_printf("  Mapped page directory");
-		if (d->used.i.type & REGION_T_PAGETABLE)	dbg_printf("  Mapped page table");
+		if (d->used.i.type & REGION_T_PAGETABLE)	dbg_printf("  Mapped PD/PT");
 		if (d->used.i.type & REGION_T_CORE_HEAP) 	dbg_printf("  Core heap");
 		if (d->used.i.type & REGION_T_PROC_HEAP)	dbg_printf("  Kernel process heap");
 		if (d->used.i.type & REGION_T_CACHE)		dbg_printf("  Cache");

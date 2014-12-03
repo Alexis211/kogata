@@ -13,6 +13,8 @@ pagedir_t *get_kernel_pagedir();
 
 void switch_pagedir(pagedir_t *pd);
 
+// The three functions below DO NOT DEPEND on argument pd for
+// addresses above K_HIGHHALF_ADDR, so just pass 0 to map/unmap in kernel space.
 uint32_t pd_get_frame(pagedir_t *pd, size_t vaddr);		// get physical frame for virtual address
 int pd_map_page(pagedir_t *pd,
 				size_t vaddr, uint32_t frame_id,

@@ -8,8 +8,7 @@
 // Region types
 #define REGION_T_KERNEL_BASE	0x00000001		// base kernel code & data
 #define REGION_T_DESCRIPTORS	0x00000002		// contains more region descriptors
-#define REGION_T_PAGEDIR		0x00000010		// used to map a page directory
-#define REGION_T_PAGETABLE		0x00000020		// used to map a page table
+#define REGION_T_PAGETABLE		0x00000010		// used to map a page table/page directory
 #define REGION_T_CORE_HEAP		0x00000100		// used for the core kernel heap
 #define REGION_T_PROC_HEAP		0x00000200		// used for a kernel process' heap
 #define REGION_T_CACHE			0x00001000		// used for cache
@@ -29,5 +28,10 @@ void region_allocator_init(void* kernel_data_end);
 size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf);	// returns 0 on error
 region_info_t *find_region(size_t addr);
 void region_free(size_t addr);
+
+#define N_PAGES_IN_PT_REGION 4
+// special call for use by paging code
+// allocates a region of N_PAGES_IN_PT_REGION pages
+size_t region_alloc_for_pt();	
 
 void dbg_print_region_stats();
