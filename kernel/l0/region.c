@@ -17,7 +17,7 @@ typedef union region_descriptor {
 	} used;
 } descriptor_t;
 
-#define N_RESERVE_DESCRIPTORS 2		// always keep at least 3 unused descriptors
+#define N_RESERVE_DESCRIPTORS 2		// always keep at least 2 unused descriptors
 
 #define N_BASE_DESCRIPTORS 12		// pre-allocate memory for 12 descriptors
 static descriptor_t base_descriptors[N_BASE_DESCRIPTORS];

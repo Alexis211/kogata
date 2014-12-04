@@ -127,7 +127,7 @@ pagedir_t *get_kernel_pagedir() {
 }
 
 void switch_pagedir(pagedir_t *pd) {
-    asm volatile("movl %0, %%cr3":: "r"(pd->phys_addr));
+	asm volatile("movl %0, %%cr3":: "r"(pd->phys_addr));
 	invlpg((size_t)current_pd);
 	current_pd_d = pd;
 }

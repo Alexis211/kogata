@@ -25,7 +25,7 @@ void test_pf_handler(pagedir_t *pd, region_info_t *i, size_t addr) {
 	if (error) PANIC("Could not map frame (OOM)");
 }
 
-extern char k_end_addr;	// defined in linker script : 0xC0000000
+extern char k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
  
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
