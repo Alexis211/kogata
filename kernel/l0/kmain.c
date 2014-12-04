@@ -9,6 +9,8 @@
 #include <paging.h>
 #include <region.h>
 
+#include <slab_alloc.h>
+
 void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
 	BOCHS_BREAKPOINT;
@@ -24,6 +26,28 @@ void test_pf_handler(pagedir_t *pd, region_info_t *i, size_t addr) {
 	int error = pd_map_page(addr, f, 1);
 	if (error) PANIC("Could not map frame (OOM)");
 }
+
+void* page_alloc_fun_for_kmalloc(const size_t bytes) {
+	return (void*)region_alloc(bytes, REGION_T_CORE_HEAP, test_pf_handler);
+}
+void page_free_fun_for_kmalloc(const void* ptr) {
+	region_free((size_t)ptr);
+}
+slab_type_t slab_sizes[] = {
+	{ "8B obj", 8, 1 },
+	{ "16B obj", 16, 2 },
+	{ "32B obj", 32, 2 },
+	{ "64B obj", 64, 2 },
+	{ "128B obj", 128, 2 },
+	{ "256B obj", 256, 4 },
+	{ "512B obj", 512, 4 },
+	{ "1KB obj", 1024, 8 },
+	{ "2KB obj", 2048, 8 },
+	{ "4KB obj", 4096, 16 },
+	{ "8KB obj", 8192, 32 },
+	{ 0, 0, 0 }
+};
+
 
 extern char k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
  
@@ -109,11 +133,23 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	}
 	region_free(s);
 
+	// TEST SLAB ALLOCATOR!!!
+	mem_allocator_t *a = create_slab_allocator(slab_sizes,
+												page_alloc_fun_for_kmalloc,
+												page_free_fun_for_kmalloc);
+	dbg_printf("Created slab allocator at 0x%p\n", a);
+	const int m = 100;
+	void* ptr[m];
+	for (int i = 0; i < m; i++) {
+		size_t s = 1 << ((i * 7) % 12);
+		ptr[i] = slab_alloc(a, s);
+		dbg_printf("Alloc %i : 0x%p\n", s, ptr[i]);
+		dbg_print_region_stats();
+	}
+	for (int i = 0; i < m; i++) {
+		slab_free(a, ptr[i]);
+	}
 
-	// TODO:
-	// - setup allocator for physical pages (eg: buddy allocator, see OSDev wiki)
-	// - setup allocator for virtual memory space
-	// - setup paging
 
 	PANIC("Reached kmain end! Falling off the edge.");
 }
