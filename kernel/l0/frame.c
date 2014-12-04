@@ -4,8 +4,8 @@
 // TODO: buddy allocator
 // this is a simple bitmap allocator
 	
-#define INDEX_FROM_BIT(a) (a/(8*4))
-#define OFFSET_FROM_BIT(a) (a%(8*4))
+#define INDEX_FROM_BIT(a) ((a)/(8*4))
+#define OFFSET_FROM_BIT(a) ((a)%(8*4))
 
 static uint32_t *frame_bitset;
 static uint32_t nframes, nused_frames;
@@ -54,9 +54,9 @@ uint32_t frame_alloc(size_t n) {
 }
 
 void frame_free(uint32_t base, size_t n) {
-	for (size_t x = 0; x < n; x++) {
-		uint32_t idx = INDEX_FROM_BIT(base + n);
-		uint32_t ofs = OFFSET_FROM_BIT(base + n);
+	for (size_t i = 0; i < n; i++) {
+		uint32_t idx = INDEX_FROM_BIT(base + i);
+		uint32_t ofs = OFFSET_FROM_BIT(base + i);
 		if (frame_bitset[idx] & (0x1 << ofs)) {
 			frame_bitset[idx] &= ~(0x1 << ofs);
 			nused_frames--;

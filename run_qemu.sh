@@ -3,4 +3,4 @@
 cd `dirname $0`
 
 make -C kernel
-qemu-system-i386 -kernel kernel/kernel.bin -serial stdio
+qemu-system-i386 -kernel kernel/kernel.bin -serial stdio -m 16

@@ -13,6 +13,19 @@ void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
 	BOCHS_BREAKPOINT;
 }
+
+void test_pf_handler(pagedir_t *pd, region_info_t *i, size_t addr) {
+	dbg_printf("0x%p", addr);
+
+	uint32_t f = frame_alloc(1);
+	if (f == 0) PANIC("Out Of Memory");
+	dbg_printf(" -> %i", f);
+
+	int error = pd_map_page(addr, f, 1);
+	if (error) PANIC("Could not map frame (OOM)");
+}
+
+extern char k_end_addr;	// defined in linker script : 0xC0000000
  
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
@@ -35,7 +48,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	// used for allocation of data structures before malloc is set up
 	// a pointer to this pointer is passed to the functions that might have
 	// to allocate memory ; they just increment it of the allocated quantity
-	void* kernel_data_end = (void*)K_END_ADDR;
+	void* kernel_data_end = (void*)&k_end_addr;
 
 	frame_init_allocator(total_ram, &kernel_data_end);
 	dbg_printf("kernel_data_end: 0x%p\n", kernel_data_end);
@@ -71,6 +84,31 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	region_free(s);
 	dbg_printf("Freed region 0x%p\n", s);
 	dbg_print_region_stats();
+
+	// allocate a big region and try to write into it
+	const size_t n = 1000;
+	size_t p0 = region_alloc(n * PAGE_SIZE, REGION_T_HW, test_pf_handler);
+	for (size_t i = 0; i < n; i++) {
+		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
+		dbg_printf("[%i : ", i);
+		x[0] = 12;
+		dbg_printf(" : .");
+		x[1] = (i * 20422) % 122;
+		dbg_printf("]\n", i);
+	}
+	// unmap memory
+	for (size_t i = 0; i < n; i++) {
+		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
+		ASSERT(x[1] == (i * 20422) % 122);
+
+		size_t f = pd_get_frame((size_t)x);
+		ASSERT(f != 0);
+		pd_unmap_page((size_t)x);
+
+		frame_free(f, 1);
+	}
+	region_free(s);
+
 
 	// TODO:
 	// - setup allocator for physical pages (eg: buddy allocator, see OSDev wiki)

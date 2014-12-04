@@ -29,9 +29,4 @@ size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf);	// ret
 region_info_t *find_region(size_t addr);
 void region_free(size_t addr);
 
-#define N_PAGES_IN_PT_REGION 4
-// special call for use by paging code
-// allocates a region of N_PAGES_IN_PT_REGION pages
-size_t region_alloc_for_pt();	
-
 void dbg_print_region_stats();

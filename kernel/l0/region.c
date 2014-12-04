@@ -17,7 +17,7 @@ typedef union region_descriptor {
 	} used;
 } descriptor_t;
 
-#define N_RESERVE_DESCRIPTORS 3		// always keep at least 3 unused descriptors
+#define N_RESERVE_DESCRIPTORS 2		// always keep at least 3 unused descriptors
 
 #define N_BASE_DESCRIPTORS 12		// pre-allocate memory for 12 descriptors
 static descriptor_t base_descriptors[N_BASE_DESCRIPTORS];
@@ -210,7 +210,7 @@ void region_allocator_init(void* kernel_data_end) {
 
 	descriptor_t *f0 = &base_descriptors[1];
 	f0->free.addr = PAGE_ALIGN_UP(kernel_data_end);
-	f0->free.size = (0xFFFFF000-f0->free.addr);	// last page cannot be used...
+	f0->free.size = (LAST_KERNEL_ADDR-f0->free.addr);
 	f0->free.next_by_size = 0;
 	f0->free.first_bigger = 0;
 	first_free_region_by_size = first_free_region_by_addr = f0;
@@ -234,8 +234,7 @@ static size_t region_alloc_inner(size_t size, uint32_t type, page_fault_handler_
 					return 0;
 				}
 
-				// this assert is a bit tricky to prove,
-				// but basically it means that the allocation function
+				// this assert basically means that the allocation function
 				// is called less than N_RESERVE_DESCRIPTORS times with
 				// the use_reserve flag before more descriptors
 				// are allocated.
@@ -267,20 +266,6 @@ static size_t region_alloc_inner(size_t size, uint32_t type, page_fault_handler_
 	return 0;	//No big enough block found
 }
 
-bool region_alloc_for_pt_use_reserve = false;
-size_t region_alloc_for_pt() {
-	if (region_alloc_for_pt_use_reserve) {
-		return region_alloc_inner(
-			N_PAGES_IN_PT_REGION * PAGE_SIZE,
-			REGION_T_PAGETABLE,
-			0, true);
-	} else {
-		return region_alloc(
-			N_PAGES_IN_PT_REGION * PAGE_SIZE,
-			REGION_T_PAGETABLE, 0);
-	}
-}
-
 size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 	if (n_unused_descriptors <= N_RESERVE_DESCRIPTORS) {
 		uint32_t frame = frame_alloc(1);
@@ -289,9 +274,7 @@ size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 		size_t descriptor_region = region_alloc_inner(PAGE_SIZE, REGION_T_DESCRIPTORS, 0, true);
 		ASSERT(descriptor_region != 0);
 
-		region_alloc_for_pt_use_reserve = true;
-		int error = pd_map_page(0, descriptor_region, frame, 1);
-		region_alloc_for_pt_use_reserve = false;
+		int error = pd_map_page(descriptor_region, frame, 1);
 		if (error) {
 			// this can happen if we weren't able to allocate a frame for
 			// a new pagetable

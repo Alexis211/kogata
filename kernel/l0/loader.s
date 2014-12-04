@@ -1,6 +1,6 @@
 [EXTERN kmain]            ; kmain is defined in kmain.c
 [GLOBAL loader]           ; making entry point visible to linker
-[GLOBAL kernel_pagedir]   ; make kernel page directory visible
+[GLOBAL kernel_pd]   ; make kernel page directory visible
 
 ; higher-half kernel setup
 K_HIGHHALF_ADDR     equ 0xC0000000
@@ -25,7 +25,7 @@ multiboot_header:
 
 loader:	
 	; setup the boot page directory used for higher-half
-	mov ecx, kernel_pagedir
+	mov ecx, kernel_pd
 	sub ecx, K_HIGHHALF_ADDR	; access its lower-half address
 	mov cr3, ecx
 
@@ -45,7 +45,7 @@ loader:
 
 [section .data]
 align 0x1000
-kernel_pagedir:
+kernel_pd:
 	; uses 4MB pages
 	; identity-maps the first 4Mb of RAM, and also maps them with offset += k_highhalf_addr
 	dd 0x00000083
@@ -56,7 +56,7 @@ kernel_pagedir:
 [section .text]
 higherhalf:		; now we're running in higher half
 	; unmap first 4Mb
-	mov dword [kernel_pagedir], 0
+	mov dword [kernel_pd], 0
 	invlpg [0]
 
 	mov esp, stack_top          ; set up the stack

@@ -38,7 +38,7 @@ static void vga_update_cursor() {
 static void vga_init() {
 	vga_row = 0;
 	vga_column = 0;
-	vga_buffer = (uint16_t*) (&k_highhalf_addr + 0xB8000);
+	vga_buffer = (uint16_t*) (K_HIGHHALF_ADDR + 0xB8000);
 
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
