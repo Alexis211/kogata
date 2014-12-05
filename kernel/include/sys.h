@@ -22,7 +22,7 @@ static inline uint16_t inw(uint16_t port) {
 	return ret;
 }
 
-static inline void invlpg(size_t addr) {
+static inline void invlpg(void* addr) {
 	asm volatile("invlpg (%0)" : : "r"(addr) : "memory");
 }
 

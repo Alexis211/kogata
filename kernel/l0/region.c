@@ -7,7 +7,8 @@ typedef union region_descriptor {
 		union region_descriptor *next;
 	} unused_descriptor;
 	struct {
-		size_t addr, size;
+		void* addr;
+		size_t size;
 		union region_descriptor *next_by_size, *first_bigger;
 		union region_descriptor *next_by_addr;
 	} free;
@@ -100,9 +101,9 @@ static void add_free_region(descriptor_t *d) {
 				add_unused_descriptor(d);
 				add_free_region(i);
 				return;
-			} else if (i->free.next_by_addr == 0) {
+			} else if (i->free.next_by_addr == 0 || i->free.next_by_addr->free.addr > d->free.addr) {
+				d->free.next_by_addr = i->free.next_by_addr;
 				i->free.next_by_addr = d;
-				d->free.next_by_addr = 0;
 				break;
 			} else if (d->free.addr + d->free.size == i->free.next_by_addr->free.addr) {
 				// concatenate d . i->next_by_addr
@@ -112,11 +113,6 @@ static void add_free_region(descriptor_t *d) {
 				add_unused_descriptor(j);
 				add_free_region(d);
 				return;
-			} else if (i->free.next_by_addr->free.addr > d->free.addr) {
-				// insert between i and i->next_by_addr
-				d->free.next_by_addr = i->free.next_by_addr;
-				i->free.next_by_addr = d;
-				break;
 			} else {
 				// continue
 				i = i->free.next_by_addr;
@@ -134,19 +130,19 @@ static void add_free_region(descriptor_t *d) {
 		while (i != 0) {
 			ASSERT(d->free.size > i->free.size);
 			if (i->free.next_by_size == 0) {
-				i->free.next_by_size = d;
-				if (d->free.size > i->free.size) i->free.first_bigger = d;
 				d->free.next_by_size = 0;
 				d->free.first_bigger = 0;
-				break;
-			} else if (i->free.next_by_size->free.size >= d->free.size) {
 				i->free.next_by_size = d;
 				if (d->free.size > i->free.size) i->free.first_bigger = d;
+				break;
+			} else if (i->free.next_by_size->free.size >= d->free.size) {
 				d->free.next_by_size = i->free.next_by_size;
 				d->free.first_bigger =
 					(i->free.next_by_size->free.size > d->free.size
 						? i->free.next_by_size
 						: i->free.next_by_size->free.first_bigger);
+				i->free.next_by_size = d;
+				if (d->free.size > i->free.size) i->free.first_bigger = d;
 				break;
 			} else {
 				// continue
@@ -156,7 +152,7 @@ static void add_free_region(descriptor_t *d) {
 	}
 }
 
-static descriptor_t *find_used_region(size_t addr) {
+static descriptor_t *find_used_region(void* addr) {
 	for (descriptor_t *i = first_used_region; i != 0; i = i->used.next_by_addr) {
 		if (addr >= i->used.i.addr && addr < i->used.i.addr + i->used.i.size) return i;
 		if (i->used.i.addr > addr) break;
@@ -201,7 +197,7 @@ static void remove_used_region(descriptor_t *d) {
 
 void region_allocator_init(void* kernel_data_end) {
 	descriptor_t *u0 = &base_descriptors[0];
-	u0->used.i.addr = K_HIGHHALF_ADDR;
+	u0->used.i.addr = (void*)K_HIGHHALF_ADDR;
 	u0->used.i.size = PAGE_ALIGN_UP(kernel_data_end) - K_HIGHHALF_ADDR;
 	u0->used.i.type = REGION_T_KERNEL_BASE;
 	u0->used.i.pf = 0;
@@ -209,8 +205,8 @@ void region_allocator_init(void* kernel_data_end) {
 	first_used_region = u0;
 
 	descriptor_t *f0 = &base_descriptors[1];
-	f0->free.addr = PAGE_ALIGN_UP(kernel_data_end);
-	f0->free.size = (LAST_KERNEL_ADDR-f0->free.addr);
+	f0->free.addr = (void*)PAGE_ALIGN_UP(kernel_data_end);
+	f0->free.size = ((void*)LAST_KERNEL_ADDR - f0->free.addr);
 	f0->free.next_by_size = 0;
 	f0->free.first_bigger = 0;
 	first_free_region_by_size = first_free_region_by_addr = f0;
@@ -222,7 +218,7 @@ void region_allocator_init(void* kernel_data_end) {
 	}
 }
 
-static size_t region_alloc_inner(size_t size, uint32_t type, page_fault_handler_t pf, bool use_reserve) {
+static void* region_alloc_inner(size_t size, uint32_t type, page_fault_handler_t pf, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
 	for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.first_bigger) {
@@ -253,7 +249,7 @@ static size_t region_alloc_inner(size_t size, uint32_t type, page_fault_handler_
 			remove_free_region(i);
 			if (x != 0) add_free_region(x);
 
-			size_t addr = i->free.addr;
+			void* addr = i->free.addr;
 			i->used.i.addr = addr;
 			i->used.i.size = size;
 			i->used.i.type = type;
@@ -266,12 +262,12 @@ static size_t region_alloc_inner(size_t size, uint32_t type, page_fault_handler_
 	return 0;	//No big enough block found
 }
 
-size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
+void* region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 	if (n_unused_descriptors <= N_RESERVE_DESCRIPTORS) {
 		uint32_t frame = frame_alloc(1);
 		if (frame == 0) return 0;
 
-		size_t descriptor_region = region_alloc_inner(PAGE_SIZE, REGION_T_DESCRIPTORS, 0, true);
+		void* descriptor_region = region_alloc_inner(PAGE_SIZE, REGION_T_DESCRIPTORS, 0, true);
 		ASSERT(descriptor_region != 0);
 
 		int error = pd_map_page(descriptor_region, frame, 1);
@@ -283,7 +279,7 @@ size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 		}
 		
 		for (descriptor_t *d = (descriptor_t*)descriptor_region;
-				(size_t)(d+1) <= (descriptor_region + PAGE_SIZE);
+				(void*)(d+1) <= (descriptor_region + PAGE_SIZE);
 				d++) {
 			add_unused_descriptor(d);
 		}
@@ -291,13 +287,13 @@ size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 	return region_alloc_inner(size, type, pf, false);
 }
 
-region_info_t *find_region(size_t addr) {
+region_info_t *find_region(void* addr) {
 	descriptor_t *d = find_used_region(addr);
 	if (d == 0) return 0;
 	return &d->used.i;
 }
 
-void region_free(size_t addr) {
+void region_free(void* addr) {
 	descriptor_t *d = find_used_region(addr);
 	if (d == 0) return;
 

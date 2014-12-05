@@ -23,7 +23,7 @@ typedef struct page_table {
 } pagetable_t;
 
 struct page_directory {
-	size_t phys_addr;		// physical address of page directory
+	uint32_t phys_addr;		// physical address of page directory
 	// to modify a page directory, we first map it
 	// then we can use mirroring to edit it
 	// (the last 4M of the address space are mapped to the PD itself)
@@ -46,17 +46,15 @@ static pagedir_t *current_pd_d;
 #define current_pd ((pagetable_t*)(PD_MIRROR_ADDR + (N_PAGES_IN_PT-1)*PAGE_SIZE))
 
 void page_fault_handler(registers_t *regs) {
-	size_t vaddr;
+	void* vaddr;
 	asm volatile("movl %%cr2, %0":"=r"(vaddr));
 
-	if (vaddr >= K_HIGHHALF_ADDR) {
+	if ((size_t)vaddr >= K_HIGHHALF_ADDR) {
 		uint32_t pt = PT_OF_ADDR(vaddr);
 
-		if (current_pd != &kernel_pd && vaddr >= K_HIGHHALF_ADDR
-			&& current_pd->page[pt] != kernel_pd.page[pt])
-		{
+		if (current_pd != &kernel_pd && current_pd->page[pt] != kernel_pd.page[pt]) {
 			current_pd->page[pt] = kernel_pd.page[pt];
-			invlpg((size_t)(&current_pt[pt]));
+			invlpg(&current_pt[pt]);
 			return;
 		}
 
@@ -104,7 +102,7 @@ void paging_setup(void* kernel_data_end) {
 	kernel_pd.page[N_PAGES_IN_PT-1] =
 		(((size_t)&kernel_pd - K_HIGHHALF_ADDR) & PAGE_MASK) | PTE_PRESENT | PTE_RW;
 
-	invlpg(K_HIGHHALF_ADDR);
+	invlpg((void*)K_HIGHHALF_ADDR);
 
 	// paging already enabled in loader, nothing to do.
 	switch_pagedir(&kernel_pd_d);
@@ -128,7 +126,7 @@ pagedir_t *get_kernel_pagedir() {
 
 void switch_pagedir(pagedir_t *pd) {
 	asm volatile("movl %0, %%cr3":: "r"(pd->phys_addr));
-	invlpg((size_t)current_pd);
+	invlpg(current_pd);
 	current_pd_d = pd;
 }
 
@@ -136,46 +134,46 @@ void switch_pagedir(pagedir_t *pd) {
 // Mapping and unmapping of pages //
 // ============================== //
 
-uint32_t pd_get_frame(size_t vaddr) {
+uint32_t pd_get_frame(void* vaddr) {
 	uint32_t pt = PT_OF_ADDR(vaddr);
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
-	pagetable_t *pd = (vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
+	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 
 	if (!pd->page[pt] & PTE_PRESENT) return 0;
 	if (!current_pt[pt].page[page] & PTE_PRESENT) return 0;
 	return current_pt[pt].page[page] >> PTE_FRAME_SHIFT;
 }
 
-int pd_map_page(size_t vaddr, uint32_t frame_id, uint32_t rw) {
+int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	uint32_t pt = PT_OF_ADDR(vaddr);
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
-	pagetable_t *pd = (vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
+	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 
 	if (!pd->page[pt] & PTE_PRESENT) {
-		size_t new_pt_frame = frame_alloc(1);
+		uint32_t new_pt_frame = frame_alloc(1);
 		if (new_pt_frame == 0) return 1;	// OOM
 
 		current_pd->page[pt] = pd->page[pt] =
 			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW;
-		invlpg((size_t)&current_pt[pt]);
+		invlpg(&current_pt[pt]);
 	}
 
 	current_pt[pt].page[page] =
 		frame_id << PTE_FRAME_SHIFT
 			| PTE_PRESENT
-			| (vaddr < K_HIGHHALF_ADDR ? PTE_USER : PTE_GLOBAL)
+			| ((size_t)vaddr < K_HIGHHALF_ADDR ? PTE_USER : PTE_GLOBAL)
 			| (rw ? PTE_RW : 0);
 
 	return 0;
 } 
 
-void pd_unmap_page(size_t vaddr) {
+void pd_unmap_page(void* vaddr) {
 	uint32_t pt = PT_OF_ADDR(vaddr);
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
-	pagetable_t *pd = (vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
+	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 
 	if (!pd->page[pt] & PTE_PRESENT) return;
 	if (!current_pt[pt].page[page] & PTE_PRESENT) return;

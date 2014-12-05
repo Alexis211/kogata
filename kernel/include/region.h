@@ -15,18 +15,19 @@
 #define REGION_T_HW				0x00002000		// used for hardware access
 
 struct region_info;
-typedef void (*page_fault_handler_t)(pagedir_t *pd, struct region_info *r, size_t addr);
+typedef void (*page_fault_handler_t)(pagedir_t *pd, struct region_info *r, void* addr);
 
 typedef struct region_info {
-	size_t addr, size;
+	void* addr;
+	size_t size;
 	uint32_t type;
 	page_fault_handler_t pf;
 } region_info_t;
 
 void region_allocator_init(void* kernel_data_end);
 
-size_t region_alloc(size_t size, uint32_t type, page_fault_handler_t pf);	// returns 0 on error
-region_info_t *find_region(size_t addr);
-void region_free(size_t addr);
+void* region_alloc(size_t size, uint32_t type, page_fault_handler_t pf);	// returns 0 on error
+region_info_t *find_region(void* addr);
+void region_free(void* addr);
 
 void dbg_print_region_stats();

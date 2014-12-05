@@ -20,7 +20,7 @@ typedef struct cache {
 		} sr;
 	};
 
-	size_t region_addr;
+	void* region_addr;
 	struct cache *next_region;
 } cache_t;
 
@@ -63,15 +63,15 @@ cache_t *take_region_descriptor(mem_allocator_t *a) {
 
 mem_allocator_t* create_slab_allocator(const slab_type_t *types, page_alloc_fun_t af, page_free_fun_t ff) {
 	union {
-		size_t addr;
+		void* addr;
 		mem_allocator_t *a;
 		slab_t *s;
 		cache_t *c;
 	} ptr;
 
-	ptr.addr = (size_t)af(PAGE_SIZE);
+	ptr.addr = af(PAGE_SIZE);
 	if (ptr.addr == 0) return 0;	// could not allocate
-	size_t end_addr = ptr.addr + PAGE_SIZE;
+	void* end_addr = ptr.addr + PAGE_SIZE;
 
 	mem_allocator_t *a = ptr.a;
 	ptr.a++;
@@ -88,7 +88,7 @@ mem_allocator_t* create_slab_allocator(const slab_type_t *types, page_alloc_fun_
 	}
 
 	a->first_free_region_descriptor = 0;
-	while ((size_t)(ptr.c + 1) <= end_addr) {
+	while ((void*)(ptr.c + 1) <= end_addr) {
 		add_free_region_descriptor(a, ptr.c);
 		ptr.c++;
 	}
@@ -98,16 +98,16 @@ mem_allocator_t* create_slab_allocator(const slab_type_t *types, page_alloc_fun_
 
 static void stack_and_destroy_regions(page_free_fun_t ff, cache_t *r) {
 	if (r == 0) return;
-	size_t addr = r->region_addr;
+	void* addr = r->region_addr;
 	stack_and_destroy_regions(ff, r->next_region);
-	ff((void*)addr);
+	ff(addr);
 }
 void destroy_slab_allocator(mem_allocator_t *a) {
 	stack_and_destroy_regions(a->free_fun, a->all_regions);
 	a->free_fun(a);
 }
 
-void* slab_alloc(mem_allocator_t* a, const size_t sz) {
+void* slab_alloc(mem_allocator_t* a, size_t sz) {
 	for (int i = 0; a->types[i].obj_size != 0; i++) {
 		const size_t obj_size = a->types[i].obj_size;
 		if (sz <= obj_size) {
@@ -123,7 +123,7 @@ void* slab_alloc(mem_allocator_t* a, const size_t sz) {
 				if (fc == 0) return 0;
 
 				const size_t cache_size = a->types[i].pages_per_cache * PAGE_SIZE;
-				fc->region_addr = (size_t)a->alloc_fun(cache_size);
+				fc->region_addr = a->alloc_fun(cache_size);
 				if (fc->region_addr == 0) {
 					add_free_region_descriptor(a, fc);
 					return 0;
@@ -132,7 +132,7 @@ void* slab_alloc(mem_allocator_t* a, const size_t sz) {
 				fc->is_a_cache = 1;
 				fc->n_free_objs = 0;
 				fc->c.first_free_obj = 0;
-				for (size_t i = fc->region_addr; i + obj_size <= fc->region_addr + cache_size; i += obj_size) {
+				for (void* i = fc->region_addr; i + obj_size <= fc->region_addr + cache_size; i += obj_size) {
 					object_t *x = (object_t*)i;
 					x->next = fc->c.first_free_obj;
 					fc->c.first_free_obj = x;
@@ -151,7 +151,7 @@ void* slab_alloc(mem_allocator_t* a, const size_t sz) {
 			fc->c.first_free_obj = x->next;
 			fc->n_free_objs--;
 			// TODO : if fc is full, put it at the end
-			return (void*)x;
+			return x;
 		}
 	}
 
@@ -159,7 +159,7 @@ void* slab_alloc(mem_allocator_t* a, const size_t sz) {
 	cache_t *r = take_region_descriptor(a);
 	if (r == 0) return 0;
 
-	r->region_addr = (size_t)a->alloc_fun(sz);
+	r->region_addr = a->alloc_fun(sz);
 	if (r->region_addr == 0) {
 		add_free_region_descriptor(a, r);
 		return 0;
@@ -174,8 +174,7 @@ void* slab_alloc(mem_allocator_t* a, const size_t sz) {
 	}
 }
 
-void slab_free(mem_allocator_t* a, const void* ptr) {
-	const size_t addr = (size_t)ptr;
+void slab_free(mem_allocator_t* a, void* addr) {
 
 	for (int i = 0; a->types[i].obj_size != 0; i++) {
 		size_t region_size = PAGE_SIZE * a->types[i].pages_per_cache;
@@ -194,7 +193,7 @@ void slab_free(mem_allocator_t* a, const void* ptr) {
 	}
 
 	// otherwise the block was directly allocated : look for it in regions.
-	a->free_fun(ptr);
+	a->free_fun(addr);
 	ASSERT(a->all_regions != 0);
 
 	if (a->all_regions->region_addr == addr) {
