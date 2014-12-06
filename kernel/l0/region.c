@@ -196,26 +196,26 @@ static void remove_used_region(descriptor_t *d) {
 // =============== //
 
 void region_allocator_init(void* kernel_data_end) {
-	descriptor_t *u0 = &base_descriptors[0];
-	u0->used.i.addr = (void*)K_HIGHHALF_ADDR;
-	u0->used.i.size = PAGE_ALIGN_UP(kernel_data_end) - K_HIGHHALF_ADDR;
-	u0->used.i.type = REGION_T_KERNEL_BASE;
-	u0->used.i.pf = 0;
-	u0->used.next_by_addr = 0;
-	first_used_region = u0;
+	n_unused_descriptors = 0;
+	first_unused_descriptor = 0;
+	for (int i = 0; i < N_BASE_DESCRIPTORS; i++) {
+		add_unused_descriptor(&base_descriptors[i]);
+	}
 
-	descriptor_t *f0 = &base_descriptors[1];
+	descriptor_t *f0 = get_unused_descriptor();
 	f0->free.addr = (void*)PAGE_ALIGN_UP(kernel_data_end);
 	f0->free.size = ((void*)LAST_KERNEL_ADDR - f0->free.addr);
 	f0->free.next_by_size = 0;
 	f0->free.first_bigger = 0;
 	first_free_region_by_size = first_free_region_by_addr = f0;
 
-	n_unused_descriptors = 0;
-	first_unused_descriptor = 0;
-	for (int i = 2; i < N_BASE_DESCRIPTORS; i++) {
-		add_unused_descriptor(&base_descriptors[i]);
-	}
+	descriptor_t *u0 = get_unused_descriptor();
+	u0->used.i.addr = (void*)K_HIGHHALF_ADDR;
+	u0->used.i.size = PAGE_ALIGN_UP(kernel_data_end) - K_HIGHHALF_ADDR;
+	u0->used.i.type = REGION_T_KERNEL_BASE;
+	u0->used.i.pf = 0;
+	u0->used.next_by_addr = 0;
+	first_used_region = u0;
 }
 
 static void* region_alloc_inner(size_t size, uint32_t type, page_fault_handler_t pf, bool use_reserve) {
@@ -305,6 +305,57 @@ void region_free(void* addr) {
 	add_free_region(d);
 }
 
+// ========================================================= //
+// HELPER FUNCTIONS : SIMPLE PF HANDLERS ; FREEING FUNCTIONS //
+// ========================================================= //
+
+void stack_pf_handler(pagedir_t *pd, struct region_info *r, void* addr) {
+	if (addr < r->addr + PAGE_SIZE) {
+		dbg_printf("Stack overflow at 0x%p.", addr);
+		dbg_print_region_stats();
+		PANIC("Stack overflow.");
+	}
+	default_allocator_pf_handler(pd, r, addr);
+}
+
+void default_allocator_pf_handler(pagedir_t *pd, struct region_info *r, void* addr) {
+	ASSERT(pd_get_frame(addr) == 0);	// if error is of another type (RO, protected), we don't do anyting
+
+	uint32_t f = frame_alloc(1);
+	if (f == 0) PANIC("Out Of Memory");
+
+	int error = pd_map_page(addr, f, 1);
+	if (error) PANIC("Could not map frame (OOM)");
+}
+
+void region_free_unmap_free(void* ptr) {
+	region_info_t *i = find_region(ptr);
+	ASSERT(i != 0);
+
+	for (void* x = i->addr; x < i->addr + i->size; x += PAGE_SIZE) {
+		uint32_t f = pd_get_frame(x);
+		if (f != 0) {
+			pd_unmap_page(x);
+			frame_free(f, 1);
+		}
+	}
+	region_free(ptr);
+}
+
+void region_free_unmap(void* ptr) {
+	region_info_t *i = find_region(ptr);
+	ASSERT(i != 0);
+
+	for (void* x = i->addr; x < i->addr + i->size; x += PAGE_SIZE) {
+		pd_unmap_page(x);
+	}
+	region_free(ptr);
+}
+
+// =========================== //
+// DEBUG LOG PRINTING FUNCTION //
+// =========================== //
+
 void dbg_print_region_stats() {
 	dbg_printf("/ Free kernel regions, by address:\n");
 	for (descriptor_t *d = first_free_region_by_addr; d != 0; d = d->free.next_by_addr) {
@@ -321,9 +372,10 @@ void dbg_print_region_stats() {
 		dbg_printf("| 0x%p - 0x%p", d->used.i.addr, d->used.i.addr + d->used.i.size);
 		if (d->used.i.type & REGION_T_KERNEL_BASE)	dbg_printf("  Kernel code & base data");
 		if (d->used.i.type & REGION_T_DESCRIPTORS)	dbg_printf("  Region descriptors");
-		if (d->used.i.type & REGION_T_PAGETABLE)	dbg_printf("  Mapped PD/PT");
 		if (d->used.i.type & REGION_T_CORE_HEAP) 	dbg_printf("  Core heap");
-		if (d->used.i.type & REGION_T_PROC_HEAP)	dbg_printf("  Kernel process heap");
+		if (d->used.i.type & REGION_T_KPROC_HEAP)	dbg_printf("  Kernel process heap");
+		if (d->used.i.type & REGION_T_KPROC_STACK)	dbg_printf("  Kernel process stack");
+		if (d->used.i.type & REGION_T_PROC_KSTACK)	dbg_printf("  Process kernel stack");
 		if (d->used.i.type & REGION_T_CACHE)		dbg_printf("  Cache");
 		if (d->used.i.type & REGION_T_HW)			dbg_printf("  Hardware");
 		dbg_printf("\n");

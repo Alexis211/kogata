@@ -80,6 +80,7 @@ void page_fault_handler(registers_t *regs) {
 		if (i->pf == 0) {
 			dbg_printf("Kernel pagefault in region with no handler at 0x%p\n", vaddr);
 			dbg_dump_registers(regs);
+			dbg_print_region_stats();
 			PANIC("Unhandled kernel space page fault");
 		}
 		i->pf(current_pd_d, i, vaddr);

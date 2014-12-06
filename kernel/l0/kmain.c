@@ -18,39 +18,12 @@ void breakpoint_handler(registers_t *regs) {
 	BOCHS_BREAKPOINT;
 }
 
-void test_pf_handler(pagedir_t *pd, region_info_t *i, void* addr) {
-	dbg_printf(" {0x%p", addr);
-
-	uint32_t f = frame_alloc(1);
-	if (f == 0) PANIC("Out Of Memory");
-	dbg_printf(" -> %i} ", f);
-
-	int error = pd_map_page(addr, f, 1);
-	if (error) PANIC("Could not map frame (OOM)");
-}
-
 void* page_alloc_fun_for_kmalloc(size_t bytes) {
-	void* addr = region_alloc(bytes, REGION_T_CORE_HEAP, test_pf_handler);
+	void* addr = region_alloc(bytes, REGION_T_CORE_HEAP, default_allocator_pf_handler);
 	dbg_printf("[alloc 0x%p for kmalloc : %p]\n", bytes, addr);
 	return addr;
 }
-void page_free_fun_for_kmalloc(void* ptr) {
-	dbg_printf("[Free 0x%p", ptr);
 
-	region_info_t *i = find_region(ptr);
-	ASSERT(i != 0 && i->type == REGION_T_CORE_HEAP);
-	for (void* x = i->addr; x < i->addr + i->size; x += PAGE_SIZE) {
-		uint32_t f = pd_get_frame(x);
-		dbg_printf(" %i", f);
-		if (f != 0) {
-			pd_unmap_page(x);
-			frame_free(f, 1);
-		}
-	}
-	dbg_printf(" : ");
-	region_free(ptr);
-	dbg_printf("ok]\n");
-}
 slab_type_t slab_sizes[] = {
 	{ "8B obj", 8, 2 },
 	{ "16B obj", 16, 2 },
@@ -128,7 +101,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 
 	// allocate a big region and try to write into it
 	const size_t n = 200;
-	void* p0 = region_alloc(n * PAGE_SIZE, REGION_T_HW, test_pf_handler);
+	void* p0 = region_alloc(n * PAGE_SIZE, REGION_T_HW, default_allocator_pf_handler);
 	for (size_t i = 0; i < n; i++) {
 		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
 		dbg_printf("[%i : ", i);
@@ -157,7 +130,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	// Test slab allocator !
 	mem_allocator_t *a =
 		create_slab_allocator(slab_sizes, page_alloc_fun_for_kmalloc,
-										  page_free_fun_for_kmalloc);
+										  region_free_unmap_free);
 	dbg_printf("Created slab allocator at 0x%p\n", a);
 	dbg_print_region_stats();
 	const int m = 200;
