@@ -1,7 +1,30 @@
 #include <idt.h>
+#include <gdt.h>
 #include <sys.h>
 #include <string.h>
 #include <dbglog.h>
+
+struct idt_entry {
+	uint16_t base_lo;		//Low part of address to jump to
+	uint16_t sel;			//Kernel segment selector
+	uint8_t always0;
+	uint8_t type_attr;			//Type
+	uint16_t base_hi;		//High part of address to jump to
+} __attribute__((packed));
+typedef struct idt_entry idt_entry_t;
+
+struct idt_ptr {
+	uint16_t limit;
+	uint32_t base;
+} __attribute__((packed));
+typedef struct idt_ptr idt_ptr_t;
+
+#define GATE_TYPE_INTERRUPT 14		// IF is cleared on interrupt
+#define GATE_TYPE_TRAP 15			// IF stays as is
+
+#define GATE_PRESENT (1<<7)
+#define GATE_DPL_SHIFT 5
+
 
 void isr0();
 void isr1();
@@ -91,14 +114,83 @@ void idt_syscallHandler(registers_t *regs) {
 }
 
 /*	For internal use only. Sets up an entry of the IDT with given parameters. */
-static void idt_setGate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
+static void idt_set_gate(uint8_t num, void (*fun)(), uint8_t type) {
+	uint32_t base = (uint32_t)fun;
+
 	idt_entries[num].base_lo = base & 0xFFFF;
 	idt_entries[num].base_hi = (base >> 16) & 0xFFFF;
 
-	idt_entries[num].sel = sel;
+	idt_entries[num].sel = K_CODE_SEGMENT;
 	idt_entries[num].always0 = 0;
-	idt_entries[num].flags = flags | 0x60;
+	idt_entries[num].type_attr = GATE_PRESENT
+				| (3 << GATE_DPL_SHIFT)		// accessible from user mode
+				| type;
 }
+
+static const struct {
+	uint8_t num;
+	void (*fun)();
+	uint8_t type;
+} gates[] = {
+	// Processor exceptions are traps : handling them should be preemptible
+	{ 0,	isr0,	GATE_TYPE_TRAP },
+	{ 1,	isr1,	GATE_TYPE_TRAP },
+	{ 2,	isr2,	GATE_TYPE_TRAP },
+	{ 3,	isr3,	GATE_TYPE_TRAP },
+	{ 4,	isr4,	GATE_TYPE_TRAP },
+	{ 5,	isr5,	GATE_TYPE_TRAP },
+	{ 6,	isr6,	GATE_TYPE_TRAP },
+	{ 7,	isr7,	GATE_TYPE_TRAP },
+	{ 8,	isr8,	GATE_TYPE_TRAP },
+	{ 9,	isr9,	GATE_TYPE_TRAP },
+	{ 10,	isr10,	GATE_TYPE_TRAP },
+	{ 11,	isr11,	GATE_TYPE_TRAP },
+	{ 12,	isr12,	GATE_TYPE_TRAP },
+	{ 13,	isr13,	GATE_TYPE_TRAP },
+	{ 14,	isr14,	GATE_TYPE_TRAP },
+	{ 15,	isr15,	GATE_TYPE_TRAP },
+	{ 16,	isr16,	GATE_TYPE_TRAP },
+	{ 17,	isr17,	GATE_TYPE_TRAP },
+	{ 18,	isr18,	GATE_TYPE_TRAP },
+	{ 19,	isr19,	GATE_TYPE_TRAP },
+	{ 20,	isr20,	GATE_TYPE_TRAP },
+	{ 21,	isr21,	GATE_TYPE_TRAP },
+	{ 22,	isr22,	GATE_TYPE_TRAP },
+	{ 23,	isr23,	GATE_TYPE_TRAP },
+	{ 24,	isr24,	GATE_TYPE_TRAP },
+	{ 25,	isr25,	GATE_TYPE_TRAP },
+	{ 26,	isr26,	GATE_TYPE_TRAP },
+	{ 27,	isr27,	GATE_TYPE_TRAP },
+	{ 28,	isr28,	GATE_TYPE_TRAP },
+	{ 29,	isr29,	GATE_TYPE_TRAP },
+	{ 30,	isr30,	GATE_TYPE_TRAP },
+	{ 31,	isr31,	GATE_TYPE_TRAP },
+
+	// IRQs are not preemptible ; an IRQ handler should do the bare minimum
+	// (communication with the hardware), and then pass a message to a worker
+	// process in order to do further processing
+	{ 32,	irq0,	GATE_TYPE_INTERRUPT },
+	{ 33,	irq1,	GATE_TYPE_INTERRUPT },
+	{ 34,	irq2,	GATE_TYPE_INTERRUPT },
+	{ 35,	irq3,	GATE_TYPE_INTERRUPT },
+	{ 36,	irq4,	GATE_TYPE_INTERRUPT },
+	{ 37,	irq5,	GATE_TYPE_INTERRUPT },
+	{ 38,	irq6,	GATE_TYPE_INTERRUPT },
+	{ 39,	irq7,	GATE_TYPE_INTERRUPT },
+	{ 40,	irq8,	GATE_TYPE_INTERRUPT },
+	{ 41,	irq9,	GATE_TYPE_INTERRUPT },
+	{ 42,	irq10,	GATE_TYPE_INTERRUPT },
+	{ 43,	irq11,	GATE_TYPE_INTERRUPT },
+	{ 44,	irq12,	GATE_TYPE_INTERRUPT },
+	{ 45,	irq13,	GATE_TYPE_INTERRUPT },
+	{ 46,	irq14,	GATE_TYPE_INTERRUPT },
+	{ 47,	irq15,	GATE_TYPE_INTERRUPT },
+
+	// Of course, syscalls are preemptible
+	{ 64,	syscall64,	GATE_TYPE_TRAP },
+
+	{ 0, 0, 0 }
+};
 
 /*	Remaps the IRQs. Sets up the IDT. */
 void idt_init() {
@@ -116,62 +208,15 @@ void idt_init() {
 	outb(0x21, 0x0);
 	outb(0xA1, 0x0);
 
-	idt_setGate(0, (int32_t)isr0, 0x08, 0x8E);
-	idt_setGate(1, (int32_t)isr1, 0x08, 0x8E);
-	idt_setGate(2, (int32_t)isr2, 0x08, 0x8E);
-	idt_setGate(3, (int32_t)isr3, 0x08, 0x8E);
-	idt_setGate(4, (int32_t)isr4, 0x08, 0x8E);
-	idt_setGate(5, (int32_t)isr5, 0x08, 0x8E);
-	idt_setGate(6, (int32_t)isr6, 0x08, 0x8E);
-	idt_setGate(7, (int32_t)isr7, 0x08, 0x8E);
-	idt_setGate(8, (int32_t)isr8, 0x08, 0x8E);
-	idt_setGate(9, (int32_t)isr9, 0x08, 0x8E);
-	idt_setGate(10, (int32_t)isr10, 0x08, 0x8E);
-	idt_setGate(11, (int32_t)isr11, 0x08, 0x8E);
-	idt_setGate(12, (int32_t)isr12, 0x08, 0x8E);
-	idt_setGate(13, (int32_t)isr13, 0x08, 0x8E);
-	idt_setGate(14, (int32_t)isr14, 0x08, 0x8E);
-	idt_setGate(15, (int32_t)isr15, 0x08, 0x8E);
-	idt_setGate(16, (int32_t)isr16, 0x08, 0x8E);
-	idt_setGate(17, (int32_t)isr17, 0x08, 0x8E);
-	idt_setGate(18, (int32_t)isr18, 0x08, 0x8E);
-	idt_setGate(19, (int32_t)isr19, 0x08, 0x8E);
-	idt_setGate(20, (int32_t)isr20, 0x08, 0x8E);
-	idt_setGate(21, (int32_t)isr21, 0x08, 0x8E);
-	idt_setGate(22, (int32_t)isr22, 0x08, 0x8E);
-	idt_setGate(23, (int32_t)isr23, 0x08, 0x8E);
-	idt_setGate(24, (int32_t)isr24, 0x08, 0x8E);
-	idt_setGate(25, (int32_t)isr25, 0x08, 0x8E);
-	idt_setGate(26, (int32_t)isr26, 0x08, 0x8E);
-	idt_setGate(27, (int32_t)isr27, 0x08, 0x8E);
-	idt_setGate(28, (int32_t)isr28, 0x08, 0x8E);
-	idt_setGate(29, (int32_t)isr29, 0x08, 0x8E);
-	idt_setGate(30, (int32_t)isr30, 0x08, 0x8E);
-	idt_setGate(31, (int32_t)isr31, 0x08, 0x8E);
-
-	idt_setGate(32, (int32_t)irq0, 0x08, 0x8E);
-	idt_setGate(33, (int32_t)irq1, 0x08, 0x8E);
-	idt_setGate(34, (int32_t)irq2, 0x08, 0x8E);
-	idt_setGate(35, (int32_t)irq3, 0x08, 0x8E);
-	idt_setGate(36, (int32_t)irq4, 0x08, 0x8E);
-	idt_setGate(37, (int32_t)irq5, 0x08, 0x8E);
-	idt_setGate(38, (int32_t)irq6, 0x08, 0x8E);
-	idt_setGate(39, (int32_t)irq7, 0x08, 0x8E);
-	idt_setGate(40, (int32_t)irq8, 0x08, 0x8E);
-	idt_setGate(41, (int32_t)irq9, 0x08, 0x8E);
-	idt_setGate(42, (int32_t)irq10, 0x08, 0x8E);
-	idt_setGate(43, (int32_t)irq11, 0x08, 0x8E);
-	idt_setGate(44, (int32_t)irq12, 0x08, 0x8E);
-	idt_setGate(45, (int32_t)irq13, 0x08, 0x8E);
-	idt_setGate(46, (int32_t)irq14, 0x08, 0x8E);
-	idt_setGate(47, (int32_t)irq15, 0x08, 0x8E);
-
-	idt_setGate(64, (int32_t)syscall64, 0x08, 0x8E);
+	for (int i = 0; gates[i].type != 0; i++) {
+		idt_set_gate(gates[i].num, gates[i].fun, gates[i].type);
+	}
 
 	idt_ptr.limit = (sizeof(idt_entry_t) * 256) - 1;
 	idt_ptr.base = (uint32_t)&idt_entries;
 
 	asm volatile ("lidt %0"::"m"(idt_ptr):"memory");
+	asm volatile ("sti");	// from now on we accept interruptions... although we don't do much with them
 }
 
 /*	Sets up an IRQ handler for given IRQ. */

@@ -278,3 +278,6 @@ void slab_free(mem_allocator_t* a, void* addr) {
 		ASSERT(false);
 	}
 }
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/
+

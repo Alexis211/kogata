@@ -27,6 +27,7 @@ SECTIONS{
 		*(.dtor*)
 		end_dtors = .;
 		*(.data)
+		*(.locks)
 	}
 
 	.bss : AT(ADDR(.bss) - k_highhalf_addr) {

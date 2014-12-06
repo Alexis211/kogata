@@ -58,21 +58,6 @@
 #define EX_INTEL_RESERVED_13            30         // No
 #define EX_INTEL_RESERVED_14            31         // No
 
-struct idt_entry {
-	uint16_t base_lo;		//Low part of address to jump to
-	uint16_t sel;			//Kernel segment selector
-	uint8_t always0;
-	uint8_t flags;			//Flags
-	uint16_t base_hi;		//High part of address to jump to
-} __attribute__((packed));
-typedef struct idt_entry idt_entry_t;
-
-struct idt_ptr {
-	uint16_t limit;
-	uint32_t base;
-} __attribute__((packed));
-typedef struct idt_ptr idt_ptr_t;
-
 struct registers {
 	uint32_t ds;                  // Data segment selector
 	uint32_t edi, esi, ebp, useless_esp, ebx, edx, ecx, eax; // Pushed by pusha.

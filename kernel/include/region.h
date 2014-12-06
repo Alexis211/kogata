@@ -44,3 +44,5 @@ void region_free_unmap_free(void* addr);
 void region_free_unmap(void* addr);
 
 void dbg_print_region_stats();
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/

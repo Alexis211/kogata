@@ -24,6 +24,11 @@ void* page_alloc_fun_for_kmalloc(size_t bytes) {
 	return addr;
 }
 
+void yield() {
+	// multitasking not implemented yet
+	dbg_printf("Warning : probable deadlock?\n");
+}
+
 slab_type_t slab_sizes[] = {
 	{ "8B obj", 8, 2 },
 	{ "16B obj", 16, 2 },
@@ -51,7 +56,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 
 	idt_init(); dbg_printf("IDT set up.\n");
 	idt_set_ex_handler(EX_BREAKPOINT, breakpoint_handler);
-	// asm volatile("int $0x3");	// test breakpoint
+	asm volatile("int $0x3");	// test breakpoint
 
 	size_t total_ram = ((mbd->mem_upper + mbd->mem_lower) * 1024);
 	dbg_printf("Total ram: %d Kb\n", total_ram / 1024);

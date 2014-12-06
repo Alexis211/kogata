@@ -1,6 +1,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <printf.h>
+#include <mutex.h>
+
 #include <dbglog.h>
 #include <config.h>
 #include <sys.h>
@@ -121,13 +123,17 @@ static void serial_puts(const char *c) {
 
 // ==================================================================
 
+STATIC_MUTEX(dbglog_mutex);
+
 void dbglog_setup() {
+	mutex_lock(&dbglog_mutex);
 #ifdef DBGLOG_TO_SCREEN
 	vga_init();
 #endif
 #ifdef DBGLOG_TO_SERIAL
 	serial_init();
 #endif
+	mutex_unlock(&dbglog_mutex);
 }
 
 void dbg_print(const char* str) {

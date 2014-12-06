@@ -383,3 +383,5 @@ void dbg_print_region_stats() {
 	}
 	dbg_printf("\\\n");
 }
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/
