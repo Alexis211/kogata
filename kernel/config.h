@@ -13,7 +13,6 @@
 #error "This kernel needs to be compiled with a ix86-elf compiler"
 #endif
 
-
 #define K_HIGHHALF_ADDR ((size_t)0xC0000000)
 
 #define OS_NAME "macrO.Scope"

@@ -10,6 +10,7 @@ static void panic_do(const char* type, const char *msg, const char* file, int li
 	dbg_printf("| File: \t%s:%i\n", file, line);
 	dbg_printf("| System halted -_-'\n");
 	dbg_printf("\\---------------------------------------------------------/");
+	BOCHS_BREAKPOINT;
 	asm volatile("hlt");
 }
 

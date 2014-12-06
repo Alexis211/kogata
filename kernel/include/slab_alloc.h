@@ -8,7 +8,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include <sys.h>
+#if defined(__linux__)
+//redefine necessary stuff
+#include <assert.h>
+#define ASSERT assert
+#define PAGE_SIZE 0x1000
+#else
+#include <sys.h>	// this is macroscope
+#endif
 
 // expected format for the array of slab_type_t given to slab_create :
 // an array of slab_type descriptors, with last descriptor full of zeroes

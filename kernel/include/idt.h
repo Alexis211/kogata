@@ -88,4 +88,6 @@ void idt_init();
 void idt_set_ex_handler(int number, isr_handler_t func);	//Set exception handler
 void idt_set_irq_handler(int number, isr_handler_t func);	//Set IRQ handler
 
+void dbg_dump_registers(registers_t*);
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

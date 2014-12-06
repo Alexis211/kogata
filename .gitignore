@@ -3,6 +3,7 @@
 
 *.o
 *.bin
+*.map
 
 *.iso
 cdrom/

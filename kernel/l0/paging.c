@@ -58,13 +58,32 @@ void page_fault_handler(registers_t *regs) {
 			return;
 		}
 
+		if ((size_t)vaddr >= PD_MIRROR_ADDR) {
+			dbg_printf("Fault on access to mirrorred PD at 0x%p\n", vaddr);
+
+			uint32_t x = (size_t)vaddr - PD_MIRROR_ADDR;
+			uint32_t page = (x % PAGE_SIZE) / 4;
+			uint32_t pt = x / PAGE_SIZE;
+			dbg_printf("For pt 0x%p, page 0x%p -> addr 0x%p\n", pt, page, ((pt * 1024) + page) * PAGE_SIZE);
+
+			for (int i = 0; i < N_PAGES_IN_PT; i++) {
+				dbg_printf("%i. 0x%p\n", i, kernel_pd.page[i]);
+			}
+
+			dbg_dump_registers(regs);
+			dbg_print_region_stats();
+			PANIC("Unhandled kernel space page fault");
+		}
+
 		region_info_t *i = find_region(vaddr);
 		if (i == 0) {
 			dbg_printf("Kernel pagefault in non-existing region at 0x%p\n", vaddr);
+			dbg_dump_registers(regs);
 			PANIC("Unhandled kernel space page fault");
 		}
 		if (i->pf == 0) {
 			dbg_printf("Kernel pagefault in region with no handler at 0x%p\n", vaddr);
+			dbg_dump_registers(regs);
 			PANIC("Unhandled kernel space page fault");
 		}
 		i->pf(current_pd_d, i, vaddr);
@@ -149,6 +168,8 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	uint32_t pt = PT_OF_ADDR(vaddr);
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
+	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
+	
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 
 	if (!pd->page[pt] & PTE_PRESENT) {
@@ -159,12 +180,16 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW;
 		invlpg(&current_pt[pt]);
 	}
+	dbg_printf("[%p,%i,%i,", vaddr, pt, page);
 
 	current_pt[pt].page[page] =
-		frame_id << PTE_FRAME_SHIFT
+		(frame_id << PTE_FRAME_SHIFT)
 			| PTE_PRESENT
 			| ((size_t)vaddr < K_HIGHHALF_ADDR ? PTE_USER : PTE_GLOBAL)
 			| (rw ? PTE_RW : 0);
+	invlpg(vaddr);
+
+	dbg_printf("]");
 
 	return 0;
 } 
@@ -177,7 +202,9 @@ void pd_unmap_page(void* vaddr) {
 
 	if (!pd->page[pt] & PTE_PRESENT) return;
 	if (!current_pt[pt].page[page] & PTE_PRESENT) return;
-	current_pt[pt].page[page] &= ~PTE_PRESENT;
+
+	current_pt[pt].page[page] = 0;
+	invlpg(vaddr);
 
 	// TODO (?) : if pagetable is completely empty, free it
 }
