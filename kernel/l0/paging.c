@@ -67,7 +67,7 @@ void page_fault_handler(registers_t *regs) {
 			dbg_printf("For pt 0x%p, page 0x%p -> addr 0x%p\n", pt, page, ((pt * 1024) + page) * PAGE_SIZE);
 
 			for (int i = 0; i < N_PAGES_IN_PT; i++) {
-				dbg_printf("%i. 0x%p\n", i, kernel_pd.page[i]);
+				//dbg_printf("%i. 0x%p\n", i, kernel_pd.page[i]);
 			}
 
 			dbg_dump_registers(regs);

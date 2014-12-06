@@ -31,10 +31,12 @@ void test_pf_handler(pagedir_t *pd, region_info_t *i, void* addr) {
 
 void* page_alloc_fun_for_kmalloc(size_t bytes) {
 	void* addr = region_alloc(bytes, REGION_T_CORE_HEAP, test_pf_handler);
+	dbg_printf("Alloc %p bytes for kmalloc at: %p\n", bytes, addr);
 	return addr;
 }
 void page_free_fun_for_kmalloc(void* ptr) {
 	region_info_t *i = find_region(ptr);
+	ASSERT(i != 0 && i->type == REGION_T_CORE_HEAP);
 	for (void* x = i->addr; x < i->addr + i->size; x += PAGE_SIZE) {
 		uint32_t f = pd_get_frame(x);
 		if (f != 0) {

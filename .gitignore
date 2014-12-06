@@ -8,6 +8,8 @@
 *.iso
 cdrom/
 
+doc/html
+
 # codelite files
 .codelite
 */.codelite
