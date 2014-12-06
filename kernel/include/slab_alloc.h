@@ -13,8 +13,11 @@
 #include <assert.h>
 #define ASSERT assert
 #define PAGE_SIZE 0x1000
+#include <stdio.h>
+#define dbg_printf printf
 #else
 #include <sys.h>	// this is macroscope
+#include <dbglog.h>
 #endif
 
 // expected format for the array of slab_type_t given to slab_create :

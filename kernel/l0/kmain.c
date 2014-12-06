@@ -31,31 +31,36 @@ void test_pf_handler(pagedir_t *pd, region_info_t *i, void* addr) {
 
 void* page_alloc_fun_for_kmalloc(size_t bytes) {
 	void* addr = region_alloc(bytes, REGION_T_CORE_HEAP, test_pf_handler);
-	dbg_printf("Alloc %p bytes for kmalloc at: %p\n", bytes, addr);
+	dbg_printf("[alloc 0x%p for kmalloc : %p]\n", bytes, addr);
 	return addr;
 }
 void page_free_fun_for_kmalloc(void* ptr) {
+	dbg_printf("[Free 0x%p", ptr);
+
 	region_info_t *i = find_region(ptr);
 	ASSERT(i != 0 && i->type == REGION_T_CORE_HEAP);
 	for (void* x = i->addr; x < i->addr + i->size; x += PAGE_SIZE) {
 		uint32_t f = pd_get_frame(x);
+		dbg_printf(" %i", f);
 		if (f != 0) {
 			pd_unmap_page(x);
 			frame_free(f, 1);
 		}
 	}
+	dbg_printf(" : ");
 	region_free(ptr);
+	dbg_printf("ok]\n");
 }
 slab_type_t slab_sizes[] = {
-	{ "8B obj", 8, 1 },
+	{ "8B obj", 8, 2 },
 	{ "16B obj", 16, 2 },
 	{ "32B obj", 32, 2 },
-	{ "64B obj", 64, 2 },
-	{ "128B obj", 128, 2 },
+	{ "64B obj", 64, 4 },
+	{ "128B obj", 128, 4 },
 	{ "256B obj", 256, 4 },
-	{ "512B obj", 512, 4 },
+	{ "512B obj", 512, 8 },
 	{ "1KB obj", 1024, 8 },
-	{ "2KB obj", 2048, 8 },
+	{ "2KB obj", 2048, 16 },
 	{ "4KB obj", 4096, 16 },
 	{ 0, 0, 0 }
 };
@@ -149,16 +154,16 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	region_free(s);
 	BOCHS_BREAKPOINT;
 
-	// TEST SLAB ALLOCATOR!!!
+	// Test slab allocator !
 	mem_allocator_t *a =
 		create_slab_allocator(slab_sizes, page_alloc_fun_for_kmalloc,
 										  page_free_fun_for_kmalloc);
 	dbg_printf("Created slab allocator at 0x%p\n", a);
 	dbg_print_region_stats();
-	const int m = 10000;
-	uint16_t* ptr[m];
+	const int m = 200;
+	uint16_t** ptr = slab_alloc(a, m * sizeof(uint32_t));
 	for (int i = 0; i < m; i++) {
-		size_t s = 1 << ((i * 7) % 12 + 2);
+		size_t s = 1 << ((i * 7) % 11 + 2);
 		ptr[i] = (uint16_t*)slab_alloc(a, s);
 		ASSERT((void*)ptr[i] >= kernel_data_end && (size_t)ptr[i] < 0xFFC00000);
 		*ptr[i] = ((i * 211) % 1024);
@@ -172,7 +177,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 		slab_free(a, ptr[i]);
 	}
 	dbg_print_region_stats();
-	dbg_printf("Destroying slab allocator.\n");
+	dbg_printf("Destroying slab allocator...\n");
 	destroy_slab_allocator(a);
 	dbg_print_region_stats();
 

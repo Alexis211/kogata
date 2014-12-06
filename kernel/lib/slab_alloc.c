@@ -17,6 +17,7 @@ typedef struct region {
 	void* region_addr;
 	size_t region_size;
 	struct region *next_region;
+	bool contains_descriptors;
 } region_t;
 
 typedef union descriptor {
@@ -67,6 +68,7 @@ static descriptor_t *take_descriptor(mem_allocator_t *a) {
 		region_t *drd = &dd->r;
 		drd->region_addr = p;
 		drd->region_size = PAGE_SIZE;
+		drd->contains_descriptors = true;
 		drd->next_region = a->all_regions;
 		a->all_regions = drd;
 	}
@@ -91,7 +93,7 @@ mem_allocator_t* create_slab_allocator(const slab_type_t *types, page_alloc_fun_
 
 	ptr.addr = af(PAGE_SIZE);
 	if (ptr.addr == 0) return 0;	// could not allocate
-	void* end_addr = ptr.addr + PAGE_SIZE;
+	const void* end_addr = ptr.addr + PAGE_SIZE;
 
 	mem_allocator_t *a = ptr.a;
 	ptr.a++;
@@ -109,7 +111,7 @@ mem_allocator_t* create_slab_allocator(const slab_type_t *types, page_alloc_fun_
 	}
 
 	a->first_free_descriptor = 0;
-	while ((void*)(ptr.d + 1) <= end_addr) {
+	while (ptr.d + 1 <= (descriptor_t*)end_addr) {
 		add_free_descriptor(a, ptr.d);
 		ptr.d++;
 	}
@@ -126,11 +128,23 @@ static void stack_and_destroy_regions(page_free_fun_t ff, region_t *r) {
 }
 void destroy_slab_allocator(mem_allocator_t *a) {
 	for (int i = 0; a->types[i].obj_size != 0; i++) {
-		for (cache_t *c = a->slabs[i].first_cache; c != 0; c++) {
+		for (cache_t *c = a->slabs[i].first_cache; c != 0; c = c->next_cache) {
 			a->free_fun(c->region_addr);
 		}
 	}
-	stack_and_destroy_regions(a->free_fun, a->all_regions);
+	region_t *dr = 0;
+	region_t *i = a->all_regions;
+	while (i != 0) {
+		region_t *r = i;
+		i = r->next_region;
+		if (r->contains_descriptors) {
+			r->next_region = dr;
+			dr = r;
+		} else {
+			a->free_fun(r->region_addr);
+		}
+	}
+	stack_and_destroy_regions(a->free_fun, dr);
 	a->free_fun(a);
 }
 
@@ -198,6 +212,7 @@ void* slab_alloc(mem_allocator_t* a, size_t sz) {
 		return 0;
 	} else {
 		r->region_size = sz;
+		r->contains_descriptors = false;
 
 		r->next_region = a->all_regions;
 		a->all_regions = r;
@@ -254,6 +269,7 @@ void slab_free(mem_allocator_t* a, void* addr) {
 				a->free_fun(addr);	// found it, free it
 
 				region_t *r = i->next_region;
+				ASSERT(!r->contains_descriptors);
 				i->next_region = r->next_region;
 				add_free_descriptor(a, (descriptor_t*)r);
 				return;

@@ -1,6 +1,7 @@
 [EXTERN kmain]            ; kmain is defined in kmain.c
 [GLOBAL loader]           ; making entry point visible to linker
-[GLOBAL kernel_pd]   ; make kernel page directory visible
+[GLOBAL kernel_pd]   	  ; make kernel page directory visible
+[GLOBAL kernel_stack_protector] 		; used to detect kernel stack overflow
 
 ; higher-half kernel setup
 K_HIGHHALF_ADDR     equ 0xC0000000
@@ -74,7 +75,9 @@ hang:
 	jmp   hang
 
 [section .bss]
-align 4
+align 0x1000
+kernel_stack_protector:
+	resb 0x1000			; as soon as we have efficient paging, we WON'T map this page
 stack_bottom:
 	resb LOADER_STACK_SIZE
 stack_top:

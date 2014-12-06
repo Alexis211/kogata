@@ -39,6 +39,8 @@ extern pagetable_t kernel_pd;
 // pre-allocate a page table so that we can map the first 4M of kernel memory
 static pagetable_t __attribute__((aligned(PAGE_SIZE))) kernel_pt0;
 
+extern char kernel_stack_protector;
+
 static pagedir_t kernel_pd_d;
 static pagedir_t *current_pd_d;
 
@@ -58,19 +60,13 @@ void page_fault_handler(registers_t *regs) {
 			return;
 		}
 
+		if (vaddr >= (void*)&kernel_stack_protector && vaddr < (void*)&kernel_stack_protector + PAGE_SIZE) {
+			dbg_printf("Kernel stack overflow at 0x%p\n", vaddr);
+			PANIC("Kernel stack overflow.");
+		}
+
 		if ((size_t)vaddr >= PD_MIRROR_ADDR) {
 			dbg_printf("Fault on access to mirrorred PD at 0x%p\n", vaddr);
-
-			uint32_t x = (size_t)vaddr - PD_MIRROR_ADDR;
-			uint32_t page = (x % PAGE_SIZE) / 4;
-			uint32_t pt = x / PAGE_SIZE;
-			dbg_printf("For pt 0x%p, page 0x%p -> addr 0x%p\n", pt, page, ((pt * 1024) + page) * PAGE_SIZE);
-
-			for (int i = 0; i < N_PAGES_IN_PT; i++) {
-				//dbg_printf("%i. 0x%p\n", i, kernel_pd.page[i]);
-			}
-
-			dbg_dump_registers(regs);
 			dbg_print_region_stats();
 			PANIC("Unhandled kernel space page fault");
 		}
@@ -108,7 +104,11 @@ void paging_setup(void* kernel_data_end) {
 	ASSERT(PAGE_OF_ADDR(K_HIGHHALF_ADDR) == 0);	// kernel is 4M-aligned
 	ASSERT(FIRST_KERNEL_PT == 768);
 	for (size_t i = 0; i < n_kernel_pages; i++) {
-		kernel_pt0.page[i] = (i << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW | PTE_GLOBAL;
+		if ((i * PAGE_SIZE) + K_HIGHHALF_ADDR == (size_t)&kernel_stack_protector) {
+			frame_free(i, 1);	// don't map kernel stack protector page
+		} else {
+			kernel_pt0.page[i] = (i << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW | PTE_GLOBAL;
+		}
 	}
 	for (size_t i = n_kernel_pages; i < 1024; i++){
 		kernel_pt0.page[i] = 0;
@@ -180,16 +180,12 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW;
 		invlpg(&current_pt[pt]);
 	}
-	dbg_printf("[%p,%i,%i,", vaddr, pt, page);
-
 	current_pt[pt].page[page] =
 		(frame_id << PTE_FRAME_SHIFT)
 			| PTE_PRESENT
 			| ((size_t)vaddr < K_HIGHHALF_ADDR ? PTE_USER : PTE_GLOBAL)
 			| (rw ? PTE_RW : 0);
 	invlpg(vaddr);
-
-	dbg_printf("]");
 
 	return 0;
 } 
