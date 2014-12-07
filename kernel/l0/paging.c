@@ -4,6 +4,7 @@
 #include <dbglog.h>
 #include <region.h>
 #include <mutex.h>
+#include <task.h>
 
 #define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)x >> (PAGE_SHIFT + PT_SHIFT))
@@ -43,7 +44,6 @@ static pagetable_t __attribute__((aligned(PAGE_SIZE))) kernel_pt0;
 extern char kernel_stack_protector;
 
 static pagedir_t kernel_pd_d;
-static pagedir_t *current_pd_d;
 
 #define current_pt ((pagetable_t*)PD_MIRROR_ADDR)
 #define current_pd ((pagetable_t*)(PD_MIRROR_ADDR + (N_PAGES_IN_PT-1)*PAGE_SIZE))
@@ -85,7 +85,7 @@ void page_fault_handler(registers_t *regs) {
 			dbg_print_region_stats();
 			PANIC("Unhandled kernel space page fault");
 		}
-		i->pf(current_pd_d, i, vaddr);
+		i->pf(get_current_pagedir(), i, vaddr);
 	} else {
 		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	// userspace PF handlers should always be preemptible
 
@@ -131,7 +131,6 @@ void paging_setup(void* kernel_data_end) {
 	invlpg((void*)K_HIGHHALF_ADDR);
 
 	// paging already enabled in loader, nothing to do.
-	switch_pagedir(&kernel_pd_d);
 
 	// disable 4M pages (remove PSE bit in CR4)
 	uint32_t cr4;
@@ -143,7 +142,8 @@ void paging_setup(void* kernel_data_end) {
 }
 
 pagedir_t *get_current_pagedir() {
-	return current_pd_d;
+	if (current_task == 0) return &kernel_pd_d;
+	return current_task->current_pd_d;
 }
 
 pagedir_t *get_kernel_pagedir() {
@@ -152,7 +152,7 @@ pagedir_t *get_kernel_pagedir() {
 
 void switch_pagedir(pagedir_t *pd) {
 	asm volatile("movl %0, %%cr3":: "r"(pd->phys_addr));
-	current_pd_d = pd;
+	if (current_task != 0) current_task->current_pd_d = pd;
 }
 
 // ============================== //
@@ -176,7 +176,8 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 
 	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
 	
-	pagedir_t *pdd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd_d : current_pd_d);
+	pagedir_t *pdd = ((size_t)vaddr >= K_HIGHHALF_ADDR || current_task == 0
+							? &kernel_pd_d : current_task->current_pd_d);
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 	mutex_lock(&pdd->mutex);
 

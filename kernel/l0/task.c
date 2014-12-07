@@ -84,8 +84,10 @@ static void run_task(void (*entry)(void*)) {
 	ASSERT(current_task->state == T_STATE_RUNNING);
 	ASSERT(current_task->has_result);
 
-	current_task->has_result = false;
+	switch_pagedir(get_kernel_pagedir());
 
+	current_task->has_result = false;
+	
 	asm volatile("sti");
 	entry(current_task->result);
 
@@ -125,13 +127,15 @@ task_t *new_task(entry_t entry) {
 	t->result = 0;
 	t->has_result = false;
 
+	t->current_pd_d = get_kernel_pagedir();
+
 	t->more_data = 0;
 
 	return t;
 }
 
 void tasking_setup(entry_t cont, void* arg) {
-	set_pit_frequency(100);
+	set_pit_frequency(TASK_SWITCH_FREQUENCY);
 	idt_set_irq_handler(IRQ0, yield);
 
 	task_t *t = new_task(cont);
@@ -146,6 +150,7 @@ void tasking_setup(entry_t cont, void* arg) {
 void yield() {
 	if (current_task == 0) {
 		// might happen before tasking is initialized
+		// (but should not...)
 		dbg_printf("Warning: probable deadlock.");
 	} else {
 		save_context_and_enter_scheduler(&current_task->ctx);

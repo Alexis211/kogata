@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sys.h>
+#include <paging.h>
 #include <region.h>
 
 #define T_STATE_RUNNING		1
@@ -9,6 +10,8 @@
 
 #define KPROC_STACK_SIZE 0x8000	// 8Kb
 
+#define TASK_SWITCH_FREQUENCY	100		// in herz
+
 typedef struct saved_context {
 	uint32_t *esp;
 	void (*eip)();
@@ -16,6 +19,7 @@ typedef struct saved_context {
 
 typedef struct task {
 	saved_context_t ctx;
+	pagedir_t *current_pd_d;
 
 	uint32_t state;
 	void* result;
