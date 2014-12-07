@@ -12,7 +12,7 @@ LDFLAGS = -T linker.ld -ffreestanding -O2 -nostdlib -lgcc -Xlinker -Map=kernel.m
 OBJ = lib/string.o lib/printf.o lib/slab_alloc.o lib/mutex.o \
 	l0/loader.o l0/kmain.o l0/dbglog.o l0/sys.o \
 	l0/gdt.o l0/idt.o l0/interrupt.o \
-	l0/frame.o l0/paging.o l0/region.o
+	l0/frame.o l0/paging.o l0/region.o l0/kmalloc.o
 OUT = kernel.bin
 
 all: $(OUT)

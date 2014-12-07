@@ -58,6 +58,8 @@
 #define EX_INTEL_RESERVED_13            30         // No
 #define EX_INTEL_RESERVED_14            31         // No
 
+#define EFLAGS_IF		(0x1 << 9)
+
 struct registers {
 	uint32_t ds;                  // Data segment selector
 	uint32_t edi, esi, ebp, useless_esp, ebx, edx, ecx, eax; // Pushed by pusha.

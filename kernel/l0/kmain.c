@@ -8,6 +8,7 @@
 #include <frame.h>
 #include <paging.h>
 #include <region.h>
+#include <kmalloc.h>
 
 #include <slab_alloc.h>
 
@@ -18,31 +19,89 @@ void breakpoint_handler(registers_t *regs) {
 	BOCHS_BREAKPOINT;
 }
 
-void* page_alloc_fun_for_kmalloc(size_t bytes) {
-	void* addr = region_alloc(bytes, REGION_T_CORE_HEAP, default_allocator_pf_handler);
-	dbg_printf("[alloc 0x%p for kmalloc : %p]\n", bytes, addr);
-	return addr;
-}
-
 void yield() {
 	// multitasking not implemented yet
 	dbg_printf("Warning : probable deadlock?\n");
 }
 
-slab_type_t slab_sizes[] = {
-	{ "8B obj", 8, 2 },
-	{ "16B obj", 16, 2 },
-	{ "32B obj", 32, 2 },
-	{ "64B obj", 64, 4 },
-	{ "128B obj", 128, 4 },
-	{ "256B obj", 256, 4 },
-	{ "512B obj", 512, 8 },
-	{ "1KB obj", 1024, 8 },
-	{ "2KB obj", 2048, 16 },
-	{ "4KB obj", 4096, 16 },
-	{ 0, 0, 0 }
-};
+void region_test1() {
+	void* p = region_alloc(0x1000, REGION_T_HW, 0);
+	dbg_printf("Allocated one-page region: 0x%p\n", p);
+	dbg_print_region_stats();
+	void* q = region_alloc(0x1000, REGION_T_HW, 0);
+	dbg_printf("Allocated one-page region: 0x%p\n", q);
+	dbg_print_region_stats();
+	void* r = region_alloc(0x2000, REGION_T_HW, 0);
+	dbg_printf("Allocated two-page region: 0x%p\n", r);
+	dbg_print_region_stats();
+	void* s = region_alloc(0x10000, REGION_T_CORE_HEAP, 0);
+	dbg_printf("Allocated 16-page region: 0x%p\n", s);
+	dbg_print_region_stats();
+	region_free(p);
+	dbg_printf("Freed region 0x%p\n", p);
+	dbg_print_region_stats();
+	region_free(q);
+	dbg_printf("Freed region 0x%p\n", q);
+	dbg_print_region_stats();
+	region_free(r);
+	dbg_printf("Freed region 0x%p\n", r);
+	dbg_print_region_stats();
+	region_free(s);
+	dbg_printf("Freed region 0x%p\n", s);
+	dbg_print_region_stats();
+}
 
+void region_test2() {
+	// allocate a big region and try to write into it
+	dbg_printf("Begin region test 2...");
+	const size_t n = 200;
+	void* p0 = region_alloc(n * PAGE_SIZE, REGION_T_HW, default_allocator_pf_handler);
+	for (size_t i = 0; i < n; i++) {
+		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
+		x[0] = 12;
+		x[1] = (i * 20422) % 122;
+	}
+	// unmap memory
+	for (size_t i = 0; i < n; i++) {
+		void* p = p0 + i * PAGE_SIZE;
+		uint32_t *x = (uint32_t*)p;
+		ASSERT(x[1] == (i * 20422) % 122);
+
+		uint32_t f = pd_get_frame(p);
+		ASSERT(f != 0);
+		pd_unmap_page(p);
+		ASSERT(pd_get_frame(p) == 0);
+
+		frame_free(f, 1);
+	}
+	region_free(p0);
+	dbg_printf("OK\n");
+}
+
+void kmalloc_test(void* kernel_data_end) {
+	// Test kmalloc !
+	dbg_print_region_stats();
+	dbg_printf("Begin kmalloc test...\n");
+	const int m = 200;
+	uint16_t** ptr = kmalloc(m * sizeof(uint32_t));
+	for (int i = 0; i < m; i++) {
+		size_t s = 1 << ((i * 7) % 11 + 2);
+		ptr[i] = (uint16_t*)kmalloc(s);
+		ASSERT((void*)ptr[i] >= kernel_data_end && (size_t)ptr[i] < 0xFFC00000);
+		*ptr[i] = ((i * 211) % 1024);
+	}
+	dbg_printf("Fully allocated.\n");
+	dbg_print_region_stats();
+	for (int i = 0; i < m; i++) {
+		for (int j = i; j < m; j++) {
+			ASSERT(*ptr[j] == (j * 211) % 1024);
+		}
+		kfree(ptr[i]);
+	}
+	kfree(ptr);
+	dbg_printf("Kmalloc test OK.\n");
+	dbg_print_region_stats();
+}
  
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
@@ -76,88 +135,11 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	BOCHS_BREAKPOINT;
 
 	region_allocator_init(kernel_data_end);
-	dbg_print_region_stats();
+	region_test1();
+	region_test2();
 
-	void* p = region_alloc(0x1000, REGION_T_HW, 0);
-	dbg_printf("Allocated one-page region: 0x%p\n", p);
-	dbg_print_region_stats();
-	void* q = region_alloc(0x1000, REGION_T_HW, 0);
-	dbg_printf("Allocated one-page region: 0x%p\n", q);
-	dbg_print_region_stats();
-	void* r = region_alloc(0x2000, REGION_T_HW, 0);
-	dbg_printf("Allocated two-page region: 0x%p\n", r);
-	dbg_print_region_stats();
-	void* s = region_alloc(0x10000, REGION_T_CORE_HEAP, 0);
-	dbg_printf("Allocated 16-page region: 0x%p\n", s);
-	dbg_print_region_stats();
-	region_free(p);
-	dbg_printf("Freed region 0x%p\n", p);
-	dbg_print_region_stats();
-	region_free(q);
-	dbg_printf("Freed region 0x%p\n", q);
-	dbg_print_region_stats();
-	region_free(r);
-	dbg_printf("Freed region 0x%p\n", r);
-	dbg_print_region_stats();
-	region_free(s);
-	dbg_printf("Freed region 0x%p\n", s);
-	dbg_print_region_stats();
-	BOCHS_BREAKPOINT;
-
-	// allocate a big region and try to write into it
-	const size_t n = 200;
-	void* p0 = region_alloc(n * PAGE_SIZE, REGION_T_HW, default_allocator_pf_handler);
-	for (size_t i = 0; i < n; i++) {
-		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
-		dbg_printf("[%i : ", i);
-		x[0] = 12;
-		dbg_printf(" : .");
-		x[1] = (i * 20422) % 122;
-		dbg_printf("]\n", i);
-	}
-	BOCHS_BREAKPOINT;
-	// unmap memory
-	for (size_t i = 0; i < n; i++) {
-		void* p = p0 + i * PAGE_SIZE;
-		uint32_t *x = (uint32_t*)p;
-		ASSERT(x[1] == (i * 20422) % 122);
-
-		uint32_t f = pd_get_frame(p);
-		ASSERT(f != 0);
-		pd_unmap_page(p);
-		ASSERT(pd_get_frame(p) == 0);
-
-		frame_free(f, 1);
-	}
-	region_free(s);
-	BOCHS_BREAKPOINT;
-
-	// Test slab allocator !
-	mem_allocator_t *a =
-		create_slab_allocator(slab_sizes, page_alloc_fun_for_kmalloc,
-										  region_free_unmap_free);
-	dbg_printf("Created slab allocator at 0x%p\n", a);
-	dbg_print_region_stats();
-	const int m = 200;
-	uint16_t** ptr = slab_alloc(a, m * sizeof(uint32_t));
-	for (int i = 0; i < m; i++) {
-		size_t s = 1 << ((i * 7) % 11 + 2);
-		ptr[i] = (uint16_t*)slab_alloc(a, s);
-		ASSERT((void*)ptr[i] >= kernel_data_end && (size_t)ptr[i] < 0xFFC00000);
-		*ptr[i] = ((i * 211) % 1024);
-		dbg_printf("Alloc %i : 0x%p\n", s, ptr[i]);
-	}
-	dbg_print_region_stats();
-	for (int i = 0; i < m; i++) {
-		for (int j = i; j < m; j++) {
-			ASSERT(*ptr[j] == (j * 211) % 1024);
-		}
-		slab_free(a, ptr[i]);
-	}
-	dbg_print_region_stats();
-	dbg_printf("Destroying slab allocator...\n");
-	destroy_slab_allocator(a);
-	dbg_print_region_stats();
+	kmalloc_setup();
+	kmalloc_test(kernel_data_end);
 
 
 	PANIC("Reached kmain end! Falling off the edge.");

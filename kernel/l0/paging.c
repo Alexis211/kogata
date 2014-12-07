@@ -60,7 +60,7 @@ void page_fault_handler(registers_t *regs) {
 			invlpg(&current_pt[pt]);
 			return;
 		}
-		asm volatile("sti");	// from now on we are preemptible
+		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	// from now on we are preemptible
 
 		if (vaddr >= (void*)&kernel_stack_protector && vaddr < (void*)&kernel_stack_protector + PAGE_SIZE) {
 			dbg_printf("Kernel stack overflow at 0x%p\n", vaddr);
@@ -87,7 +87,7 @@ void page_fault_handler(registers_t *regs) {
 		}
 		i->pf(current_pd_d, i, vaddr);
 	} else {
-		asm volatile("sti");	// userspace PF handlers should always be preemptible
+		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	// userspace PF handlers should always be preemptible
 
 		dbg_printf("Userspace page fault at 0x%p\n", vaddr);
 		PANIC("Unhandled userspace page fault");

@@ -222,7 +222,9 @@ void idt_init() {
 	idt_ptr.base = (uint32_t)&idt_entries;
 
 	asm volatile ("lidt %0"::"m"(idt_ptr):"memory");
-	asm volatile ("sti");	// from now on we accept interruptions... although we don't do much with them
+	
+	// Some setup calls that come later on are not preemptible,
+	// so we wait until then to enable interrupts.
 }
 
 /*	Sets up an IRQ handler for given IRQ. */
