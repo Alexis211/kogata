@@ -148,12 +148,16 @@ task_t *new_task(entry_t entry) {
 
 	t->current_pd_d = get_kernel_pagedir();
 
-	t->more_data = 0;
+	t->more_data = 0;	// free for use by L1 functions
 
 	return t;
 }
 
-void irq0_handler(registers_t *regs) {
+// ========== //
+// SETUP CODE //
+// ========== //
+
+static void irq0_handler(registers_t *regs) {
 	if (current_task != 0)
 		irq0_save_context_and_enter_scheduler(&current_task->ctx);
 }
@@ -169,6 +173,10 @@ void tasking_setup(entry_t cont, void* arg) {
 	run_scheduler();	// never returns
 	ASSERT(false);
 }
+
+// ======================= //
+// TASK STATE MANIPULATION //
+// ======================= //
 
 void yield() {
 	if (current_task == 0) {
