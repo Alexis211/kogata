@@ -11,10 +11,7 @@ save_context_and_enter_scheduler:
 	mov eax, cr3
 	push eax
 
-	mov ax, ds              ; Lower 16-bits of eax = ds.
-	push eax                ; save the data segment descriptor
-	
-	mov eax, [esp+48]		; get address of saved_context structure
+	mov eax, [esp+44]		; get address of saved_context structure
 	mov [eax], esp			; save esp
 	mov dword [eax+4], resume_saved_context		; save eip
 
@@ -23,16 +20,31 @@ save_context_and_enter_scheduler:
 
 resume_saved_context:
 	pop eax
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-
-	pop eax
 	mov cr3, eax
 
 	popa
 	popf
+	ret
+
+[GLOBAL irq0_save_context_and_enter_scheduler]
+; meant to be called on IRQ0
+; general registers already saved by IRQ handler stub
+; flags already saved by interruption and interruptions disabled
+; only saves CR3
+irq0_save_context_and_enter_scheduler:
+	mov eax, cr3
+	push eax
+
+	mov eax, [esp+8]		; get address of saved_context structure
+	mov [eax], esp			; save esp
+	mov dword [eax+4], resume_saved_irq0_context		; save eip
+
+	mov esp, kernel_stack_top
+	jmp run_scheduler
+
+resume_saved_irq0_context:
+	pop eax
+	mov cr3, eax
 	ret
 
 

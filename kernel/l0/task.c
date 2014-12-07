@@ -7,6 +7,7 @@
 #include <paging.h>
 
 void save_context_and_enter_scheduler(saved_context_t *ctx);
+void irq0_save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
 
 task_t *current_task = 0;
@@ -25,6 +26,21 @@ void set_pit_frequency(uint32_t freq) {
    outb(0x43, 0x36);
    outb(0x40, l);
    outb(0x40, h);
+}
+
+// ============================= //
+// HELPER : IF FLAG MANIPULATION //
+// ============================= //
+
+static inline bool disable_interrupts() {
+	uint32_t eflags;
+	asm volatile("pushf; pop %0" : "=r"(eflags));
+	asm volatile("cli");
+	return (eflags & EFLAGS_IF) != 0;
+}
+
+static inline void resume_interrupts(bool st) {
+	if (st) asm volatile("sti");
 }
 
 // ================== //
@@ -63,10 +79,13 @@ task_t* dequeue_task() {
 // ================ //
 
 void run_scheduler() {
+	// At this point, interrupts are disabled
 	// This function is expected NEVER TO RETURN
+
 	if (current_task != 0 && current_task->state == T_STATE_RUNNING) {
 		enqueue_task(current_task, true);
 	}
+
 	current_task = dequeue_task();
 	if (current_task != 0) {
 		resume_context(&current_task->ctx);
@@ -134,9 +153,13 @@ task_t *new_task(entry_t entry) {
 	return t;
 }
 
+void irq0_handler(registers_t *regs) {
+	if (current_task != 0)
+		irq0_save_context_and_enter_scheduler(&current_task->ctx);
+}
 void tasking_setup(entry_t cont, void* arg) {
 	set_pit_frequency(TASK_SWITCH_FREQUENCY);
-	idt_set_irq_handler(IRQ0, yield);
+	idt_set_irq_handler(IRQ0, irq0_handler);
 
 	task_t *t = new_task(cont);
 	ASSERT(t != 0);
@@ -158,9 +181,7 @@ void yield() {
 }
 
 void* wait_for_result() {
-	uint32_t eflags;
-	asm volatile("pushf; pop %0" : "=r"(eflags));
-	asm volatile("cli");
+	bool st = disable_interrupts();
 
 	if (!current_task->has_result) {
 		current_task->state = T_STATE_WAITING;
@@ -169,15 +190,14 @@ void* wait_for_result() {
 	ASSERT(current_task->has_result);
 	current_task->has_result = false;
 
-	if (eflags & EFLAGS_IF) asm volatile("sti");
+	void *result = current_task->result;
 
-	return current_task->result;
+	resume_interrupts(st);
+	return result;
 }
 
 void resume_with_result(task_t *task, void* data, bool run_at_once) {
-	uint32_t eflags;
-	asm volatile("pushf; pop %0" : "=r"(eflags));
-	asm volatile("cli");
+	bool st = disable_interrupts();
 
 	task->has_result = true;
 	task->result = data;
@@ -188,7 +208,7 @@ void resume_with_result(task_t *task, void* data, bool run_at_once) {
 	}
 	if (run_at_once) yield();
 
-	if (eflags & EFLAGS_IF) asm volatile("sti");
+	resume_interrupts(st);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
