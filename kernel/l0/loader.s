@@ -2,6 +2,7 @@
 [GLOBAL loader]           ; making entry point visible to linker
 [GLOBAL kernel_pd]   	  ; make kernel page directory visible
 [GLOBAL kernel_stack_protector] 		; used to detect kernel stack overflow
+[GLOBAL kernel_stack_top] 				; stack re-used by scheduler
 
 ; higher-half kernel setup
 K_HIGHHALF_ADDR     equ 0xC0000000
@@ -60,7 +61,7 @@ higherhalf:		; now we're running in higher half
 	mov dword [kernel_pd], 0
 	invlpg [0]
 
-	mov esp, stack_top          ; set up the stack
+	mov esp, kernel_stack_top   ; set up the stack
 
 	push eax                    ; pass Multiboot magic number
 	add ebx, K_HIGHHALF_ADDR    ; update the MB info structure so that it is in higher half
@@ -78,8 +79,8 @@ hang:
 align 0x1000
 kernel_stack_protector:
 	resb 0x1000			; as soon as we have efficient paging, we WON'T map this page
-stack_bottom:
+kernel_stack_bottom:
 	resb LOADER_STACK_SIZE
-stack_top:
+kernel_stack_top:
 
 ; vim: set ts=4 sw=4 tw=0 noet :

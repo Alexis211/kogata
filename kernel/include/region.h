@@ -34,8 +34,6 @@ region_info_t *find_region(void* addr);
 void region_free(void* addr);
 
 // some usefull PF handlers
-// stack_pf_handler : allocates new frames and panics on access to first page of region (stack overflow)
-void stack_pf_handler(pagedir_t *pd, struct region_info *r, void* addr);
 // default_allocator_pf_handler : just allocates new frames on page faults
 void default_allocator_pf_handler(pagedir_t *pd, struct region_info *r, void* addr);
 

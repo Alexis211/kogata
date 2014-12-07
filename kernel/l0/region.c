@@ -333,17 +333,6 @@ region_info_t *find_region(void* addr) {
 // HELPER FUNCTIONS : SIMPLE PF HANDLERS ; FREEING FUNCTIONS //
 // ========================================================= //
 
-void stack_pf_handler(pagedir_t *pd, struct region_info *r, void* addr) {
-	if (addr < r->addr + PAGE_SIZE) {
-		dbg_printf("Stack overflow at 0x%p.", addr);
-		if (r->type & REGION_T_KPROC_STACK) dbg_printf("    (in kernel process stack)\n");
-		if (r->type & REGION_T_PROC_KSTACK) dbg_printf("    (in process kernel stack)\n");
-		dbg_print_region_stats();
-		PANIC("Stack overflow.");
-	}
-	default_allocator_pf_handler(pd, r, addr);
-}
-
 void default_allocator_pf_handler(pagedir_t *pd, struct region_info *r, void* addr) {
 	ASSERT(pd_get_frame(addr) == 0);	// if error is of another type (RO, protected), we don't do anyting
 

@@ -10,6 +10,8 @@
 #include <region.h>
 #include <kmalloc.h>
 
+#include <task.h>
+
 #include <slab_alloc.h>
 
 extern char k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
@@ -17,11 +19,6 @@ extern char k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stu
 void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
 	BOCHS_BREAKPOINT;
-}
-
-void yield() {
-	// multitasking not implemented yet
-	dbg_printf("Warning : probable deadlock?\n");
 }
 
 void region_test1() {
@@ -102,6 +99,28 @@ void kmalloc_test(void* kernel_data_end) {
 	dbg_printf("Kmalloc test OK.\n");
 	dbg_print_region_stats();
 }
+
+void test_task(void* a) {
+	int i = 0;
+	while(1) {
+		dbg_printf("b");
+		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
+		if (++i == 8) {
+			yield();
+			i = 0;
+		}
+	}
+}
+void kernel_init_stage2(void* data) {
+	task_t *tb = new_task(test_task);
+	resume_with_result(tb, 0, false);
+
+	while(1) {
+		dbg_printf("a");
+		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
+	}
+	PANIC("Reached kmain end! Falling off the edge.");
+}
  
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
@@ -141,8 +160,11 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	kmalloc_setup();
 	kmalloc_test(kernel_data_end);
 
-
-	PANIC("Reached kmain end! Falling off the edge.");
+	// enter multi-tasking mode
+	// interrupts are enabled at this moment, so all
+	// code run from now on should be preemtible (ie thread-safe)
+	tasking_setup(kernel_init_stage2, 0);
+	PANIC("Should never come here.");
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

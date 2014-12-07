@@ -60,13 +60,12 @@
 
 #define EFLAGS_IF		(0x1 << 9)
 
-struct registers {
+typedef struct registers {
 	uint32_t ds;                  // Data segment selector
 	uint32_t edi, esi, ebp, useless_esp, ebx, edx, ecx, eax; // Pushed by pusha.
 	uint32_t int_no, err_code;    // Interrupt number and error code (if applicable)
 	uint32_t eip, cs, eflags, esp, ss; // Pushed by the processor automatically.
-};
-typedef struct registers registers_t;
+} registers_t;
 
 typedef void (*isr_handler_t)(registers_t*);
 
