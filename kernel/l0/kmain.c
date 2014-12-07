@@ -47,7 +47,7 @@ slab_type_t slab_sizes[] = {
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
 
-	dbg_printf("Hello, kernel World!\n");
+	dbg_printf("Hello, kernel world!\n");
 	dbg_printf("This is %s, version %s.\n", OS_NAME, OS_VERSION);
 
 	ASSERT(mb_magic == MULTIBOOT_BOOTLOADER_MAGIC);

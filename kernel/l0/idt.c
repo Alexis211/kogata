@@ -91,6 +91,11 @@ static isr_handler_t ex_handlers[32] = {0};
 void idt_exHandler(registers_t *regs) {
 	if (ex_handlers[regs->int_no] != 0) {
 		ex_handlers[regs->int_no](regs);
+	} else {
+		//TODO: make sure all exceptions happenning in userspace do not cause kernel panic...
+		dbg_printf("Unhandled exception: %i\n", regs->int_no);
+		dbg_dump_registers(regs);
+		PANIC("Unhandled exception");
 	}
 } 
 
@@ -132,7 +137,8 @@ static const struct {
 	void (*fun)();
 	uint8_t type;
 } gates[] = {
-	// Processor exceptions are traps : handling them should be preemptible
+	// Most processor exceptions are traps and handling them
+	// should be preemptible
 	{ 0,	isr0,	GATE_TYPE_TRAP },
 	{ 1,	isr1,	GATE_TYPE_TRAP },
 	{ 2,	isr2,	GATE_TYPE_TRAP },
@@ -147,7 +153,7 @@ static const struct {
 	{ 11,	isr11,	GATE_TYPE_TRAP },
 	{ 12,	isr12,	GATE_TYPE_TRAP },
 	{ 13,	isr13,	GATE_TYPE_TRAP },
-	{ 14,	isr14,	GATE_TYPE_TRAP },
+	{ 14,	isr14,	GATE_TYPE_INTERRUPT },	// reenables interrupts later on
 	{ 15,	isr15,	GATE_TYPE_TRAP },
 	{ 16,	isr16,	GATE_TYPE_TRAP },
 	{ 17,	isr17,	GATE_TYPE_TRAP },

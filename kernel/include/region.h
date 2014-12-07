@@ -2,6 +2,8 @@
 
 // Kernel virtual memory region allocator
 
+// This is entirely thread-safe
+
 #include <sys.h>
 #include <paging.h>
 

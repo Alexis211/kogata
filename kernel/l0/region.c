@@ -1,6 +1,7 @@
 #include <region.h>
 #include <dbglog.h>
 #include <frame.h>
+#include <mutex.h>
 
 typedef union region_descriptor {
 	struct {
@@ -27,6 +28,8 @@ static descriptor_t *first_unused_descriptor;
 uint32_t n_unused_descriptors;
 static descriptor_t *first_free_region_by_addr, *first_free_region_by_size;
 static descriptor_t *first_used_region;
+
+STATIC_MUTEX(ra_mutex);	// region allocator mutex
 
 // ========================================================= //
 // HELPER FUNCTIONS FOR THE MANIPULATION OF THE REGION LISTS //
@@ -218,6 +221,23 @@ void region_allocator_init(void* kernel_data_end) {
 	first_used_region = u0;
 }
 
+static void region_free_inner(void* addr) {
+	descriptor_t *d = find_used_region(addr);
+	if (d == 0) return;
+
+	region_info_t i = d->used.i;
+
+	remove_used_region(d);
+	d->free.addr = i.addr;
+	d->free.size = i.size;
+	add_free_region(d);
+}
+void region_free(void* addr) {
+	mutex_lock(&ra_mutex);
+	region_free_inner(addr);
+	mutex_unlock(&ra_mutex);
+}
+
 static void* region_alloc_inner(size_t size, uint32_t type, page_fault_handler_t pf, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
@@ -263,9 +283,12 @@ static void* region_alloc_inner(size_t size, uint32_t type, page_fault_handler_t
 }
 
 void* region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
+	void* result = 0;
+	mutex_lock(&ra_mutex);
+
 	if (n_unused_descriptors <= N_RESERVE_DESCRIPTORS) {
 		uint32_t frame = frame_alloc(1);
-		if (frame == 0) return 0;
+		if (frame == 0) goto try_anyway;
 
 		void* descriptor_region = region_alloc_inner(PAGE_SIZE, REGION_T_DESCRIPTORS, 0, true);
 		ASSERT(descriptor_region != 0);
@@ -275,7 +298,8 @@ void* region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 			// this can happen if we weren't able to allocate a frame for
 			// a new pagetable
 			frame_free(frame, 1);
-			return 0;
+			region_free_inner(descriptor_region);
+			goto try_anyway;
 		}
 		
 		for (descriptor_t *d = (descriptor_t*)descriptor_region;
@@ -284,25 +308,25 @@ void* region_alloc(size_t size, uint32_t type, page_fault_handler_t pf) {
 			add_unused_descriptor(d);
 		}
 	}
-	return region_alloc_inner(size, type, pf, false);
+	try_anyway:
+	// even if we don't have enough unused descriptors, we might find
+	// a free region that has exactly the right size and therefore
+	// does not require splitting, so we try the allocation in all cases
+	result = region_alloc_inner(size, type, pf, false);
+
+	mutex_unlock(&ra_mutex);
+	return result;
 }
 
 region_info_t *find_region(void* addr) {
+	region_info_t *r = 0;
+	mutex_lock(&ra_mutex);
+
 	descriptor_t *d = find_used_region(addr);
-	if (d == 0) return 0;
-	return &d->used.i;
-}
+	if (d != 0) r = &d->used.i;
 
-void region_free(void* addr) {
-	descriptor_t *d = find_used_region(addr);
-	if (d == 0) return;
-
-	region_info_t i = d->used.i;
-
-	remove_used_region(d);
-	d->free.addr = i.addr;
-	d->free.size = i.size;
-	add_free_region(d);
+	mutex_unlock(&ra_mutex);
+	return r;
 }
 
 // ========================================================= //
@@ -357,6 +381,8 @@ void region_free_unmap(void* ptr) {
 // =========================== //
 
 void dbg_print_region_stats() {
+	mutex_lock(&ra_mutex);
+
 	dbg_printf("/ Free kernel regions, by address:\n");
 	for (descriptor_t *d = first_free_region_by_addr; d != 0; d = d->free.next_by_addr) {
 		dbg_printf("| 0x%p - 0x%p\n", d->free.addr, d->free.addr + d->free.size);
@@ -382,6 +408,8 @@ void dbg_print_region_stats() {
 		ASSERT(d != d->used.next_by_addr);
 	}
 	dbg_printf("\\\n");
+
+	mutex_unlock(&ra_mutex);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

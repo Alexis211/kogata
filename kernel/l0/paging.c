@@ -3,6 +3,7 @@
 #include <idt.h>
 #include <dbglog.h>
 #include <region.h>
+#include <mutex.h>
 
 #define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)x >> (PAGE_SHIFT + PT_SHIFT))
@@ -28,7 +29,7 @@ struct page_directory {
 	// then we can use mirroring to edit it
 	// (the last 4M of the address space are mapped to the PD itself)
 
-	// more info to be stored here, potentially
+	mutex_t mutex;
 };
 
 
@@ -59,6 +60,7 @@ void page_fault_handler(registers_t *regs) {
 			invlpg(&current_pt[pt]);
 			return;
 		}
+		asm volatile("sti");	// from now on we are preemptible
 
 		if (vaddr >= (void*)&kernel_stack_protector && vaddr < (void*)&kernel_stack_protector + PAGE_SIZE) {
 			dbg_printf("Kernel stack overflow at 0x%p\n", vaddr);
@@ -85,6 +87,8 @@ void page_fault_handler(registers_t *regs) {
 		}
 		i->pf(current_pd_d, i, vaddr);
 	} else {
+		asm volatile("sti");	// userspace PF handlers should always be preemptible
+
 		dbg_printf("Userspace page fault at 0x%p\n", vaddr);
 		PANIC("Unhandled userspace page fault");
 		// not handled yet
@@ -100,13 +104,15 @@ void paging_setup(void* kernel_data_end) {
 
 	// setup kernel_pd_d structure
 	kernel_pd_d.phys_addr = (size_t)&kernel_pd - K_HIGHHALF_ADDR;
+	kernel_pd_d.mutex = MUTEX_UNLOCKED;
 
 	// setup kernel_pt0
 	ASSERT(PAGE_OF_ADDR(K_HIGHHALF_ADDR) == 0);	// kernel is 4M-aligned
 	ASSERT(FIRST_KERNEL_PT == 768);
 	for (size_t i = 0; i < n_kernel_pages; i++) {
 		if ((i * PAGE_SIZE) + K_HIGHHALF_ADDR == (size_t)&kernel_stack_protector) {
-			frame_free(i, 1);	// don't map kernel stack protector page
+			kernel_pt0.page[i] = 0;	// don't map kernel stack protector page
+			frame_free(i, 1);
 		} else {
 			kernel_pt0.page[i] = (i << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW | PTE_GLOBAL;
 		}
@@ -146,7 +152,6 @@ pagedir_t *get_kernel_pagedir() {
 
 void switch_pagedir(pagedir_t *pd) {
 	asm volatile("movl %0, %%cr3":: "r"(pd->phys_addr));
-	invlpg(current_pd);
 	current_pd_d = pd;
 }
 
@@ -171,11 +176,16 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 
 	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
 	
+	pagedir_t *pdd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd_d : current_pd_d);
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
+	mutex_lock(&pdd->mutex);
 
 	if (!pd->page[pt] & PTE_PRESENT) {
 		uint32_t new_pt_frame = frame_alloc(1);
-		if (new_pt_frame == 0) return 1;	// OOM
+		if (new_pt_frame == 0) {
+			mutex_unlock(&pdd->mutex);
+			return 1;	// OOM
+		}
 
 		current_pd->page[pt] = pd->page[pt] =
 			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW;
@@ -188,6 +198,7 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 			| (rw ? PTE_RW : 0);
 	invlpg(vaddr);
 
+	mutex_unlock(&pdd->mutex);
 	return 0;
 } 
 
@@ -196,6 +207,7 @@ void pd_unmap_page(void* vaddr) {
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
+	// no need to lock the PD's mutex
 
 	if (!pd->page[pt] & PTE_PRESENT) return;
 	if (!current_pt[pt].page[page] & PTE_PRESENT) return;
@@ -203,7 +215,10 @@ void pd_unmap_page(void* vaddr) {
 	current_pt[pt].page[page] = 0;
 	invlpg(vaddr);
 
-	// TODO (?) : if pagetable is completely empty, free it
+	// If the page table is completely empty we might want to free
+	// it, but we would actually lose a lot of time checking if
+	// the PT is really empty (since we don't store the
+	// number of used pages in each PT), so it's probably not worth it
 }
 
 // Creation and deletion of page directories
