@@ -371,7 +371,7 @@ void region_free_unmap(void* ptr) {
 // DEBUG LOG PRINTING FUNCTION //
 // =========================== //
 
-void dbg_print_region_stats() {
+void dbg_print_region_info() {
 	mutex_lock(&ra_mutex);
 
 	dbg_printf("/ Free kernel regions, by address:\n");

@@ -24,28 +24,28 @@ void breakpoint_handler(registers_t *regs) {
 void region_test1() {
 	void* p = region_alloc(0x1000, REGION_T_HW, 0);
 	dbg_printf("Allocated one-page region: 0x%p\n", p);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	void* q = region_alloc(0x1000, REGION_T_HW, 0);
 	dbg_printf("Allocated one-page region: 0x%p\n", q);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	void* r = region_alloc(0x2000, REGION_T_HW, 0);
 	dbg_printf("Allocated two-page region: 0x%p\n", r);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	void* s = region_alloc(0x10000, REGION_T_CORE_HEAP, 0);
 	dbg_printf("Allocated 16-page region: 0x%p\n", s);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	region_free(p);
 	dbg_printf("Freed region 0x%p\n", p);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	region_free(q);
 	dbg_printf("Freed region 0x%p\n", q);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	region_free(r);
 	dbg_printf("Freed region 0x%p\n", r);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	region_free(s);
 	dbg_printf("Freed region 0x%p\n", s);
-	dbg_print_region_stats();
+	dbg_print_region_info();
 }
 
 void region_test2() {
@@ -77,7 +77,7 @@ void region_test2() {
 
 void kmalloc_test(void* kernel_data_end) {
 	// Test kmalloc !
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	dbg_printf("Begin kmalloc test...\n");
 	const int m = 200;
 	uint16_t** ptr = kmalloc(m * sizeof(uint32_t));
@@ -88,7 +88,7 @@ void kmalloc_test(void* kernel_data_end) {
 		*ptr[i] = ((i * 211) % 1024);
 	}
 	dbg_printf("Fully allocated.\n");
-	dbg_print_region_stats();
+	dbg_print_region_info();
 	for (int i = 0; i < m; i++) {
 		for (int j = i; j < m; j++) {
 			ASSERT(*ptr[j] == (j * 211) % 1024);
@@ -97,7 +97,7 @@ void kmalloc_test(void* kernel_data_end) {
 	}
 	kfree(ptr);
 	dbg_printf("Kmalloc test OK.\n");
-	dbg_print_region_stats();
+	dbg_print_region_info();
 }
 
 void test_task(void* a) {
@@ -113,7 +113,10 @@ void test_task(void* a) {
 }
 void kernel_init_stage2(void* data) {
 	task_t *tb = new_task(test_task);
-	resume_with_result(tb, 0, false);
+	resume_task_with_result(tb, 0, false);
+
+	dbg_print_region_info();
+	dbg_print_frame_stats();
 
 	while(1) {
 		dbg_printf("a");

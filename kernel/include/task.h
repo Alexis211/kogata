@@ -35,13 +35,13 @@ typedef struct task {
 typedef void (*entry_t)(void*);
 
 void tasking_setup(entry_t cont, void* data);		// never returns
-task_t *new_task(entry_t entry);	// task is PAUSED, and must be resume_with_result'ed
+task_t *new_task(entry_t entry);	// task is PAUSED, and must be resume_task_with_result'ed
 
 extern task_t *current_task;
 
 void yield();
 void* wait_for_result();
 
-void resume_with_result(task_t *task, void* data, bool run_at_once);
+void resume_task_with_result(task_t *task, void* data, bool run_at_once);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

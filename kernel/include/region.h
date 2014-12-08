@@ -43,6 +43,6 @@ void region_free_unmap_free(void* addr);
 // region_free_unmap : deletes a region and unmaps all frames that were mapped in it, without freeing them
 void region_free_unmap(void* addr);
 
-void dbg_print_region_stats();
+void dbg_print_region_info();
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

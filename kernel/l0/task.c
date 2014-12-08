@@ -168,7 +168,7 @@ void tasking_setup(entry_t cont, void* arg) {
 	task_t *t = new_task(cont);
 	ASSERT(t != 0);
 
-	resume_with_result(t, arg, false);
+	resume_task_with_result(t, arg, false);
 
 	run_scheduler();	// never returns
 	ASSERT(false);
@@ -204,7 +204,7 @@ void* wait_for_result() {
 	return result;
 }
 
-void resume_with_result(task_t *task, void* data, bool run_at_once) {
+void resume_task_with_result(task_t *task, void* data, bool run_at_once) {
 	bool st = disable_interrupts();
 
 	task->has_result = true;

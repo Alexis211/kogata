@@ -69,7 +69,7 @@ void page_fault_handler(registers_t *regs) {
 
 		if ((size_t)vaddr >= PD_MIRROR_ADDR) {
 			dbg_printf("Fault on access to mirrorred PD at 0x%p\n", vaddr);
-			dbg_print_region_stats();
+			dbg_print_region_info();
 			PANIC("Unhandled kernel space page fault");
 		}
 
@@ -82,7 +82,7 @@ void page_fault_handler(registers_t *regs) {
 		if (i->pf == 0) {
 			dbg_printf("Kernel pagefault in region with no handler at 0x%p\n", vaddr);
 			dbg_dump_registers(regs);
-			dbg_print_region_stats();
+			dbg_print_region_info();
 			PANIC("Unhandled kernel space page fault");
 		}
 		i->pf(get_current_pagedir(), i, vaddr);
