@@ -5,6 +5,7 @@
 #include <region.h>
 #include <mutex.h>
 #include <task.h>
+#include <kmalloc.h>
 
 #define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)x >> (PAGE_SHIFT + PT_SHIFT))
@@ -225,10 +226,73 @@ void pd_unmap_page(void* vaddr) {
 // Creation and deletion of page directories
 
 pagedir_t *create_pagedir() {
-	return 0;	// TODO
+	uint32_t pd_phys = 0;
+	pagedir_t *pd = 0;
+	void* temp = 0;
+
+	pd_phys = frame_alloc(1);
+	if (pd_phys == 0) goto error;
+
+	pd = (pagedir_t*)kmalloc(sizeof(pagedir_t));
+	if (pd == 0) goto error;
+
+	temp = region_alloc(PAGE_SIZE, 0, 0);
+	if (temp == 0) goto error;
+
+	int error = pd_map_page(temp, pd_phys, true);
+	if (error) goto error;
+
+	pd->phys_addr = pd_phys * PAGE_SIZE;
+	pd->mutex = MUTEX_UNLOCKED;
+
+	// initialize PD with zeroes
+	pagetable_t *pt = (pagetable_t*)temp;
+	for (size_t i = 0; i < N_PAGES_IN_PT; i++) {
+		pt->page[i] = 0;
+	}
+	// use kernel page tables
+	for(size_t i = FIRST_KERNEL_PT; i < N_PAGES_IN_PT-1; i++) {
+		pt->page[i] = kernel_pd.page[i];
+	}
+	// set up mirroring
+	pt->page[N_PAGES_IN_PT-1] = pd->phys_addr | PTE_PRESENT | PTE_RW;
+
+	region_free_unmap(temp);
+
+	return pd;
+
+	error:
+	if (pd_phys != 0) frame_free(pd_phys, 1);
+	if (pd != 0) kfree(pd);
+	if (temp != 0) region_free(temp);
+	return 0;
 }
+
 void delete_pagedir(pagedir_t *pd) {
-	return;		// TODO
+	pagedir_t *restore_pd = get_current_pagedir();
+	if (restore_pd == pd) restore_pd = &kernel_pd_d;
+
+	// make a copy of page directory on the stack
+	switch_pagedir(pd);
+	pagetable_t backup;
+	for (size_t i = 0; i < N_PAGES_IN_PT; i++) {
+		backup.page[i] = current_pd->page[i];
+	}
+	switch_pagedir(restore_pd);
+	
+	// free the page tables
+	for (size_t i = 0; i < FIRST_KERNEL_PT; i++) {
+		if (backup.page[i] & PTE_PRESENT)
+			frame_free(backup.page[i] >> PTE_FRAME_SHIFT, 1);
+	}
+	// free the page directory page
+	uint32_t pd_phys = pd->phys_addr / PAGE_SIZE;
+	ASSERT(pd_phys == (backup.page[N_PAGES_IN_PT-1] >> PTE_FRAME_SHIFT));
+	frame_free(pd_phys, 1);
+	// free the pagedir_t structure
+	kfree(pd);
+
+	return;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
