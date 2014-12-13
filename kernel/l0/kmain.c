@@ -10,7 +10,7 @@
 #include <region.h>
 #include <kmalloc.h>
 
-#include <task.h>
+#include <thread.h>
 
 #include <slab_alloc.h>
 
@@ -100,7 +100,7 @@ void kmalloc_test(void* kernel_data_end) {
 	dbg_print_region_info();
 }
 
-void test_task(void* a) {
+void test_thread(void* a) {
 	int i = 0;
 	while(1) {
 		dbg_printf("b");
@@ -112,8 +112,8 @@ void test_task(void* a) {
 	}
 }
 void kernel_init_stage2(void* data) {
-	task_t *tb = new_task(test_task);
-	resume_task_with_result(tb, 0, false);
+	thread_t *tb = new_thread(test_thread);
+	resume_thread_with_result(tb, 0, false);
 
 	dbg_print_region_info();
 	dbg_print_frame_stats();
@@ -163,10 +163,10 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	kmalloc_setup();
 	kmalloc_test(kernel_data_end);
 
-	// enter multi-tasking mode
+	// enter multi-threading mode
 	// interrupts are enabled at this moment, so all
 	// code run from now on should be preemtible (ie thread-safe)
-	tasking_setup(kernel_init_stage2, 0);
+	threading_setup(kernel_init_stage2, 0);
 	PANIC("Should never come here.");
 }
 

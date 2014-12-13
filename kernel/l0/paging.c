@@ -4,7 +4,7 @@
 #include <dbglog.h>
 #include <region.h>
 #include <mutex.h>
-#include <task.h>
+#include <thread.h>
 #include <kmalloc.h>
 
 #define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
@@ -143,8 +143,8 @@ void paging_setup(void* kernel_data_end) {
 }
 
 pagedir_t *get_current_pagedir() {
-	if (current_task == 0) return &kernel_pd_d;
-	return current_task->current_pd_d;
+	if (current_thread == 0) return &kernel_pd_d;
+	return current_thread->current_pd_d;
 }
 
 pagedir_t *get_kernel_pagedir() {
@@ -153,7 +153,7 @@ pagedir_t *get_kernel_pagedir() {
 
 void switch_pagedir(pagedir_t *pd) {
 	asm volatile("movl %0, %%cr3":: "r"(pd->phys_addr));
-	if (current_task != 0) current_task->current_pd_d = pd;
+	if (current_thread != 0) current_thread->current_pd_d = pd;
 }
 
 // ============================== //
@@ -177,8 +177,8 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 
 	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
 	
-	pagedir_t *pdd = ((size_t)vaddr >= K_HIGHHALF_ADDR || current_task == 0
-							? &kernel_pd_d : current_task->current_pd_d);
+	pagedir_t *pdd = ((size_t)vaddr >= K_HIGHHALF_ADDR || current_thread == 0
+							? &kernel_pd_d : current_thread->current_pd_d);
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 	mutex_lock(&pdd->mutex);
 
