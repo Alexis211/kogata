@@ -8,7 +8,7 @@
 #include <region.h>
 
 static void* page_alloc_fun_for_kmalloc(size_t bytes) {
-	void* addr = region_alloc(bytes, REGION_T_CORE_HEAP, default_allocator_pf_handler);
+	void* addr = region_alloc(bytes, "Core kernel heap", default_allocator_pf_handler);
 	return addr;
 }
 

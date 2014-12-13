@@ -22,16 +22,16 @@ void breakpoint_handler(registers_t *regs) {
 }
 
 void region_test1() {
-	void* p = region_alloc(0x1000, REGION_T_HW, 0);
+	void* p = region_alloc(0x1000, "Test region", 0);
 	dbg_printf("Allocated one-page region: 0x%p\n", p);
 	dbg_print_region_info();
-	void* q = region_alloc(0x1000, REGION_T_HW, 0);
+	void* q = region_alloc(0x1000, "Test region", 0);
 	dbg_printf("Allocated one-page region: 0x%p\n", q);
 	dbg_print_region_info();
-	void* r = region_alloc(0x2000, REGION_T_HW, 0);
+	void* r = region_alloc(0x2000, "Test region", 0);
 	dbg_printf("Allocated two-page region: 0x%p\n", r);
 	dbg_print_region_info();
-	void* s = region_alloc(0x10000, REGION_T_CORE_HEAP, 0);
+	void* s = region_alloc(0x10000, "Test region", 0);
 	dbg_printf("Allocated 16-page region: 0x%p\n", s);
 	dbg_print_region_info();
 	region_free(p);
@@ -52,7 +52,7 @@ void region_test2() {
 	// allocate a big region and try to write into it
 	dbg_printf("Begin region test 2...");
 	const size_t n = 200;
-	void* p0 = region_alloc(n * PAGE_SIZE, REGION_T_HW, default_allocator_pf_handler);
+	void* p0 = region_alloc(n * PAGE_SIZE, "Test big region", default_allocator_pf_handler);
 	for (size_t i = 0; i < n; i++) {
 		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
 		x[0] = 12;
