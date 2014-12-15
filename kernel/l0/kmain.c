@@ -14,7 +14,7 @@
 
 #include <slab_alloc.h>
 
-extern char k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
+extern const void k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
 
 void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
@@ -145,7 +145,7 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	// used for allocation of data structures before malloc is set up
 	// a pointer to this pointer is passed to the functions that might have
 	// to allocate memory ; they just increment it of the allocated quantity
-	void* kernel_data_end = &k_end_addr;
+	void* kernel_data_end = (void*)&k_end_addr;
 
 	frame_init_allocator(total_ram, &kernel_data_end);
 	dbg_printf("kernel_data_end: 0x%p\n", kernel_data_end);
