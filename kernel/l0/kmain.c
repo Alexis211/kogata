@@ -156,8 +156,8 @@ void kernel_init_stage2(void* data) {
 	test_hashtbl_1();
 	test_hashtbl_2();
 
-	thread_t *tb = new_thread(test_thread);
-	resume_thread_with_result(tb, 0, false);
+	thread_t *tb = new_thread(test_thread, 0);
+	resume_thread(tb, false);
 
 	for (int i = 0; i < 120; i++) {
 		dbg_printf("a");

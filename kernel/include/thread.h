@@ -5,8 +5,8 @@
 #include <region.h>
 
 #define T_STATE_RUNNING		1
-#define T_STATE_FINISHED	2
-#define T_STATE_WAITING		3
+#define T_STATE_PAUSED	 	2
+#define T_STATE_FINISHED	3
 
 #define KPROC_STACK_SIZE 0x8000	// 8Kb
 
@@ -22,8 +22,6 @@ typedef struct thread {
 	pagedir_t *current_pd_d;
 
 	uint32_t state;
-	void* result;
-	bool has_result;
 
 	region_info_t *stack_region;
 
@@ -35,13 +33,13 @@ typedef struct thread {
 typedef void (*entry_t)(void*);
 
 void threading_setup(entry_t cont, void* data);		// never returns
-thread_t *new_thread(entry_t entry);	// thread is PAUSED, and must be resume_thread_with_result'ed
+thread_t *new_thread(entry_t entry, void* data);	// thread is PAUSED, and must be resume_thread'ed
 
 extern thread_t *current_thread;
 
 void yield();
-void* wait_for_result();
+void pause();
 
-void resume_thread_with_result(thread_t *thread, void* data, bool run_at_once);
+void resume_thread(thread_t *thread, bool run_at_once);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
