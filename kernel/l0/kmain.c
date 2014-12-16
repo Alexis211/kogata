@@ -13,6 +13,7 @@
 #include <thread.h>
 
 #include <slab_alloc.h>
+#include <hashtbl.h>
 
 extern const void k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
 
@@ -100,25 +101,65 @@ void kmalloc_test(void* kernel_data_end) {
 	dbg_print_region_info();
 }
 
+void test_hashtbl_1() {
+	// hashtable test
+	hashtbl_t *ht = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
+	hashtbl_add(ht, "test1", "Hello, world [test1]");
+	hashtbl_add(ht, "test2", "Hello, world [test2]");
+	dbg_printf("ht[test1] = %s\n", hashtbl_find(ht, "test1"));
+	dbg_printf("ht[test] = %s\n", hashtbl_find(ht, "test"));
+	dbg_printf("ht[test2] = %s\n", hashtbl_find(ht, "test2"));
+	dbg_printf("adding test...\n");
+	hashtbl_add(ht, "test", "Forever alone");
+	dbg_printf("ht[test1] = %s\n", hashtbl_find(ht, "test1"));
+	dbg_printf("ht[test] = %s\n", hashtbl_find(ht, "test"));
+	dbg_printf("ht[test2] = %s\n", hashtbl_find(ht, "test2"));
+	dbg_printf("removing test1...\n");
+	hashtbl_remove(ht, "test1");
+	dbg_printf("ht[test1] = %s\n", hashtbl_find(ht, "test1"));
+	dbg_printf("ht[test] = %s\n", hashtbl_find(ht, "test"));
+	dbg_printf("ht[test2] = %s\n", hashtbl_find(ht, "test2"));
+	delete_hashtbl(ht);
+}
+
+void test_hashtbl_2() {
+	hashtbl_t *ht = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
+	hashtbl_add(ht, (void*)12, "Hello, world [12]");
+	hashtbl_add(ht, (void*)777, "Hello, world [777]");
+	dbg_printf("ht[12] = %s\n", hashtbl_find(ht, (void*)12));
+	dbg_printf("ht[144] = %s\n", hashtbl_find(ht, (void*)144));
+	dbg_printf("ht[777] = %s\n", hashtbl_find(ht, (void*)777));
+	dbg_printf("adding 144...\n");
+	hashtbl_add(ht, (void*)144, "Forever alone");
+	dbg_printf("ht[12] = %s\n", hashtbl_find(ht, (void*)12));
+	dbg_printf("ht[144] = %s\n", hashtbl_find(ht, (void*)144));
+	dbg_printf("ht[777] = %s\n", hashtbl_find(ht, (void*)777));
+	dbg_printf("removing 12...\n");
+	hashtbl_remove(ht, (void*)12);
+	dbg_printf("ht[12] = %s\n", hashtbl_find(ht, (void*)12));
+	dbg_printf("ht[144] = %s\n", hashtbl_find(ht, (void*)144));
+	dbg_printf("ht[777] = %s\n", hashtbl_find(ht, (void*)777));
+	delete_hashtbl(ht);
+}
+
 void test_thread(void* a) {
-	int i = 0;
-	while(1) {
+	for(int i = 0; i < 120; i++) {
 		dbg_printf("b");
 		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
-		if (++i == 8) {
-			yield();
-			i = 0;
-		}
+		if (i % 8 == 0) yield();
 	}
 }
 void kernel_init_stage2(void* data) {
-	thread_t *tb = new_thread(test_thread);
-	resume_thread_with_result(tb, 0, false);
-
 	dbg_print_region_info();
 	dbg_print_frame_stats();
 
-	while(1) {
+	test_hashtbl_1();
+	test_hashtbl_2();
+
+	thread_t *tb = new_thread(test_thread);
+	resume_thread_with_result(tb, 0, false);
+
+	for (int i = 0; i < 120; i++) {
 		dbg_printf("a");
 		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
 	}
