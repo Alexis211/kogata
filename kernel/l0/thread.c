@@ -144,7 +144,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 
 	t->current_pd_d = get_kernel_pagedir();
 
-	t->more_data = 0;	// free for use by L1 functions
+	t->proc = 0;	// used by L1 functions
 
 	return t;
 }

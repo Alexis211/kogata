@@ -17,6 +17,7 @@ typedef struct saved_context {
 	void (*eip)();
 } saved_context_t;
 
+struct process;
 typedef struct thread {
 	saved_context_t ctx;
 	pagedir_t *current_pd_d;
@@ -25,7 +26,7 @@ typedef struct thread {
 
 	region_info_t *stack_region;
 
-	void* more_data;
+	struct process *proc;		// process : L1 data structure
 
 	struct thread *next_in_queue;
 } thread_t;
