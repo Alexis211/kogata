@@ -8,6 +8,9 @@
 // Supports adding, seeking, removing
 // When adding a binding to the table, the previous binding for same key (if exists) is removed
 
+// TODO : possibility to allocate the hashtbl structure on any heap
+// (currently uses kmalloc/kfree)
+
 struct hashtbl;
 typedef struct hashtbl hashtbl_t;
 

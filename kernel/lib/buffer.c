@@ -91,7 +91,7 @@ size_t read_buffer(buffer_t *b, char* dest, size_t begin, size_t n) {
 // BUFFER CREATION FUNCTIONS //
 // ========================= //
 
-buffer_t *buffer_from_bytes_nocopy(const char* data, size_t n) {
+buffer_t *buffer_from_bytes_nocopy(const char* data, size_t n, bool own_bytes) {
 	buffer_t *b = (buffer_t*)kmalloc(sizeof(buffer_t));
 	if (b == 0) return 0;
 
@@ -99,7 +99,7 @@ buffer_t *buffer_from_bytes_nocopy(const char* data, size_t n) {
 	b->type = T_BYTES;
 	b->len = n;
 	b->bytes.data = data;
-	b->bytes.owned = false;
+	b->bytes.owned = own_bytes;
 
 	return b;
 }
@@ -109,13 +109,11 @@ buffer_t *buffer_from_bytes(const char* data, size_t n) {
 
 	memcpy(data2, data, n);
 
-	buffer_t *b = buffer_from_bytes_nocopy(data2, n);
+	buffer_t *b = buffer_from_bytes_nocopy(data2, n, true);
 	if (b == 0) {
 		kfree(data2);
 		return 0;
 	}
-
-	b->bytes.owned = true;
 
 	return b;
 }
