@@ -17,7 +17,7 @@
 
 #define K_HIGHHALF_ADDR ((size_t)0xC0000000)
 
-#define OS_NAME "macrO.Scope"
+#define OS_NAME "kogata"
 #define OS_VERSION "0.0.1"
 
 // Comment to disable either form of debug log output

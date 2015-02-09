@@ -8,6 +8,7 @@ It relies on a few functions being exported :
 - dbg_print(const char* str)
 - void* malloc(size_t size)
 - free(void* ptr)
+- yield()
 
 These function are supposed to be defined in the code that calls
 the common functions. The headers for these functions are to be
