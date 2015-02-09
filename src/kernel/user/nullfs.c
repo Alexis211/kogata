@@ -254,8 +254,10 @@ size_t nullfs_i_ram_write(void* fi, size_t offset, size_t len, const char* buf) 
 		memcpy(new_buffer, f->data, f->size);
 		if (offset > f->size)
 			memset(new_buffer + f->size, 0, offset - f->size);
-		free(f->data);
+
+		if (f->data_owned) free(f->data);
 		f->data = new_buffer;
+		f->data_owned = true;
 		f->size = offset + len;
 	}
 
