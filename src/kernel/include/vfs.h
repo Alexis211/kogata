@@ -3,17 +3,7 @@
 #include <stdbool.h>
 #include <malloc.h>
 
-typedef struct {
-	// TODO
-	// (should also be moved to a user-visible header)
-} stat_t;
-
-#define FM_READ 	(0x01)
-#define FM_WRITE 	(0x02)
-#define FM_MMAP 	(0x04)
-#define FM_CREATE   (0x10)
-#define FM_TRUNC    (0x20)
-#define FM_APPEND   (0x40)
+#include <fs.h> 		// common header
 
 // How to use :
 // - when using a filesystem : never call the operations in fs_*_ops_t directly, use
@@ -27,6 +17,7 @@ typedef struct {
 typedef struct {
 	size_t (*read)(void* f, size_t offset, size_t len, char* buf);
 	size_t (*write)(void* f, size_t offset, size_t len, const char* buf);
+	bool (*stat)(void* f, stat_t *st);
 	void (*close)(void* f);
 } fs_handle_ops_t;
 

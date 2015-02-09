@@ -1,5 +1,6 @@
 #include <hashtbl.h>
 #include <string.h>
+#include <debug.h>
 
 #include <nullfs.h>
 
@@ -8,7 +9,9 @@ static bool nullfs_i_make(fs_handle_t *source, char* opts, fs_t *d);
 static bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s);
 static bool nullfs_i_delete(void* fs, const char* file);
 static void nullfs_i_shutdown(void* fs);
+static bool nullfs_i_fs_stat(void* fs, const char* file, stat_t *st);
 
+static bool nullfs_i_f_stat(void* f, stat_t *st);
 static size_t nullfs_i_read(void* f, size_t offset, size_t len, char* buf);
 static size_t nullfs_i_write(void* f, size_t offset, size_t len, const char* buf);
 static void nullfs_i_close(void* f);
@@ -22,7 +25,7 @@ static fs_ops_t nullfs_ops = {
 	.open = nullfs_i_open,
 	.delete = nullfs_i_delete,
 	.rename = 0,
-	.stat = 0,
+	.stat = nullfs_i_fs_stat,
 	.ioctl = 0,
 	.add_source = 0,
 	.shutdown = nullfs_i_shutdown
@@ -31,7 +34,8 @@ static fs_ops_t nullfs_ops = {
 static fs_handle_ops_t nullfs_h_ops = {
 	.read = nullfs_i_read,
 	.write = nullfs_i_write,
-	.close = nullfs_i_close
+	.close = nullfs_i_close,
+	.stat = nullfs_i_f_stat
 };
 
 // Internal nullfs structures
@@ -122,8 +126,19 @@ bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s) {
 	nullfs_t *f = (nullfs_t*)fs;
 
 	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
-	if (x == 0) return false;
-	// TODO : if null and can_create, then create.
+	if (x == 0) {
+		if (f->can_create) {
+			if (nullfs_add_ram_file(fs, file, 0, 0, false,
+						FM_READ | FM_WRITE | FM_APPEND | FM_TRUNC | FM_MMAP)) {
+				x = (nullfs_item_t*)(hashtbl_find(f->items, file));
+				ASSERT(x != 0);
+			} else {
+				return false;
+			}
+		} else {
+			return false;
+		}
+	}
 
 	nullfs_handle_t *h = (nullfs_handle_t*)malloc(sizeof(nullfs_handle_t));
 	if (h == 0) return false;
@@ -140,6 +155,15 @@ bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s) {
 	return true;
 }
 
+bool nullfs_i_fs_stat(void* fs, const char* file, stat_t *st) {
+	nullfs_t *f = (nullfs_t*)fs;
+
+	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
+	if (x == 0) return false;
+
+	return x->ops->stat && x->ops->stat(x->data, st);
+}
+
 bool nullfs_i_delete(void* fs, const char* file) {
 	nullfs_t *f = (nullfs_t*)fs;
 
@@ -151,6 +175,11 @@ bool nullfs_i_delete(void* fs, const char* file) {
 	hashtbl_remove(f->items, file);
 	nullfs_i_free_item(x);
 	return true;
+}
+
+bool nullfs_i_f_stat(void* f, stat_t *st) {
+	nullfs_handle_t *h = (nullfs_handle_t*)f;
+	return h->item->ops->stat && h->item->ops->stat(h->item->data, st);
 }
 
 size_t nullfs_i_read(void* f, size_t offset, size_t len, char* buf) {
@@ -179,11 +208,13 @@ static void* nullfs_i_ram_open(void* f, int mode, fs_handle_t *h);
 static size_t nullfs_i_ram_read(void* f, size_t offset, size_t len, char* buf);
 static size_t nullfs_i_ram_write(void* f, size_t offset, size_t len, const char* buf);
 static void nullfs_i_ram_dispose(void* f);
+static bool nullfs_i_ram_stat(void* f, stat_t *st);
 
 static nullfs_node_ops_t nullfs_ram_ops = {
 	.open = nullfs_i_ram_open,
 	.read = nullfs_i_ram_read,
 	.write = nullfs_i_ram_write,
+	.stat = nullfs_i_ram_stat,
 	.close = 0,
 	.dispose = nullfs_i_ram_dispose
 };
@@ -228,6 +259,14 @@ void* nullfs_i_ram_open(void* fi, int mode, fs_handle_t *h) {
 	if (mode & ~f->ok_modes) {
 		return 0;
 	}
+	mode &= ~FM_CREATE;
+
+	if (mode & FM_TRUNC) {
+		if (f->data_owned) free(f->data);
+		f->data = 0;
+		f->size = 0;
+		f->data_owned = 0;
+	}
 
 	h->mode = mode;
 	return fi;
@@ -270,6 +309,13 @@ void nullfs_i_ram_dispose(void* fi) {
 	
 	if (f->data_owned) free(f->data);
 	free(f);
+}
+
+bool nullfs_i_ram_stat(void* fi, stat_t *st) {
+	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+
+	st->size = f->size;
+	return true;
 }
 
 
