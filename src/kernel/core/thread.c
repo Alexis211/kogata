@@ -129,7 +129,10 @@ thread_t *new_thread(entry_t entry, void* data) {
 			free(t);
 			return 0;
 		}
-		pd_map_page(i, f, true);
+		bool map_ok = pd_map_page(i, f, true);
+		if (!map_ok) {
+			PANIC("TODO");
+		}
 	}
 
 	t->stack_region = find_region(stack);

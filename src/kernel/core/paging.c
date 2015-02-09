@@ -171,7 +171,7 @@ uint32_t pd_get_frame(void* vaddr) {
 	return current_pt[pt].page[page] >> PTE_FRAME_SHIFT;
 }
 
-int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
+bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	uint32_t pt = PT_OF_ADDR(vaddr);
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
@@ -186,7 +186,7 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 		uint32_t new_pt_frame = frame_alloc(1);
 		if (new_pt_frame == 0) {
 			mutex_unlock(&pdd->mutex);
-			return 1;	// OOM
+			return false;	// OOM
 		}
 
 		current_pd->page[pt] = pd->page[pt] =
@@ -201,7 +201,7 @@ int pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	invlpg(vaddr);
 
 	mutex_unlock(&pdd->mutex);
-	return 0;
+	return true;
 } 
 
 void pd_unmap_page(void* vaddr) {
@@ -239,8 +239,8 @@ pagedir_t *create_pagedir() {
 	temp = region_alloc(PAGE_SIZE, 0, 0);
 	if (temp == 0) goto error;
 
-	int error = pd_map_page(temp, pd_phys, true);
-	if (error) goto error;
+	bool map_ok = pd_map_page(temp, pd_phys, true);
+	if (!map_ok) goto error;
 
 	pd->phys_addr = pd_phys * PAGE_SIZE;
 	pd->mutex = MUTEX_UNLOCKED;

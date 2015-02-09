@@ -293,8 +293,8 @@ void* region_alloc(size_t size, char* type, page_fault_handler_t pf) {
 		void* descriptor_region = region_alloc_inner(PAGE_SIZE, "Region descriptors", 0, true);
 		ASSERT(descriptor_region != 0);
 
-		int error = pd_map_page(descriptor_region, frame, 1);
-		if (error) {
+		bool map_ok = pd_map_page(descriptor_region, frame, 1);
+		if (!map_ok) {
 			// this can happen if we weren't able to allocate a frame for
 			// a new pagetable
 			frame_free(frame, 1);
@@ -339,8 +339,8 @@ void default_allocator_pf_handler(pagedir_t *pd, struct region_info *r, void* ad
 	uint32_t f = frame_alloc(1);
 	if (f == 0) PANIC("Out Of Memory");
 
-	int error = pd_map_page(addr, f, 1);
-	if (error) PANIC("Could not map frame (OOM)");
+	bool map_ok = pd_map_page(addr, f, 1);
+	if (!map_ok) PANIC("Could not map frame (OOM)");
 }
 
 void region_free_unmap_free(void* ptr) {
