@@ -173,14 +173,19 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	// Also check that kernel_data_end is after all modules, otherwise
 	// we might overwrite something.
 	mbd->cmdline += K_HIGHHALF_ADDR;
+	size_t cmdline_end = mbd->cmdline + strlen((char*)mbd->cmdline);
+	void* cmdline_end_pa = (void*)((cmdline_end & 0xFFFFF000) + 0x1000);
+	if (cmdline_end_pa > kernel_data_end) kernel_data_end = cmdline_end_pa;
+
 	mbd->mods_addr += K_HIGHHALF_ADDR;
 	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
 	for (unsigned i = 0; i < mbd->mods_count; i++) {
 		mods[i].mod_start += K_HIGHHALF_ADDR;
 		mods[i].mod_end += K_HIGHHALF_ADDR;
 		mods[i].string += K_HIGHHALF_ADDR;
-		if ((void*)mods[i].mod_end > kernel_data_end)
-			kernel_data_end = (void*)((mods[i].mod_end & 0xFFFFF000) + 0x1000);
+		void* mod_end_pa = (void*)((mods[i].mod_end & 0xFFFFF000) + 0x1000);
+		if (mod_end_pa > kernel_data_end)
+			kernel_data_end = mod_end_pa;
 	}
 
 	gdt_init(); dbg_printf("GDT set up.\n");
@@ -240,6 +245,12 @@ void kernel_init_stage2(void* data) {
 	nullfs_t *devfs = as_nullfs(devfs_fs);
 	ASSERT(devfs != 0);
 
+	// Add kernel command line to devfs
+	dbg_printf("Kernel command line: '%s'\n", (char*)mbd->cmdline);
+	ASSERT(nullfs_add_ram_file(devfs, "/cmdline",
+			(void*)mbd->cmdline, strlen((char*)mbd->cmdline),
+			false, FM_READ));
+
 	// Populate devfs with files for kernel modules
 	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
 	for (unsigned i = 0; i < mbd->mods_count; i++) {
@@ -254,7 +265,7 @@ void kernel_init_stage2(void* data) {
 		strcpy(name, "/mod/");
 		strcpy(name+5, modname);
 
-		dbg_printf("Adding model to VFS: %s\n", name);
+		dbg_printf("Adding module to VFS: '%s'\n", name);
 
 		ASSERT(nullfs_add_ram_file(devfs, name,
 							(void*)mods[i].mod_start,
