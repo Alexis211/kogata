@@ -13,6 +13,9 @@
 
 #include <thread.h>
 
+#include <vfs.h>
+#include <nullfs.h>
+
 #include <slab_alloc.h>
 #include <hashtbl.h>
 
@@ -150,23 +153,8 @@ void test_thread(void* a) {
 		if (i % 8 == 0) yield();
 	}
 }
-void kernel_init_stage2(void* data) {
-	dbg_print_region_info();
-	dbg_print_frame_stats();
 
-	test_hashtbl_1();
-	test_hashtbl_2();
-
-	thread_t *tb = new_thread(test_thread, 0);
-	resume_thread(tb, false);
-
-	for (int i = 0; i < 120; i++) {
-		dbg_printf("a");
-		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
-	}
-	PANIC("Reached kmain end! Falling off the edge.");
-}
- 
+void kernel_init_stage2(void* data);
 void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	dbglog_setup();
 
@@ -210,6 +198,35 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	// code run from now on should be preemtible (ie thread-safe)
 	threading_setup(kernel_init_stage2, 0);
 	PANIC("Should never come here.");
+}
+
+void kernel_init_stage2(void* data) {
+	dbg_print_region_info();
+	dbg_print_frame_stats();
+
+	test_hashtbl_1();
+	test_hashtbl_2();
+
+	thread_t *tb = new_thread(test_thread, 0);
+	resume_thread(tb, false);
+
+	for (int i = 0; i < 120; i++) {
+		dbg_printf("a");
+		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
+	}
+
+	register_nullfs_driver();
+	fs_t *devfs = make_fs("nullfs", 0, "");
+	ASSERT(devfs != 0);
+
+	//TODO :
+	// - populate devfs with information regarding kernel command line & modules
+	// - create user process with init module provided on command line
+	// - give it rights to devfs
+	// - launch it
+	// - just return, this thread is done
+
+	PANIC("Reached kmain end! Falling off the edge.");
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

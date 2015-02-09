@@ -10,10 +10,9 @@ size_t strlen(const char* str) {
 }
 
 char *strchr(const char *str, char c) {
-	while (*str) {
+	do {
 		if (*str == c) return (char*)str;
-		str++;
-	}
+	} while (*(str++));
 	return NULL;
 }
 
