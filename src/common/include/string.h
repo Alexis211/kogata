@@ -14,4 +14,6 @@ char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *s1, const char *s2);
 
+char *strdup(const char* str);
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

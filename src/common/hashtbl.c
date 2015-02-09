@@ -16,16 +16,18 @@ typedef struct hashtbl_item {
 struct hashtbl {
 	key_eq_fun_t ef;
 	hash_fun_t hf;
+	key_free_fun_t kff;
 	size_t size, nitems;
 	hashtbl_item_t **items;
 };
 
-hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, size_t initial_size) {
+hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, key_free_fun_t kff, size_t initial_size) {
 	hashtbl_t *ht = (hashtbl_t*)malloc(sizeof(hashtbl_t));
 	if (ht == 0) return 0;
 
 	ht->ef = ef;
 	ht->hf = hf;
+	ht->kff = kff;
 
 	ht->size = (initial_size == 0 ? DEFAULT_INIT_SIZE : initial_size);
 	ht->nitems = 0;
@@ -46,6 +48,7 @@ void delete_hashtbl(hashtbl_t *ht) {
 	for (size_t i = 0; i < ht->size; i++) {
 		while (ht->items[i] != 0) {
 			hashtbl_item_t *n = ht->items[i]->next;
+			if (ht->kff) ht->kff(ht->items[i]->key);
 			free(ht->items[i]);
 			ht->items[i] = n;
 		}
@@ -122,6 +125,7 @@ void hashtbl_remove(hashtbl_t* ht, void* key) {
 	if (ht->ef(ht->items[slot]->key, key)) {
 		hashtbl_item_t *x = ht->items[slot];
 		ht->items[slot] = x->next;
+		if (ht->kff) ht->kff(x->key);
 		free(x);
 		ht->nitems--;
 	} else {
@@ -129,6 +133,7 @@ void hashtbl_remove(hashtbl_t* ht, void* key) {
 			if (ht->ef(i->next->key, key)) {
 				hashtbl_item_t *x = i->next;
 				i->next = x->next;
+				if (ht->kff) ht->kff(x->key);
 				free(x);
 				ht->nitems--;
 				break;

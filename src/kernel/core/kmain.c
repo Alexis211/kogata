@@ -104,7 +104,7 @@ void kmalloc_test(void* kernel_data_end) {
 
 void test_hashtbl_1() {
 	// hashtable test
-	hashtbl_t *ht = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
+	hashtbl_t *ht = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
 	hashtbl_add(ht, "test1", "Hello, world [test1]");
 	hashtbl_add(ht, "test2", "Hello, world [test2]");
 	dbg_printf("ht[test1] = %s\n", hashtbl_find(ht, "test1"));
@@ -124,7 +124,7 @@ void test_hashtbl_1() {
 }
 
 void test_hashtbl_2() {
-	hashtbl_t *ht = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
+	hashtbl_t *ht = create_hashtbl(id_key_eq_fun, id_hash_fun, 0, 0);
 	hashtbl_add(ht, (void*)12, "Hello, world [12]");
 	hashtbl_add(ht, (void*)777, "Hello, world [777]");
 	dbg_printf("ht[12] = %s\n", hashtbl_find(ht, (void*)12));

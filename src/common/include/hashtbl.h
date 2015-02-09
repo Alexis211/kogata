@@ -8,8 +8,10 @@
 // Supports adding, seeking, removing
 // When adding a binding to the table, the previous binding for same key (if exists) is removed
 
-// TODO : possibility to allocate the hashtbl structure on any heap
-// (currently uses kmalloc/kfree)
+// The hashtbl is allocated with malloc/free
+// The keys are not copied in any way by the hashtbl, but there might still be something
+// to free, so the create_hashtbl function is given a key freeing function, usually
+// null when no freeing is required, or the standard free function.
 
 struct hashtbl;
 typedef struct hashtbl hashtbl_t;
@@ -17,8 +19,9 @@ typedef struct hashtbl hashtbl_t;
 typedef size_t hash_t;
 typedef hash_t (*hash_fun_t)(const void*);
 typedef bool (*key_eq_fun_t)(const void*, const void*);
+typedef void (*key_free_fun_t)(void*);
 
-hashtbl_t* create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, size_t initial_size);	// 0 -> default size
+hashtbl_t* create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, key_free_fun_t ff, size_t initial_size);	// 0 -> default size
 void delete_hashtbl(hashtbl_t* ht);
 
 int hashtbl_add(hashtbl_t* ht, void* key, void* v);	// non-null on error (OOM for instance)

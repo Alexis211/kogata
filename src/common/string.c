@@ -1,4 +1,5 @@
 #include <string.h>
+#include <malloc.h>
 
 
 size_t strlen(const char* str) {
@@ -85,6 +86,16 @@ void *memset(void *dest, int val, size_t count) {
 		dest_c[i] = val;
 	}
 	return dest;
+}
+
+char *strdup(const char* str) {
+	int len = strlen(str) + 1;
+
+	char* ret = (char*)malloc(len);
+	if (ret == 0) return 0;
+
+	memcpy(ret, str, len);
+	return ret;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

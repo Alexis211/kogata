@@ -1,4 +1,4 @@
-OBJ = string.o printf.o slab_alloc.o mutex.o hashtbl.o buffer.o
+OBJ = string.o printf.o slab_alloc.o mutex.o hashtbl.o
 
 LIB = 
 
