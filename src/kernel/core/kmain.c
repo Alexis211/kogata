@@ -2,6 +2,7 @@
 #include <config.h>
 #include <dbglog.h>
 #include <sys.h>
+#include <malloc.h>
 
 #include <gdt.h>
 #include <idt.h>
@@ -81,10 +82,10 @@ void kmalloc_test(void* kernel_data_end) {
 	dbg_print_region_info();
 	dbg_printf("Begin kmalloc test...\n");
 	const int m = 200;
-	uint16_t** ptr = kmalloc(m * sizeof(uint32_t));
+	uint16_t** ptr = malloc(m * sizeof(uint32_t));
 	for (int i = 0; i < m; i++) {
 		size_t s = 1 << ((i * 7) % 11 + 2);
-		ptr[i] = (uint16_t*)kmalloc(s);
+		ptr[i] = (uint16_t*)malloc(s);
 		ASSERT((void*)ptr[i] >= kernel_data_end && (size_t)ptr[i] < 0xFFC00000);
 		*ptr[i] = ((i * 211) % 1024);
 	}
@@ -94,9 +95,9 @@ void kmalloc_test(void* kernel_data_end) {
 		for (int j = i; j < m; j++) {
 			ASSERT(*ptr[j] == (j * 211) % 1024);
 		}
-		kfree(ptr[i]);
+		free(ptr[i]);
 	}
-	kfree(ptr);
+	free(ptr);
 	dbg_printf("Kmalloc test OK.\n");
 	dbg_print_region_info();
 }

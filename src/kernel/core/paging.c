@@ -5,7 +5,7 @@
 #include <region.h>
 #include <mutex.h>
 #include <thread.h>
-#include <kmalloc.h>
+#include <malloc.h>
 
 #define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)x >> (PAGE_SHIFT + PT_SHIFT))
@@ -233,7 +233,7 @@ pagedir_t *create_pagedir() {
 	pd_phys = frame_alloc(1);
 	if (pd_phys == 0) goto error;
 
-	pd = (pagedir_t*)kmalloc(sizeof(pagedir_t));
+	pd = (pagedir_t*)malloc(sizeof(pagedir_t));
 	if (pd == 0) goto error;
 
 	temp = region_alloc(PAGE_SIZE, 0, 0);
@@ -263,7 +263,7 @@ pagedir_t *create_pagedir() {
 
 	error:
 	if (pd_phys != 0) frame_free(pd_phys, 1);
-	if (pd != 0) kfree(pd);
+	if (pd != 0) free(pd);
 	if (temp != 0) region_free(temp);
 	return 0;
 }
@@ -290,7 +290,7 @@ void delete_pagedir(pagedir_t *pd) {
 	ASSERT(pd_phys == (backup.page[N_PAGES_IN_PT-1] >> PTE_FRAME_SHIFT));
 	frame_free(pd_phys, 1);
 	// free the pagedir_t structure
-	kfree(pd);
+	free(pd);
 
 	return;
 }

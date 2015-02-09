@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 // The buffer_t type is a simple reference-counted buffer type
 // enabling the creation, sharing, slicing and concatenation of buffers

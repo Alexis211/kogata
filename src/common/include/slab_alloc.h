@@ -8,17 +8,18 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+
 #if defined(__linux__)
 //redefine necessary stuff
-#include <assert.h>
+#include <assert.h> 		// standard linux assert.h
 #define ASSERT assert
-#define PAGE_SIZE 0x1000
-#include <stdio.h>
+#include <stdio.h> 
 #define dbg_printf printf
 #else
-#include <sys.h>	// this is macroscope
-#include <dbglog.h>
+#include <debug.h>
 #endif
+
+#define PAGE_SIZE 0x1000
 
 // expected format for the array of slab_type_t given to slab_create :
 // an array of slab_type descriptors, with last descriptor full of zeroes

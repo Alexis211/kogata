@@ -2,5 +2,6 @@
 
 cd `dirname $0`
 
-make -C kernel || exit 1
-qemu-system-i386 -kernel kernel/kernel.bin -serial stdio -m 16
+make -C src/common || exit 1
+make -C src/kernel || exit 1
+qemu-system-i386 -kernel src/kernel/kernel.bin -serial stdio -m 16

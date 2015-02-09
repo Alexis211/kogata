@@ -1,5 +1,5 @@
 #include <hashtbl.h>
-#include <kmalloc.h>
+#include <malloc.h>
 #include <string.h>
 
 #define DEFAULT_INIT_SIZE 16
@@ -21,7 +21,7 @@ struct hashtbl {
 };
 
 hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, size_t initial_size) {
-	hashtbl_t *ht = (hashtbl_t*)kmalloc(sizeof(hashtbl_t));
+	hashtbl_t *ht = (hashtbl_t*)malloc(sizeof(hashtbl_t));
 	if (ht == 0) return 0;
 
 	ht->ef = ef;
@@ -30,9 +30,9 @@ hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, size_t initial_size) {
 	ht->size = (initial_size == 0 ? DEFAULT_INIT_SIZE : initial_size);
 	ht->nitems = 0;
 
-	ht->items = (hashtbl_item_t**)kmalloc(ht->size * sizeof(hashtbl_item_t*));
+	ht->items = (hashtbl_item_t**)malloc(ht->size * sizeof(hashtbl_item_t*));
 	if (ht->items == 0) {
-		kfree(ht);
+		free(ht);
 		return 0;
 	}
 
@@ -46,14 +46,14 @@ void delete_hashtbl(hashtbl_t *ht) {
 	for (size_t i = 0; i < ht->size; i++) {
 		while (ht->items[i] != 0) {
 			hashtbl_item_t *n = ht->items[i]->next;
-			kfree(ht->items[i]);
+			free(ht->items[i]);
 			ht->items[i] = n;
 		}
 	}
 
 	// Free table
-	kfree(ht->items);
-	kfree(ht);
+	free(ht->items);
+	free(ht);
 }
 
 static void hashtbl_check_size(hashtbl_t *ht) {
@@ -62,7 +62,7 @@ static void hashtbl_check_size(hashtbl_t *ht) {
 	if (4 * ht->nitems > 3 * ht->size) nsize = ht->size * 2;
 
 	if (nsize != 0) {
-		hashtbl_item_t **nitems = (hashtbl_item_t**)kmalloc(nsize * sizeof(hashtbl_item_t*));
+		hashtbl_item_t **nitems = (hashtbl_item_t**)malloc(nsize * sizeof(hashtbl_item_t*));
 		if (nitems == 0) return;	// if we can't realloc, too bad, we just lose space
 
 		for (size_t i = 0; i < nsize; i++) nitems[i] = 0;
@@ -78,7 +78,7 @@ static void hashtbl_check_size(hashtbl_t *ht) {
 				nitems[slot] = x;
 			}
 		}
-		kfree(ht->items);
+		free(ht->items);
 		ht->size = nsize;
 		ht->items = nitems;
 	}
@@ -87,7 +87,7 @@ static void hashtbl_check_size(hashtbl_t *ht) {
 int hashtbl_add(hashtbl_t *ht, void* key, void* v) {
 	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
 
-	hashtbl_item_t *i = (hashtbl_item_t*)kmalloc(sizeof(hashtbl_item_t));
+	hashtbl_item_t *i = (hashtbl_item_t*)malloc(sizeof(hashtbl_item_t));
 	if (i == 0) return 1;	// OOM
 
 	// make sure item is not already present
@@ -122,14 +122,14 @@ void hashtbl_remove(hashtbl_t* ht, void* key) {
 	if (ht->ef(ht->items[slot]->key, key)) {
 		hashtbl_item_t *x = ht->items[slot];
 		ht->items[slot] = x->next;
-		kfree(x);
+		free(x);
 		ht->nitems--;
 	} else {
 		for (hashtbl_item_t *i = ht->items[slot]; i->next != 0; i = i->next) {
 			if (ht->ef(i->next->key, key)) {
 				hashtbl_item_t *x = i->next;
 				i->next = x->next;
-				kfree(x);
+				free(x);
 				ht->nitems--;
 				break;
 			}

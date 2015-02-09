@@ -1,5 +1,6 @@
 #pragma once
 
+#include <debug.h> 		// common header
 #include <config.h>
 
 static inline void outb(uint16_t port, uint8_t value) {
@@ -25,11 +26,6 @@ static inline uint16_t inw(uint16_t port) {
 static inline void invlpg(void* addr) {
 	asm volatile("invlpg (%0)" : : "r"(addr) : "memory");
 }
-
-void panic(const char* message, const char* file, int line);
-void panic_assert(const char* assertion, const char* file, int line);
-#define PANIC(s) panic(s, __FILE__, __LINE__);
-#define ASSERT(s) { if (!(s)) panic_assert(#s, __FILE__, __LINE__); }
 
 #define BOCHS_BREAKPOINT asm volatile("xchg %bx, %bx")
 

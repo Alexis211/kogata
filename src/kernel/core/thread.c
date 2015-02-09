@@ -1,5 +1,5 @@
 #include <thread.h>
-#include <kmalloc.h>
+#include <malloc.h>
 #include <dbglog.h>
 #include <idt.h>
 
@@ -113,12 +113,12 @@ static void run_thread(void (*entry)(void*), void* data) {
 	ASSERT(false);
 }
 thread_t *new_thread(entry_t entry, void* data) {
-	thread_t *t = (thread_t*)kmalloc(sizeof(thread_t));
+	thread_t *t = (thread_t*)malloc(sizeof(thread_t));
 	if (t == 0) return 0;
 
 	void* stack = region_alloc(KPROC_STACK_SIZE, "Stack", 0);
 	if (stack == 0) {
-		kfree(t);
+		free(t);
 		return 0;
 	}
 
@@ -126,7 +126,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 		uint32_t f = frame_alloc(1);
 		if (f == 0) {
 			region_free_unmap_free(stack);
-			kfree(t);
+			free(t);
 			return 0;
 		}
 		pd_map_page(i, f, true);

@@ -1,8 +1,11 @@
 *~
 *.swp
 
+tags
+
 *.o
 *.bin
+*.lib
 *.map
 
 *.iso
@@ -18,3 +21,4 @@ doc/html
 
 # bochs debugger
 bx_enh_dbg.ini
+

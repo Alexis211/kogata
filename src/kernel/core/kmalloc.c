@@ -27,7 +27,7 @@ static slab_type_t slab_sizes[] = {
 };
 
 static mem_allocator_t *kernel_allocator = 0;
-STATIC_MUTEX(kmalloc_mutex);
+STATIC_MUTEX(malloc_mutex);
 
 void kmalloc_setup() {
 	kernel_allocator =
@@ -35,18 +35,18 @@ void kmalloc_setup() {
 										region_free_unmap_free);
 }
 
-void* kmalloc(size_t sz) {
+void* malloc(size_t sz) {
 	void* res = 0;
 
-	mutex_lock(&kmalloc_mutex);
+	mutex_lock(&malloc_mutex);
 	res = slab_alloc(kernel_allocator, sz);
-	mutex_unlock(&kmalloc_mutex);
+	mutex_unlock(&malloc_mutex);
 
 	return res;
 }
 
-void kfree(void* ptr) {
-	mutex_lock(&kmalloc_mutex);
+void free(void* ptr) {
+	mutex_lock(&malloc_mutex);
 	slab_free(kernel_allocator, ptr);
-	mutex_unlock(&kmalloc_mutex);
+	mutex_unlock(&malloc_mutex);
 }

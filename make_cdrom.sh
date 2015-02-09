@@ -8,7 +8,7 @@ if [ ! -e cdrom/boot/grub/stage2_eltorito ]; then
 fi
 
 cp menu_cdrom.lst cdrom/boot/grub/menu.lst
-cp kernel/kernel.bin cdrom; strip cdrom/kernel.bin
+cp src/kernel/kernel.bin cdrom; strip cdrom/kernel.bin
 
 genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot \
 	-boot-load-size 4 -boot-info-table -input-charset ascii \
