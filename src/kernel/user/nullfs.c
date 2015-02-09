@@ -10,6 +10,7 @@ static bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s);
 static bool nullfs_i_delete(void* fs, const char* file);
 static void nullfs_i_shutdown(void* fs);
 static bool nullfs_i_fs_stat(void* fs, const char* file, stat_t *st);
+static int nullfs_i_fs_ioctl(void* fs, const char* file, int command, void* data);
 
 static bool nullfs_i_f_stat(void* f, stat_t *st);
 static size_t nullfs_i_read(void* f, size_t offset, size_t len, char* buf);
@@ -26,7 +27,7 @@ static fs_ops_t nullfs_ops = {
 	.delete = nullfs_i_delete,
 	.rename = 0,
 	.stat = nullfs_i_fs_stat,
-	.ioctl = 0,
+	.ioctl = nullfs_i_fs_ioctl,
 	.add_source = 0,
 	.shutdown = nullfs_i_shutdown
 };
@@ -164,6 +165,16 @@ bool nullfs_i_fs_stat(void* fs, const char* file, stat_t *st) {
 	return x->ops->stat && x->ops->stat(x->data, st);
 }
 
+int nullfs_i_fs_ioctl(void* fs, const char* file, int command, void* data) {
+	nullfs_t *f = (nullfs_t*)fs;
+
+	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
+	if (x == 0) return 0;
+	if (x->ops->ioctl == 0) return 0;
+
+	return x->ops->ioctl(x->data, command, data);
+}
+
 bool nullfs_i_delete(void* fs, const char* file) {
 	nullfs_t *f = (nullfs_t*)fs;
 
@@ -216,6 +227,7 @@ static nullfs_node_ops_t nullfs_ram_ops = {
 	.write = nullfs_i_ram_write,
 	.stat = nullfs_i_ram_stat,
 	.close = 0,
+	.ioctl = 0,
 	.dispose = nullfs_i_ram_dispose
 };
 

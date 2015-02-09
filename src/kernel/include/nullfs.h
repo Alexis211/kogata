@@ -9,10 +9,11 @@ typedef struct nullfs nullfs_t;
 
 typedef struct {
 	void* (*open)(void* f, int mode, fs_handle_t *h);
-	size_t (*read)(void* f, size_t offset, size_t len, char* buf);
-	size_t (*write)(void* f, size_t offset, size_t len, const char* buf);
+	size_t (*read)(void* fd, size_t offset, size_t len, char* buf);
+	size_t (*write)(void* fd, size_t offset, size_t len, const char* buf);
 	bool (*stat)(void* f, stat_t *st);
-	void (*close)(void* f);
+	int (*ioctl)(void* f, int command, void* data);
+	void (*close)(void* fd);
 	void (*dispose)(void* f);
 } nullfs_node_ops_t;
 
