@@ -94,6 +94,8 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 
 	if (fs->ops->open(fs->data, file, mode, h)) {
 		h->refs = 1;
+		h->fs = fs;
+		ref_fs(fs);
 		return h;
 	} else {
 		free(h);
@@ -105,9 +107,10 @@ void ref_file(fs_handle_t *file) {
 	file->refs++;
 }
 
-void unrefe_file(fs_handle_t *file) {
+void unref_file(fs_handle_t *file) {
 	file->refs--;
 	if (file->refs == 0) {
+		unref_fs(file->fs);
 		file->ops->close(file->data);
 		free(file);
 	}
@@ -116,13 +119,15 @@ void unrefe_file(fs_handle_t *file) {
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 	if (!(f->mode && FM_READ)) return 0;
 
-	return f->ops->read && f->ops->read(f->data, offset, len, buf);
+	if (f->ops->read == 0) return 0;
+	return f->ops->read(f->data, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 	if (!(f->mode && FM_WRITE)) return 0;
 
-	return f->ops->write && f->ops->write(f->data, offset, len, buf);
+	if (f->ops->write == 0) return 0;
+	return f->ops->write(f->data, offset, len, buf);
 }
 
 int file_get_mode(fs_handle_t *f) {

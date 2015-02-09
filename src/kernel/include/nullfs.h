@@ -12,7 +12,6 @@ typedef struct {
 	size_t (*read)(void* f, size_t offset, size_t len, char* buf);
 	size_t (*write)(void* f, size_t offset, size_t len, const char* buf);
 	void (*close)(void* f);
-	void (*delete)(void* f);
 	void (*dispose)(void* f);
 } nullfs_node_ops_t;
 

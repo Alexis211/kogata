@@ -31,6 +31,7 @@ typedef struct {
 } fs_handle_ops_t;
 
 typedef struct fs_handle {
+	struct fs *fs;
 	int refs;
 	fs_handle_ops_t *ops;
 	void* data;

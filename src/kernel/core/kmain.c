@@ -271,8 +271,19 @@ void kernel_init_stage2(void* data) {
 							(void*)mods[i].mod_start,
 							mods[i].mod_end - mods[i].mod_start,
 							false,
-							FM_READ));
+							FM_READ | FM_MMAP));
 	}
+
+	// TEST : read /cmdline
+	dbg_printf("Trying to read /cmdline... ");
+	fs_handle_t *f = fs_open(devfs_fs, "/cmdline", FM_READ);
+	ASSERT(f != 0);
+	char buf[256];
+	size_t l = file_read(f, 0, 255, buf);
+	ASSERT(l > 0);
+	buf[l] = 0;
+	unref_file(f);
+	dbg_printf("got '%s'.\n", buf);
 
 	//TODO :
 	// - (OK) populate devfs with information regarding kernel command line & modules

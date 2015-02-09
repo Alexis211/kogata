@@ -116,11 +116,6 @@ void nullfs_i_shutdown(void* fs) {
 	free(f);
 }
 
-bool nullfs_add_ram_file(nullfs_t *f, const char* name, void* data, size_t init_sz, bool copy, int ok_modes) {
-	// TODO
-	return false;
-}
-
 // Nullfs operations
 
 bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s) {
@@ -149,8 +144,13 @@ bool nullfs_i_delete(void* fs, const char* file) {
 	nullfs_t *f = (nullfs_t*)fs;
 
 	if (!f->can_delete) return false;
-	// TODO
-	return false;
+
+	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
+	if (x == 0) return false;
+
+	hashtbl_remove(f->items, file);
+	nullfs_i_free_item(x);
+	return true;
 }
 
 size_t nullfs_i_read(void* f, size_t offset, size_t len, char* buf) {
@@ -170,5 +170,106 @@ void nullfs_i_close(void* f) {
 	if (h->item->ops->close) h->item->ops->close(h->data);
 	free(h);
 }
+
+// ====================================================== //
+// THE FUNCTIONS FOR HAVING RAM FILES (nullfs as ramdisk) //
+// ====================================================== //
+
+static void* nullfs_i_ram_open(void* f, int mode, fs_handle_t *h);
+static size_t nullfs_i_ram_read(void* f, size_t offset, size_t len, char* buf);
+static size_t nullfs_i_ram_write(void* f, size_t offset, size_t len, const char* buf);
+static void nullfs_i_ram_dispose(void* f);
+
+static nullfs_node_ops_t nullfs_ram_ops = {
+	.open = nullfs_i_ram_open,
+	.read = nullfs_i_ram_read,
+	.write = nullfs_i_ram_write,
+	.close = 0,
+	.dispose = nullfs_i_ram_dispose
+};
+
+typedef struct {
+	void* data;
+	bool data_owned;
+	size_t size;
+	int ok_modes;
+} nullfs_ram_file_t;
+
+bool nullfs_add_ram_file(nullfs_t *f, const char* name, void* data, size_t init_sz, bool copy, int ok_modes) {
+	nullfs_ram_file_t *x = (nullfs_ram_file_t*)malloc(sizeof(nullfs_ram_file_t));
+	if (x == 0) return false;
+
+	if (copy) {
+		x->data = malloc(init_sz);
+		if (x->data == 0) {
+			free(x);
+			return false;
+		}
+		memcpy(x->data, data, init_sz);
+		x->data_owned = true;
+	} else {
+		x->data = data;
+		x->data_owned = false;
+	}
+	x->size = init_sz;
+	x->ok_modes = ok_modes;
+	
+	if (!nullfs_add(f, name, x, &nullfs_ram_ops)) {
+		if (x->data_owned) free(x->data);
+		free(x);
+		return false;
+	}
+	return true;
+}
+
+void* nullfs_i_ram_open(void* fi, int mode, fs_handle_t *h) {
+	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+
+	if (mode & ~f->ok_modes) {
+		return 0;
+	}
+
+	h->mode = mode;
+	return fi;
+}
+
+size_t nullfs_i_ram_read(void* fi, size_t offset, size_t len, char* buf) {
+	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+
+	if (offset >= f->size) return 0;
+	if (offset + len > f->size) len = f->size - offset;
+
+	memcpy(buf, f->data + offset, len);
+	return len;
+}
+
+size_t nullfs_i_ram_write(void* fi, size_t offset, size_t len, const char* buf) {
+	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+
+	if (offset + len > f->size) {
+		// resize buffer (zero out new portion)
+		void* new_buffer = malloc(offset + len);
+		if (new_buffer == 0) return 0;
+
+		memcpy(new_buffer, f->data, f->size);
+		if (offset > f->size)
+			memset(new_buffer + f->size, 0, offset - f->size);
+		free(f->data);
+		f->data = new_buffer;
+		f->size = offset + len;
+	}
+
+	memcpy(f->data + offset, buf, len);
+	return len;
+}
+
+void nullfs_i_ram_dispose(void* fi) {
+	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+	
+	if (f->data_owned) free(f->data);
+	free(f);
+}
+
+
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
