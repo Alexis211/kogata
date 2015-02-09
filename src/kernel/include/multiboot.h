@@ -28,7 +28,7 @@ struct elf_section_header_table_t {
 	unsigned long shndx;
 };
 
-struct multiboot_info_t {
+typedef struct {
 	unsigned long flags;
 	unsigned long mem_lower;
 	unsigned long mem_upper;
@@ -42,14 +42,14 @@ struct multiboot_info_t {
 	} u;
 	unsigned long mmap_length;
 	unsigned long mmap_addr;
-};
+} multiboot_info_t;
 
-struct module_t {
+typedef struct {
 	unsigned long mod_start;
 	unsigned long mod_end;
 	unsigned long string;
 	unsigned long reserved;
-};
+} multiboot_module_t;
 
 struct memory_map_t {
 	unsigned long size;

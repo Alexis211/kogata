@@ -16,6 +16,14 @@ char *strchr(const char *str, char c) {
 	return NULL;
 }
 
+char *strrchr(const char *str, char c) {
+	char* ret = NULL;
+	do {
+		if (*str == c) ret = (char*)str;
+	} while (*(str++));
+	return ret;
+}
+
 char *strcpy(char *dest, const char *src) {
 	memcpy(dest, src, strlen(src) + 1);
 	return (char*)src;

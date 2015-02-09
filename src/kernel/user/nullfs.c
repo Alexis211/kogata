@@ -15,14 +15,22 @@ void register_nullfs_driver() {
 	register_fs_driver("nullfs", &nullfs_driver_ops);
 }
 
-nullfs_t *make_nullfs(char* options) {
-	fs_t *it = make_fs("nullfs", 0, options);
-	if (it == 0) return 0;
+nullfs_t *as_nullfs(fs_t *it) {
 	if (it->ops != &nullfs_ops) return 0;
 	return (nullfs_t*)it->data;
 }
 
 bool nullfs_i_make(fs_handle_t *source, char* opts, fs_t *d) {
+	// TODO
+	return false;
+}
+
+bool nullfs_add(nullfs_t *f, const char* name, void* data, nullfs_node_ops_t *ops) {
+	// TODO
+	return false;
+}
+
+bool nullfs_add_ram_file(nullfs_t *f, const char* name, void* data, size_t init_sz, int ok_modes) {
 	// TODO
 	return false;
 }

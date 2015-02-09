@@ -10,6 +10,7 @@ void *memmove(void *dest, const void *src, size_t count);
 
 size_t strlen(const char *str);
 char *strchr(const char *str, char c);
+char *strrchr(const char *str, char c);
 char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *s1, const char *s2);

@@ -18,6 +18,7 @@
 
 #include <slab_alloc.h>
 #include <hashtbl.h>
+#include <string.h>
 
 extern const void k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
 
@@ -155,13 +156,32 @@ void test_thread(void* a) {
 }
 
 void kernel_init_stage2(void* data);
-void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
+void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
+	// used for allocation of data structures before malloc is set up
+	// a pointer to this pointer is passed to the functions that might have
+	// to allocate memory ; they just increment it of the allocated quantity
+	void* kernel_data_end = (void*)&k_end_addr;
+
 	dbglog_setup();
 
 	dbg_printf("Hello, kernel world!\n");
 	dbg_printf("This is %s, version %s.\n", OS_NAME, OS_VERSION);
 
 	ASSERT(mb_magic == MULTIBOOT_BOOTLOADER_MAGIC);
+
+	// Rewrite multiboot header so that we are in higher half
+	// Also check that kernel_data_end is after all modules, otherwise
+	// we might overwrite something.
+	mbd->cmdline += K_HIGHHALF_ADDR;
+	mbd->mods_addr += K_HIGHHALF_ADDR;
+	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
+	for (unsigned i = 0; i < mbd->mods_count; i++) {
+		mods[i].mod_start += K_HIGHHALF_ADDR;
+		mods[i].mod_end += K_HIGHHALF_ADDR;
+		mods[i].string += K_HIGHHALF_ADDR;
+		if ((void*)mods[i].mod_end > kernel_data_end)
+			kernel_data_end = (void*)((mods[i].mod_end & 0xFFFFF000) + 0x1000);
+	}
 
 	gdt_init(); dbg_printf("GDT set up.\n");
 
@@ -172,10 +192,6 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	size_t total_ram = ((mbd->mem_upper + mbd->mem_lower) * 1024);
 	dbg_printf("Total ram: %d Kb\n", total_ram / 1024);
 
-	// used for allocation of data structures before malloc is set up
-	// a pointer to this pointer is passed to the functions that might have
-	// to allocate memory ; they just increment it of the allocated quantity
-	void* kernel_data_end = (void*)&k_end_addr;
 
 	frame_init_allocator(total_ram, &kernel_data_end);
 	dbg_printf("kernel_data_end: 0x%p\n", kernel_data_end);
@@ -196,11 +212,13 @@ void kmain(struct multiboot_info_t *mbd, int32_t mb_magic) {
 	// enter multi-threading mode
 	// interrupts are enabled at this moment, so all
 	// code run from now on should be preemtible (ie thread-safe)
-	threading_setup(kernel_init_stage2, 0);
+	threading_setup(kernel_init_stage2, mbd);
 	PANIC("Should never come here.");
 }
 
 void kernel_init_stage2(void* data) {
+	multiboot_info_t *mbd = (multiboot_info_t*)data;
+
 	dbg_print_region_info();
 	dbg_print_frame_stats();
 
@@ -215,9 +233,32 @@ void kernel_init_stage2(void* data) {
 		for (int x = 0; x < 100000; x++) asm volatile("xor %%ebx, %%ebx":::"%ebx");
 	}
 
+	// Create devfs
 	register_nullfs_driver();
-	fs_t *devfs = make_fs("nullfs", 0, "");
+	fs_t *devfs_fs = make_fs("nullfs", 0, "");
+	ASSERT(devfs_fs != 0);
+	nullfs_t *devfs = as_nullfs(devfs_fs);
 	ASSERT(devfs != 0);
+
+	// Populate devfs with files for kernel modules
+	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
+	for (unsigned i = 0; i < mbd->mods_count; i++) {
+		char* modname = (char*)mods[i].string;
+		char* e = strchr(modname, ' ');
+		if (e != 0) (*e) = 0;  // ignore arguments
+
+		char *b = strrchr(modname, '/');
+		if (b != 0) modname = b+1; 		// ignore path
+
+		char name[6 + strlen(b)];
+		strcpy(name, "/mod/");
+		strcpy(name+5, modname);
+
+		nullfs_add_ram_file(devfs, name,
+							(void*)mods[i].mod_start,
+							mods[i].mod_end - mods[i].mod_start,
+							FM_READ);
+	}
 
 	//TODO :
 	// - populate devfs with information regarding kernel command line & modules
