@@ -42,6 +42,7 @@ fs_t *make_fs(const char* drv_name, fs_handle_t *source, char* opts) {
 	if (fs == 0) return 0;
 
 	if (d->ops->make(source, opts, fs)) {
+		fs->refs = 1;
 		return fs;
 	} else {
 		free(fs);
@@ -92,6 +93,7 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	if (h == 0) return 0;
 
 	if (fs->ops->open(fs->data, file, mode, h)) {
+		h->refs = 1;
 		return h;
 	} else {
 		free(h);
@@ -112,10 +114,14 @@ void unrefe_file(fs_handle_t *file) {
 }
 
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
+	if (!(f->mode && FM_READ)) return 0;
+
 	return f->ops->read && f->ops->read(f->data, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
+	if (!(f->mode && FM_WRITE)) return 0;
+
 	return f->ops->write && f->ops->write(f->data, offset, len, buf);
 }
 

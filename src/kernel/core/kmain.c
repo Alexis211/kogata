@@ -124,7 +124,7 @@ void test_hashtbl_1() {
 	dbg_printf("ht[test1] = %s\n", hashtbl_find(ht, "test1"));
 	dbg_printf("ht[test] = %s\n", hashtbl_find(ht, "test"));
 	dbg_printf("ht[test2] = %s\n", hashtbl_find(ht, "test2"));
-	delete_hashtbl(ht);
+	delete_hashtbl(ht, 0);
 }
 
 void test_hashtbl_2() {
@@ -144,7 +144,7 @@ void test_hashtbl_2() {
 	dbg_printf("ht[12] = %s\n", hashtbl_find(ht, (void*)12));
 	dbg_printf("ht[144] = %s\n", hashtbl_find(ht, (void*)144));
 	dbg_printf("ht[777] = %s\n", hashtbl_find(ht, (void*)777));
-	delete_hashtbl(ht);
+	delete_hashtbl(ht, 0);
 }
 
 void test_thread(void* a) {
@@ -254,14 +254,17 @@ void kernel_init_stage2(void* data) {
 		strcpy(name, "/mod/");
 		strcpy(name+5, modname);
 
-		nullfs_add_ram_file(devfs, name,
+		dbg_printf("Adding model to VFS: %s\n", name);
+
+		ASSERT(nullfs_add_ram_file(devfs, name,
 							(void*)mods[i].mod_start,
 							mods[i].mod_end - mods[i].mod_start,
-							FM_READ);
+							false,
+							FM_READ));
 	}
 
 	//TODO :
-	// - populate devfs with information regarding kernel command line & modules
+	// - (OK) populate devfs with information regarding kernel command line & modules
 	// - create user process with init module provided on command line
 	// - give it rights to devfs
 	// - launch it

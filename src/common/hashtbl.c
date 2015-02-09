@@ -16,12 +16,12 @@ typedef struct hashtbl_item {
 struct hashtbl {
 	key_eq_fun_t ef;
 	hash_fun_t hf;
-	key_free_fun_t kff;
+	free_fun_t kff;
 	size_t size, nitems;
 	hashtbl_item_t **items;
 };
 
-hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, key_free_fun_t kff, size_t initial_size) {
+hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, free_fun_t kff, size_t initial_size) {
 	hashtbl_t *ht = (hashtbl_t*)malloc(sizeof(hashtbl_t));
 	if (ht == 0) return 0;
 
@@ -43,11 +43,12 @@ hashtbl_t *create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, key_free_fun_t kff, si
 	return ht;
 }
 
-void delete_hashtbl(hashtbl_t *ht) {
+void delete_hashtbl(hashtbl_t *ht, free_fun_t data_free_fun) {
 	// Free items
 	for (size_t i = 0; i < ht->size; i++) {
 		while (ht->items[i] != 0) {
 			hashtbl_item_t *n = ht->items[i]->next;
+			if (data_free_fun) data_free_fun(ht->items[i]->val);
 			if (ht->kff) ht->kff(ht->items[i]->key);
 			free(ht->items[i]);
 			ht->items[i] = n;
@@ -87,11 +88,11 @@ static void hashtbl_check_size(hashtbl_t *ht) {
 	}
 }
 
-int hashtbl_add(hashtbl_t *ht, void* key, void* v) {
+bool hashtbl_add(hashtbl_t *ht, void* key, void* v) {
 	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
 
 	hashtbl_item_t *i = (hashtbl_item_t*)malloc(sizeof(hashtbl_item_t));
-	if (i == 0) return 1;	// OOM
+	if (i == 0) return false;	// OOM
 
 	// make sure item is not already present
 	hashtbl_remove(ht, key);
@@ -104,10 +105,10 @@ int hashtbl_add(hashtbl_t *ht, void* key, void* v) {
 
 	hashtbl_check_size(ht);
 
-	return 0;
+	return true;
 }
 
-void* hashtbl_find(hashtbl_t* ht, void* key) {
+void* hashtbl_find(hashtbl_t* ht, const void* key) {
 	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
 
 	for (hashtbl_item_t *i = ht->items[slot]; i != 0; i = i->next) {
@@ -117,7 +118,7 @@ void* hashtbl_find(hashtbl_t* ht, void* key) {
 	return 0;
 }
 
-void hashtbl_remove(hashtbl_t* ht, void* key) {
+void hashtbl_remove(hashtbl_t* ht, const void* key) {
 	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
 
 	if (ht->items[slot] == 0) return;

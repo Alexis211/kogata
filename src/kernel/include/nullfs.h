@@ -13,6 +13,7 @@ typedef struct {
 	size_t (*write)(void* f, size_t offset, size_t len, const char* buf);
 	void (*close)(void* f);
 	void (*delete)(void* f);
+	void (*dispose)(void* f);
 } nullfs_node_ops_t;
 
 void register_nullfs_driver(); 
@@ -20,6 +21,6 @@ void register_nullfs_driver();
 nullfs_t* as_nullfs(fs_t *fs);
 
 bool nullfs_add(nullfs_t *f, const char* name, void* data, nullfs_node_ops_t* ops);
-bool nullfs_add_ram_file(nullfs_t *f, const char* name, void* data, size_t init_sz, int ok_modes);
+bool nullfs_add_ram_file(nullfs_t *f, const char* name, void* data, size_t init_sz, bool copy, int ok_modes);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

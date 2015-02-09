@@ -19,14 +19,14 @@ typedef struct hashtbl hashtbl_t;
 typedef size_t hash_t;
 typedef hash_t (*hash_fun_t)(const void*);
 typedef bool (*key_eq_fun_t)(const void*, const void*);
-typedef void (*key_free_fun_t)(void*);
+typedef void (*free_fun_t)(void*);
 
-hashtbl_t* create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, key_free_fun_t ff, size_t initial_size);	// 0 -> default size
-void delete_hashtbl(hashtbl_t* ht);
+hashtbl_t* create_hashtbl(key_eq_fun_t ef, hash_fun_t hf, free_fun_t key_ff, size_t initial_size);	// 0 -> default size
+void delete_hashtbl(hashtbl_t* ht, free_fun_t data_free_fun);
 
-int hashtbl_add(hashtbl_t* ht, void* key, void* v);	// non-null on error (OOM for instance)
-void* hashtbl_find(hashtbl_t* ht, void* key);		// null when not found
-void hashtbl_remove(hashtbl_t* ht, void* key);
+bool hashtbl_add(hashtbl_t* ht, void* key, void* v);	// true = ok, false on error (OOM for instance)
+void* hashtbl_find(hashtbl_t* ht, const void* key);		// null when not found
+void hashtbl_remove(hashtbl_t* ht, const void* key);
 size_t hashtbl_count(hashtbl_t* ht);
 
 hash_t id_hash_fun(const void* v);
