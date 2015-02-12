@@ -26,7 +26,15 @@ char *strrchr(const char *str, char c) {
 
 char *strcpy(char *dest, const char *src) {
 	memcpy(dest, src, strlen(src) + 1);
-	return (char*)src;
+	return (char*)dest;
+}
+
+char *strncpy(char *dest, const char *src, size_t n) {
+	size_t x = strlen(src + 1);
+	if (n < x) x = n;
+	memcpy(dest, src, x);
+	if (n > x) memset(dest + n, 0, n - x);
+	return (char*)dest;
 }
 
 char *strcat(char *dest, const char *src) {
@@ -45,6 +53,16 @@ int strcmp(const char *s1, const char *s2) {
 	while ((*s1) && (*s1 == *s2)) {
 		s1++;
 		s2++;
+	}
+	return (*(unsigned char*)s1 - *(unsigned char*)s2);
+}
+
+int strcmp(const char *s1, const char *s2, size_t n) {
+	size_t i = 0;
+	while ((*s1) && (*s1 == *s2) && i != n) {
+		s1++;
+		s2++;
+		i++;
 	}
 	return (*(unsigned char*)s1 - *(unsigned char*)s2);
 }

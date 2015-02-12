@@ -19,6 +19,11 @@ typedef void* fs_handle_ptr;
 typedef void* fs_node_ptr;
 typedef void* fs_ptr;
 
+// usefull forward declarations
+struct fs;
+struct fs_node;
+struct fs_handle;
+
 // -------------------------------------------
 // Structure defining a handle to an open file
 
@@ -32,6 +37,7 @@ typedef struct {
 typedef struct fs_handle {
 	// These two field are filled by the VFS's generic open() code
 	struct fs *fs;
+	struct fs_node *n;
 	int refs;
 
 	// These fields are filled by the FS's specific open() code
@@ -47,13 +53,17 @@ typedef struct fs_handle {
 // Remarks :
 //  - fs_node_t not to be used in public interface
 //  - nodes keep a reference to their parent
+//  - delete() is expected to delete the node (make it inaccessible), but not dispose
+//		of its data before dispos() is called !!
+//  - the root node of a filesystem is created when the filesystem is created
+//	- dispose() is not called on the root node when a filesystem is shutdown
 
-struct fs_node;
 typedef struct {
 	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
 	bool (*stat)(fs_node_ptr n, stat_t *st);
 	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *node_d);
 	bool (*delete)(fs_node_ptr n);
+	bool (*move)(fs_node_ptr n, struct fs_node *new_parent, const char *new_name);	// TODO : not sure about this ?
 	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
 	int (*ioctl)(fs_node_ptr n, int command, void* data);
 	void (*dispose)(fs_node_ptr n);
@@ -96,6 +106,20 @@ typedef struct {
 } fs_driver_ops_t;
 
 // -------------------------------------------
+// All functions that return a fs_node_t*, fs_t* or fs_handle_t* return an object
+// that will have to be dereferenced when not used anymore.
+// (on fs_handle_t*, dereferencing is like closing, only that the actual closing happens
+//  when refcount falls to zero)
+
+// Internals
+
+void ref_fs_node(fs_node_t *n);
+void unref_fs_node(fs_node_t *n);
+
+fs_node_t* fs_walk_one(fs_node_t* from, const char *file);
+fs_node_t* fs_walk_path(fs_node_t* from, const char *p);
+fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char *p, char* last_file_buf);
+
 // Public functions
 
 void register_fs_driver(const char* name, fs_driver_ops_t *ops);
@@ -105,9 +129,9 @@ bool fs_add_source(fs_t *fs, fs_handle_t *source);
 void ref_fs(fs_t *fs);
 void unref_fs(fs_t *fs);
 
-bool fs_delete(fs_t *fs, const char* file);
 bool fs_create(fs_t *fs, const char* file, int type);
-bool fs_rename(fs_t *fs, const char* from, const char* to);
+bool fs_delete(fs_t *fs, const char* file);
+bool fs_move(fs_t *fs, const char* from, const char* to);
 bool fs_stat(fs_t *fs, const char* file, stat_t *st);
 int fs_ioctl(fs_t *fs, const char* file, int command, void* data);
 
