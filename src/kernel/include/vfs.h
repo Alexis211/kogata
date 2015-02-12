@@ -10,41 +10,73 @@
 // 		the functions defined bellow
 // - when programming a filesystem : don't worry about allocating the fs_handle_t and fs_t,
 // 		it is done automatically
+// - the three types defined below (filesystem, fs node, file handle) are reference-counters to
+//		some data managed by the underlying filesystem. The following types are aliases to void*,
+//		but are used to disambiguate the different types of void* : fs_handle_ptr, fs_node_ptr, fs_ptr
 
+typedef void* fs_handle_ptr;
+typedef void* fs_node_ptr;
+typedef void* fs_ptr;
 
 // Structure defining a handle to an open file
 
 typedef struct {
-	size_t (*read)(void* f, size_t offset, size_t len, char* buf);
-	size_t (*write)(void* f, size_t offset, size_t len, const char* buf);
-	bool (*stat)(void* f, stat_t *st);
-	void (*close)(void* f);
+	size_t (*read)(fs_handle_ptr f, size_t offset, size_t len, char* buf);
+	size_t (*write)(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
+	bool (*stat)(fs_handle_ptr f, stat_t *st);
+	void (*close)(fs_handle_ptr f);
 } fs_handle_ops_t;
 
 typedef struct fs_handle {
+	// These two field are filled by the VFS's generic open() code
 	struct fs *fs;
 	int refs;
+
+	// These fields are filled by the FS's specific open() code
 	fs_handle_ops_t *ops;
-	void* data;
+	fs_handle_ptr data;
 	int mode;
 } fs_handle_t;
+
+// Structure defining a filesystem node
+// In the future this is where FS-level cache may be implemented : calls to dispose() are not
+// executed immediately when refcount falls to zero but only when we need to free memory
+
+typedef struct {
+	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
+	bool (*stat)(fs_node_ptr n, stat_t *st);
+	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *n);
+	bool (*delete)(fs_node_ptr n);
+	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
+	int (*ioctl)(fs_node_ptr n, int command, void* data)
+	void (*dispose)(fs_node_ptr n);
+} fs_node_ops_t;
+
+typedef struct fs_node {
+	// These three fields are filled by the VFS's generic walk() code
+	struct fs *fs;
+	int refs;
+	struct fs_node *parent;
+	// These fields are filled by the FS's specific walk() code
+	fs_node_ops_t *ops;
+	fs_node_ptr data;
+} fs_node_t;
 
 // Structure defining a filesystem
 
 typedef struct {
-	bool (*open)(void *fs, const char* file, int mode, fs_handle_t *s);
-	bool (*delete)(void *fs, const char* file);
-	bool (*rename)(void *fs, const char* from, const char* to);
-	bool (*stat)(void *fs, const char* file, stat_t *st);
-	int (*ioctl)(void *fs, const char* file, int command, void* data);
-	bool (*add_source)(void* fs, fs_handle_t* source);
-	void (*shutdown)(void *fs);
+	bool (*add_source)(fs_ptr fs, fs_handle_t* source);
+	void (*shutdown)(fs_ptr fs);
 } fs_ops_t;
 
 typedef struct fs {
+	// Filled by VFS's make_fs()
 	int refs;
+	// Filled by FS's specific make()
 	fs_ops_t *ops;
-	void* data;
+	fs_ptr data;
+	// Filled by both according to what is specified for fs_node_t
+	fs_node_t root;
 } fs_t;
 
 // Structure defining a filesystem driver
