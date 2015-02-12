@@ -242,8 +242,6 @@ void kernel_init_stage2(void* data) {
 	register_nullfs_driver();
 	fs_t *devfs = make_fs("nullfs", 0, "cd");
 	ASSERT(devfs != 0);
-	nullfs_t *devfs_n = as_nullfs(devfs);
-	ASSERT(devfs_n != 0);
 
 	// Add kernel command line to devfs
 	{
@@ -284,7 +282,7 @@ void kernel_init_stage2(void* data) {
 		// But since we have a nullfs, we can do it that way to prevent useless data copies :
 		ASSERT(nullfs_add_ram_file(devfs, name,
 					(char*)mods[i].mod_start,
-					len, false, FM_READ, FM_MMAP));
+					len, false, FM_READ | FM_MMAP));
 	}
 
 	// TEST : read /cmdline

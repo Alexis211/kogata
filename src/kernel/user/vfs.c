@@ -212,24 +212,34 @@ bool fs_create(fs_t *fs, const char* file, int type) {
 	return ret;
 }
 
-bool fs_delete(fs_t *fs, const char* file) {
-	fs_node_t* n = fs_walk_path(&fs->root, file);
+bool fs_unlink(fs_t *fs, const char* file) {
+	char name[DIR_MAX];
+
+	fs_node_t* n = fs_walk_path_except_last(&fs->root, file, name);
 	if (n == 0) return false;
 
-	bool ret = n->ops->delete && n->ops->delete(n->data);
+	bool ret = n->ops->unlink && n->ops->unlink(n->data, name);
 	unref_fs_node(n);
 	return ret;
 }
 
 bool fs_move(fs_t *fs, const char* from, const char* to) {
-	fs_node_t *n = fs_walk_path(&fs->root, from);
-	if (n == 0) return false;
+	char old_name[DIR_MAX];
+	fs_node_t *old_parent = fs_walk_path_except_last(&fs->root, from, old_name);
+	if (old_parent == 0) return false;
 
 	char new_name[DIR_MAX];
 	fs_node_t *new_parent = fs_walk_path_except_last(&fs->root, to, new_name);
-	if (new_parent == 0) return false;
+	if (new_parent == 0) {
+		unref_fs_node(old_parent);
+		return false;
+	}
 
-	return n->ops->move && n->ops->move(n->data, new_parent, new_name);
+	bool ret = old_parent->ops->move && old_parent->ops->move(old_parent->data, old_name, new_parent, new_name);
+
+	unref_fs_node(old_parent);
+	unref_fs_node(new_parent);
+	return ret;
 }
 
 bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
@@ -266,7 +276,7 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 
 	h->refs = 1;
 	h->fs = fs;
-	h->n = n;
+	h->node = n;
 
 	if (n->ops->open(n->data, mode, h)) {
 		// our reference to node n is transferred to the file handle
@@ -287,7 +297,7 @@ void unref_file(fs_handle_t *file) {
 	file->refs--;
 	if (file->refs == 0) {
 		file->ops->close(file->data);
-		unref_fs_node(file->n);
+		unref_fs_node(file->node);
 		unref_fs(file->fs);
 		free(file);
 	}
@@ -312,7 +322,7 @@ size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
-	return f->ops->stat && f->ops->stat(f->data, st);
+	return f->node->ops->stat && f->node->ops->stat(f->node->data, st);
 }
 
 bool file_readdir(fs_handle_t *f, dirent_t *d) {

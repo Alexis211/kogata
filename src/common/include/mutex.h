@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define MUTEX_LOCKED 1
 #define MUTEX_UNLOCKED 0
@@ -9,7 +10,7 @@
 typedef uint32_t mutex_t;
 
 void mutex_lock(mutex_t* mutex);	//wait for mutex to be free
-int mutex_try_lock(mutex_t* mutex);	//lock mutex only if free, returns !0 if locked, 0 if was busy
+bool mutex_try_lock(mutex_t* mutex);	//lock mutex only if free, returns true when locked, false when was busy
 void mutex_unlock(mutex_t* mutex);
 
 // the mutex code assumes a yield() function is defined somewhere

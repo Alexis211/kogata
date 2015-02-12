@@ -30,7 +30,6 @@ struct fs_handle;
 typedef struct {
 	size_t (*read)(fs_handle_ptr f, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
-	bool (*stat)(fs_handle_ptr f, stat_t *st);
 	bool (*readdir)(fs_handle_ptr f, dirent_t *d);
 	void (*close)(fs_handle_ptr f);
 } fs_handle_ops_t;
@@ -38,7 +37,7 @@ typedef struct {
 typedef struct fs_handle {
 	// These two field are filled by the VFS's generic open() code
 	struct fs *fs;
-	struct fs_node *n;
+	struct fs_node *node;
 	int refs;
 
 	// These fields are filled by the FS's specific open() code
@@ -54,7 +53,7 @@ typedef struct fs_handle {
 // Remarks :
 //  - fs_node_t not to be used in public interface
 //  - nodes keep a reference to their parent
-//  - delete() is expected to delete the node (make it inaccessible), but not dispose
+//  - unink() is expected to unink the node from its parent (make it inaccessible), but not dispose
 //		of its data before dispos() is called !!
 //  - the root node of a filesystem is created when the filesystem is created
 //	- dispose() is not called on the root node when a filesystem is shutdown
@@ -63,8 +62,8 @@ typedef struct {
 	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
 	bool (*stat)(fs_node_ptr n, stat_t *st);
 	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *node_d);
-	bool (*delete)(fs_node_ptr n);
-	bool (*move)(fs_node_ptr n, struct fs_node *new_parent, const char *new_name);	// TODO : not sure about this ?
+	bool (*unlink)(fs_node_ptr n, const char* file);
+	bool (*move)(fs_node_ptr dir, const char* old_name, struct fs_node *new_parent, const char *new_name);
 	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
 	int (*ioctl)(fs_node_ptr n, int command, void* data);
 	void (*dispose)(fs_node_ptr n);
@@ -131,7 +130,7 @@ void ref_fs(fs_t *fs);
 void unref_fs(fs_t *fs);
 
 bool fs_create(fs_t *fs, const char* file, int type);
-bool fs_delete(fs_t *fs, const char* file);
+bool fs_unlink(fs_t *fs, const char* file);
 bool fs_move(fs_t *fs, const char* from, const char* to);
 bool fs_stat(fs_t *fs, const char* file, stat_t *st);
 int fs_ioctl(fs_t *fs, const char* file, int command, void* data);

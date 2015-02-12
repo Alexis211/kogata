@@ -1,335 +1,384 @@
 #include <hashtbl.h>
+#include <mutex.h>
 #include <string.h>
 #include <debug.h>
 
 #include <nullfs.h>
 
-static bool nullfs_i_make(fs_handle_t *source, char* opts, fs_t *d);
+// nullfs driver
+static bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *d);
 
-static bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s);
-static bool nullfs_i_delete(void* fs, const char* file);
-static void nullfs_i_shutdown(void* fs);
-static bool nullfs_i_fs_stat(void* fs, const char* file, stat_t *st);
-static int nullfs_i_fs_ioctl(void* fs, const char* file, int command, void* data);
+// nullfs fs_t
+static void nullfs_fs_shutdown(fs_ptr fs);
 
-static bool nullfs_i_f_stat(void* f, stat_t *st);
-static size_t nullfs_i_read(void* f, size_t offset, size_t len, char* buf);
-static size_t nullfs_i_write(void* f, size_t offset, size_t len, const char* buf);
-static void nullfs_i_close(void* f);
+// nullfs directory node
+static bool nullfs_d_open(fs_node_ptr n, int mode, fs_handle_t *s);
+static bool nullfs_d_stat(fs_node_ptr n, stat_t *st);
+static bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d);
+static bool nullfs_d_unlink(fs_node_ptr n, const char* file);
+static bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name);
+static bool nullfs_d_create(fs_node_ptr n, const char* file, int type);
+static void nullfs_d_dispose(fs_node_ptr n);
 
+// nullfs directory handle
+static bool nullfs_dh_readdir(fs_handle_ptr f, dirent_t *d);
+static void nullfs_dh_close(fs_handle_ptr f);
+
+// nullfs ram file node
+static bool nullfs_f_open(fs_node_ptr n, int mode, fs_handle_t *s);
+static bool nullfs_f_stat(fs_node_ptr n, stat_t *st);
+static void nullfs_f_dispose(fs_node_ptr n);
+
+// nullfs ram file handle
+static size_t nullfs_fh_read(fs_handle_ptr f, size_t offset, size_t len, char* buf);
+static size_t nullfs_fh_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
+static void nullfs_fh_close(fs_handle_ptr f);
+
+// VTables that go with it
 static fs_driver_ops_t nullfs_driver_ops = {
-	.make = nullfs_i_make,
+	.make = nullfs_fs_make,
 	.detect = 0,
 };
 
 static fs_ops_t nullfs_ops = {
-	.open = nullfs_i_open,
-	.delete = nullfs_i_delete,
-	.rename = 0,
-	.stat = nullfs_i_fs_stat,
-	.ioctl = nullfs_i_fs_ioctl,
+	.shutdown = nullfs_fs_shutdown,
 	.add_source = 0,
-	.shutdown = nullfs_i_shutdown
 };
 
-static fs_handle_ops_t nullfs_h_ops = {
-	.read = nullfs_i_read,
-	.write = nullfs_i_write,
-	.close = nullfs_i_close,
-	.stat = nullfs_i_f_stat
+static fs_node_ops_t nullfs_d_ops = {
+	.open = nullfs_d_open,
+	.stat = nullfs_d_stat,
+	.walk = nullfs_d_walk,
+	.unlink = nullfs_d_unlink,
+	.move = nullfs_d_move,
+	.create = nullfs_d_create,
+	.dispose = nullfs_d_dispose,
+	.ioctl = 0,
 };
 
-// Internal nullfs structures
+static fs_handle_ops_t nullfs_dh_ops = {
+	.readdir = nullfs_dh_readdir,
+	.close = nullfs_dh_close,
+	.read = 0,
+	.write = 0,
+};
+
+static fs_node_ops_t nullfs_f_ops = {
+	.open = nullfs_f_open,
+	.stat = nullfs_f_stat,
+	.dispose = nullfs_f_dispose,
+	.walk = 0,
+	.create = 0,
+	.unlink = 0,
+	.move = 0,
+	.ioctl =0,
+};
+
+static fs_handle_ops_t nullfs_fh_ops = {
+	.read = nullfs_fh_read,
+	.write = nullfs_fh_write,
+	.close = nullfs_fh_close,
+	.readdir = 0,
+};
+
+
+// ====================== //
+// NULLFS DATA STRUCTURES //
+// ====================== //
 
 typedef struct {
-	void* data;
-	nullfs_node_ops_t *ops;
+	bool can_create, can_move, can_unlink;
+} nullfs_t;
+
+typedef struct nullfs_item {
+	char* name;
+	fs_node_ptr data;
+	fs_node_ops_t *ops;
+
+	struct nullfs_item *next;
 } nullfs_item_t;
 
 typedef struct {
-	nullfs_item_t *item;
-	void* data;
-} nullfs_handle_t;
+	nullfs_item_t *items_list;
+	hashtbl_t *items_idx;
 
-typedef struct nullfs {
-	hashtbl_t *items;
-	bool can_delete;
-	bool can_create;
-} nullfs_t;
+	mutex_t lock;		// always locked when open (cannot create/delete/move)
 
-// Nullfs management
+	nullfs_t *fs;
+} nullfs_dir_t;
+
+typedef struct {
+	nullfs_item_t *it;
+	nullfs_dir_t *d;
+} nullfs_dh_t;
+
+typedef struct {
+	char* data;
+	size_t size;
+	bool own_data;
+	int ok_modes;
+	
+	mutex_t lock;
+} nullfs_file_t;
+
+// No nullfs_file_handle_t struct, we don't need it. The handle's data
+// pointer is simply a pointer to the file node.
+
+// ===================== //
+// NULLFS IMPLEMENTATION //
+// ===================== //
 
 void register_nullfs_driver() {
 	register_fs_driver("nullfs", &nullfs_driver_ops);
 }
 
-nullfs_t *as_nullfs(fs_t *it) {
-	if (it->ops != &nullfs_ops) return 0;
-	return (nullfs_t*)it->data;
-}
-
-bool nullfs_i_make(fs_handle_t *source, char* opts, fs_t *d) {
+bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *fs_s) {
 	nullfs_t *fs = (nullfs_t*)malloc(sizeof(nullfs_t));
 	if (fs == 0) return false;
 
-	fs->items = create_hashtbl(str_key_eq_fun, str_hash_fun, free, 0);
-	if (fs->items == 0) {
+	fs->can_create = (strchr(opts, 'c') != 0);
+	fs->can_move = (strchr(opts, 'm') != 0);
+	fs->can_unlink = (strchr(opts, 'd') != 0);
+
+	nullfs_dir_t *root = (nullfs_dir_t*)malloc(sizeof(nullfs_dir_t));
+	if (root == 0) {
 		free(fs);
 		return false;
 	}
 
-	fs->can_delete = (strchr(opts, 'd') != 0);
-	fs->can_create = (strchr(opts, 'c') != 0);
+	root->fs = fs;
+	root->items_list = 0;
+	root->lock = MUTEX_UNLOCKED;
+	root->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+	if (root->items_idx == 0) {
+		free(root);
+		free(fs);
+		return false;
+	}
 
-	d->data = fs;
-	d->ops = &nullfs_ops;
+	fs_s->ops = &nullfs_ops;
+	fs_s->data = fs;
+	fs_s->root.ops = &nullfs_d_ops;
+	fs_s->root.data = root;
 
 	return true;
 }
 
-bool nullfs_add(nullfs_t *f, const char* name, void* data, nullfs_node_ops_t *ops) {
-	nullfs_item_t *i = (nullfs_item_t*)malloc(sizeof(nullfs_item_t));
-	if (i == 0) return false;
+void nullfs_fs_shutdown(fs_ptr fs) {
+	// TODO free all
+}
 
-	char* n = strdup(name);
-	if (n == 0) {
-		free(i);
-		return false;
-	}
+bool nullfs_add_node(fs_t *fs, const char* name, fs_node_ptr data, fs_node_ops_t *ops) {
+	char file_name[DIR_MAX];
+
+	fs_node_t *n = fs_walk_path_except_last(&fs->root, name, file_name);
+	if (n == 0) return false;
+	if (n->ops != &nullfs_d_ops) return false;
+
+	nullfs_dir_t *d = (nullfs_dir_t*)n->data;
+	mutex_lock(&d->lock);
+
+	nullfs_item_t *i = (nullfs_item_t*)malloc(sizeof(nullfs_item_t));
+	if (i == 0) goto error;
+	
+	i->name = strdup(file_name);
+	if (i->name == 0) goto error;
 
 	i->data = data;
 	i->ops = ops;
-	if (!hashtbl_add(f->items, n, i)) {
-		free(n);
-		free(i);
+
+	bool add_ok = hashtbl_add(d->items_idx, i->name, i);
+	if (!add_ok) goto error;
+
+	i->next = d->items_list;
+	d->items_list = i;
+
+	mutex_unlock(&d->lock);
+	return true;
+
+error:
+	if (i && i->name) free(i->name);
+	if (i) free(i);
+	mutex_unlock(&d->lock);
+	return false;
+}
+
+bool nullfs_add_ram_file(fs_t *fs, const char* name, char* data, size_t init_sz, bool copy, int ok_modes) {
+	nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
+	if (f == 0) return false;
+
+	f->size = init_sz;
+	if (copy) {
+		f->data = malloc(init_sz);
+		memcpy(f->data, data, init_sz);
+		f->own_data = true;
+	} else {
+		f->data = data;
+		f->own_data = false;
+	}
+	f->ok_modes = ok_modes;
+	f->lock = MUTEX_UNLOCKED;
+
+	bool add_ok = nullfs_add_node(fs, name, f, &nullfs_f_ops);
+	if (!add_ok) {
+		if (f->own_data) free(f->data);
+		free(f);
 		return false;
 	}
 
 	return true;
 }
 
-static void nullfs_i_free_item(void* x) {
-	nullfs_item_t *i = (nullfs_item_t*)x;
-	if (i->ops->dispose) i->ops->dispose(i->data);
-	free(i);
-}
+//   -- Directory node --
 
-void nullfs_i_shutdown(void* fs) {
-	nullfs_t *f = (nullfs_t*)fs;
+bool nullfs_d_open(fs_node_ptr n, int mode, fs_handle_t *s) {
+	if (mode != FM_READDIR) return false;
 
-	delete_hashtbl(f->items, nullfs_i_free_item);
-	free(f);
-}
+	nullfs_dir_t* d = (nullfs_dir_t*)n;
 
-// Nullfs operations
+	bool got_lock = mutex_try_lock(&d->lock);
+	if (!got_lock) return false;
 
-bool nullfs_i_open(void* fs, const char* file, int mode, fs_handle_t *s) {
-	nullfs_t *f = (nullfs_t*)fs;
-
-	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
-	if (x == 0) {
-		if (f->can_create) {
-			if (nullfs_add_ram_file(fs, file, 0, 0, false,
-						FM_READ | FM_WRITE | FM_APPEND | FM_TRUNC | FM_MMAP)) {
-				x = (nullfs_item_t*)(hashtbl_find(f->items, file));
-				ASSERT(x != 0);
-			} else {
-				return false;
-			}
-		} else {
-			return false;
-		}
-	}
-
-	nullfs_handle_t *h = (nullfs_handle_t*)malloc(sizeof(nullfs_handle_t));
-	if (h == 0) return false;
-
-	h->item = x;
-	h->data = x->ops->open(x->data, mode, s);
-	if (h->data == 0) {
-		free(h);
+	nullfs_dh_t *h = (nullfs_dh_t*)malloc(sizeof(nullfs_dh_t));
+	if (h == 0) {
+		mutex_unlock(&d->lock);
 		return false;
 	}
+
+	h->it = d->items_list;
+	h->d = d;
 
 	s->data = h;
-	s->ops = &nullfs_h_ops;
+	s->ops = &nullfs_dh_ops;
+	s->mode = FM_READDIR;
+
 	return true;
 }
 
-bool nullfs_i_fs_stat(void* fs, const char* file, stat_t *st) {
-	nullfs_t *f = (nullfs_t*)fs;
+bool nullfs_d_stat(fs_node_ptr n, stat_t *st) {
+	nullfs_dir_t* d = (nullfs_dir_t*)n;
 
-	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
-	if (x == 0) return false;
+	mutex_lock(&d->lock);
 
-	return x->ops->stat && x->ops->stat(x->data, st);
-}
+	st->type = FT_DIR;
+	st->access = FM_READDIR
+		| (d->fs->can_create ? FM_DCREATE : 0)
+		| (d->fs->can_move ? FM_DMOVE : 0)
+		| (d->fs->can_unlink ? FM_DUNLINK : 0);
 
-int nullfs_i_fs_ioctl(void* fs, const char* file, int command, void* data) {
-	nullfs_t *f = (nullfs_t*)fs;
+	st->size = 0;
+	for (nullfs_item_t *i = d->items_list; i != 0; i = i->next)
+		st->size++;
 
-	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
-	if (x == 0) return 0;
-	if (x->ops->ioctl == 0) return 0;
+	mutex_unlock(&d->lock);
 
-	return x->ops->ioctl(x->data, command, data);
-}
-
-bool nullfs_i_delete(void* fs, const char* file) {
-	nullfs_t *f = (nullfs_t*)fs;
-
-	if (!f->can_delete) return false;
-
-	nullfs_item_t *x = (nullfs_item_t*)(hashtbl_find(f->items, file));
-	if (x == 0) return false;
-
-	hashtbl_remove(f->items, file);
-	nullfs_i_free_item(x);
 	return true;
 }
 
-bool nullfs_i_f_stat(void* f, stat_t *st) {
-	nullfs_handle_t *h = (nullfs_handle_t*)f;
-	return h->item->ops->stat && h->item->ops->stat(h->item->data, st);
+bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d) {
+	nullfs_dir_t* d = (nullfs_dir_t*)n;
+
+	mutex_lock(&d->lock);
+
+	nullfs_item_t* x = (nullfs_item_t*)hashtbl_find(d->items_idx, file);
+	if (x == 0) {
+		mutex_unlock(&d->lock);
+		return false;
+	}
+
+	node_d->ops = x->ops;
+	node_d->data = x->data;
+
+	mutex_unlock(&d->lock);
+
+	return true;
 }
 
-size_t nullfs_i_read(void* f, size_t offset, size_t len, char* buf) {
-	nullfs_handle_t *h = (nullfs_handle_t*)f;
-	if (!h->item->ops->read) return 0;
-	return h->item->ops->read(h->data, offset, len, buf);
+bool nullfs_d_unlink(fs_node_ptr n, const char* file) {
+	return false; //TODO
 }
 
-size_t nullfs_i_write(void* f, size_t offset, size_t len, const char* buf) {
-	nullfs_handle_t *h = (nullfs_handle_t*)f;
-	if (!h->item->ops->write) return 0;
-	return h->item->ops->write(h->data, offset, len, buf);
+bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name) {
+	return false; //TODO
 }
 
-void nullfs_i_close(void* f) {
-	nullfs_handle_t *h = (nullfs_handle_t*)f;
-	if (h->item->ops->close) h->item->ops->close(h->data);
+bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
+	return false; //TODO
+}
+
+void nullfs_d_dispose(fs_node_ptr n) {
+	//TODO
+}
+
+
+//   -- Directory handle --
+
+bool nullfs_dh_readdir(fs_handle_ptr f, dirent_t *d) {
+	nullfs_dh_t *h = (nullfs_dh_t*)f;
+
+	if (h->it == 0) {
+		return false;
+	} else {
+		strncpy(d->name, h->it->name, DIR_MAX);
+		d->name[DIR_MAX-1] = 0;	// make sur it's null-terminated
+		if (h->it->ops->stat) {
+			h->it->ops->stat(h->it->data, &d->st);
+		} else {
+			// no stat operation : should we do something else ?
+			memset(&d->st, 0, sizeof(stat_t));
+		}
+		h->it = h->it->next;
+
+		return true;
+	}
+}
+
+void nullfs_dh_close(fs_handle_ptr f) {
+	nullfs_dh_t *h = (nullfs_dh_t*)f;
+
+	mutex_unlock(&h->d->lock);
+
 	free(h);
 }
 
-// ====================================================== //
-// THE FUNCTIONS FOR HAVING RAM FILES (nullfs as ramdisk) //
-// ====================================================== //
+//   -- File node --
 
-static void* nullfs_i_ram_open(void* f, int mode, fs_handle_t *h);
-static size_t nullfs_i_ram_read(void* f, size_t offset, size_t len, char* buf);
-static size_t nullfs_i_ram_write(void* f, size_t offset, size_t len, const char* buf);
-static void nullfs_i_ram_dispose(void* f);
-static bool nullfs_i_ram_stat(void* f, stat_t *st);
+bool nullfs_f_open(fs_node_ptr n, int mode, fs_handle_t *s) {
+	nullfs_file_t *f = (nullfs_file_t*)n;
 
-static nullfs_node_ops_t nullfs_ram_ops = {
-	.open = nullfs_i_ram_open,
-	.read = nullfs_i_ram_read,
-	.write = nullfs_i_ram_write,
-	.stat = nullfs_i_ram_stat,
-	.close = 0,
-	.ioctl = 0,
-	.dispose = nullfs_i_ram_dispose
-};
+	if (mode & ~f->ok_modes) return false;
 
-typedef struct {
-	void* data;
-	bool data_owned;
-	size_t size;
-	int ok_modes;
-} nullfs_ram_file_t;
+	mutex_lock(&f->lock);
 
-bool nullfs_add_ram_file(nullfs_t *f, const char* name, void* data, size_t init_sz, bool copy, int ok_modes) {
-	nullfs_ram_file_t *x = (nullfs_ram_file_t*)malloc(sizeof(nullfs_ram_file_t));
-	if (x == 0) return false;
+	s->mode = mode;
+	s->data = f;
+	s->ops = &nullfs_fh_ops;
 
-	if (copy) {
-		x->data = malloc(init_sz);
-		if (x->data == 0) {
-			free(x);
-			return false;
-		}
-		memcpy(x->data, data, init_sz);
-		x->data_owned = true;
-	} else {
-		x->data = data;
-		x->data_owned = false;
-	}
-	x->size = init_sz;
-	x->ok_modes = ok_modes;
-	
-	if (!nullfs_add(f, name, x, &nullfs_ram_ops)) {
-		if (x->data_owned) free(x->data);
-		free(x);
-		return false;
-	}
 	return true;
 }
 
-void* nullfs_i_ram_open(void* fi, int mode, fs_handle_t *h) {
-	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
-
-	if (mode & ~f->ok_modes) {
-		return 0;
-	}
-	mode &= ~FM_CREATE;
-
-	if (mode & FM_TRUNC) {
-		if (f->data_owned) free(f->data);
-		f->data = 0;
-		f->size = 0;
-		f->data_owned = 0;
-	}
-
-	h->mode = mode;
-	return fi;
+bool nullfs_f_stat(fs_node_ptr n, stat_t *st) {
+	return false; //TODO
 }
 
-size_t nullfs_i_ram_read(void* fi, size_t offset, size_t len, char* buf) {
-	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
-
-	if (offset >= f->size) return 0;
-	if (offset + len > f->size) len = f->size - offset;
-
-	memcpy(buf, f->data + offset, len);
-	return len;
+void nullfs_f_dispose(fs_node_ptr n) {
+	// TODO
 }
 
-size_t nullfs_i_ram_write(void* fi, size_t offset, size_t len, const char* buf) {
-	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+//   -- File handle --
 
-	if (offset + len > f->size) {
-		// resize buffer (zero out new portion)
-		void* new_buffer = malloc(offset + len);
-		if (new_buffer == 0) return 0;
-
-		memcpy(new_buffer, f->data, f->size);
-		if (offset > f->size)
-			memset(new_buffer + f->size, 0, offset - f->size);
-
-		if (f->data_owned) free(f->data);
-		f->data = new_buffer;
-		f->data_owned = true;
-		f->size = offset + len;
-	}
-
-	memcpy(f->data + offset, buf, len);
-	return len;
+static size_t nullfs_fh_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
+	return 0; //TODO
 }
 
-void nullfs_i_ram_dispose(void* fi) {
-	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
-	
-	if (f->data_owned) free(f->data);
-	free(f);
+static size_t nullfs_fh_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf) {
+	return 0; //TODO
 }
 
-bool nullfs_i_ram_stat(void* fi, stat_t *st) {
-	nullfs_ram_file_t *f = (nullfs_ram_file_t*)fi;
+static void nullfs_fh_close(fs_handle_ptr h) {
+	nullfs_file_t *f = (nullfs_file_t*)h;
 
-	st->size = f->size;
-	return true;
+	mutex_unlock(&f->lock);
 }
-
-
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

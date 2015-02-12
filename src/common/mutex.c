@@ -13,11 +13,11 @@ void mutex_lock(uint32_t* mutex) {
 	}
 }
 
-int mutex_try_lock(uint32_t* mutex) {
+bool mutex_try_lock(uint32_t* mutex) {
 	if (atomic_exchange(mutex, MUTEX_LOCKED) == MUTEX_LOCKED) {
-		return 0;
+		return false;
 	}
-	return 1;
+	return true;
 }
 
 void mutex_unlock(uint32_t* mutex) {
