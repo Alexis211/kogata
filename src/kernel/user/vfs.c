@@ -86,7 +86,7 @@ void unref_fs_node(fs_node_t *n) {
 		ASSERT(n != &n->fs->root);
 		ASSERT(n->parent != 0);
 
-		n->ops->dispose(n->data);
+		if (n->ops->dispose) n->ops->dispose(n->data);
 		unref_fs_node(n->parent);
 		unref_fs(n->fs);
 		free(n);
@@ -293,6 +293,10 @@ void unref_file(fs_handle_t *file) {
 	}
 }
 
+int file_get_mode(fs_handle_t *f) {
+	return f->mode;
+}
+
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 	if (!(f->mode && FM_READ)) return 0;
 
@@ -307,8 +311,12 @@ size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 	return f->ops->write(f->data, offset, len, buf);
 }
 
-int file_get_mode(fs_handle_t *f) {
-	return f->mode;
+bool file_stat(fs_handle_t *f, stat_t *st) {
+	return f->ops->stat && f->ops->stat(f->data, st);
+}
+
+bool file_readdir(fs_handle_t *f, dirent_t *d) {
+	return f->ops->readdir && f->ops->readdir(f->data, d);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

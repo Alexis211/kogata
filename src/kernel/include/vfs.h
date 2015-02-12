@@ -31,6 +31,7 @@ typedef struct {
 	size_t (*read)(fs_handle_ptr f, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
 	bool (*stat)(fs_handle_ptr f, stat_t *st);
+	bool (*readdir)(fs_handle_ptr f, dirent_t *d);
 	void (*close)(fs_handle_ptr f);
 } fs_handle_ops_t;
 
@@ -138,8 +139,10 @@ int fs_ioctl(fs_t *fs, const char* file, int command, void* data);
 fs_handle_t* fs_open(fs_t *fs, const char* file, int mode);
 void ref_file(fs_handle_t *file);
 void unref_file(fs_handle_t *file);
+int file_get_mode(fs_handle_t *f);
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
-int file_get_mode(fs_handle_t *f);
+bool file_stat(fs_handle_t *f, stat_t *st);
+bool file_readdir(fs_handle_t *f, dirent_t *d);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

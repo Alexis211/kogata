@@ -270,13 +270,21 @@ void kernel_init_stage2(void* data) {
 		strcpy(name, "/mod/");
 		strcpy(name+5, modname);
 
-		dbg_printf("Adding module to VFS: '%s'\n", name);
-
 		size_t len = mods[i].mod_end - mods[i].mod_start;
+
+		dbg_printf("Adding module to VFS: '%s' (size %d)\n", name, len);
+
+		/*
+		// This would be the "good" way of doing it :
 		fs_handle_t* mod_f = fs_open(devfs, name, FM_WRITE | FM_CREATE);
 		ASSERT(mod_f != 0);
 		ASSERT(file_write(mod_f, 0, len, (char*)mods[i].mod_start) == len);
 		unref_file(mod_f);
+		*/
+		// But since we have a nullfs, we can do it that way to prevent useless data copies :
+		ASSERT(nullfs_add_ram_file(devfs, name,
+					(char*)mods[i].mod_start,
+					len, false, FM_READ, FM_MMAP));
 	}
 
 	// TEST : read /cmdline
