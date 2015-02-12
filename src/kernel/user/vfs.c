@@ -112,14 +112,20 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 }
 
 fs_node_t* fs_walk_path(fs_node_t* from, const char* path) {
+	if (*path == '/') path++;
+
 	fs_node_t *n = from;
 	ref_fs_node(n);
 
 	while (n && (*path)) {
+		if (*path == '/') {
+			// we don't want multiple slashes, so fail
+			unref_fs_node(n);
+			return 0;
+		}
+
 		const char* d = strchr(path, '/');
-		if (d == path) {
-			path++;
-		} else if (d == 0) {
+		if (d == 0) {
 			fs_node_t *n2 = fs_walk_one(n, path);
 			unref_fs_node(n);
 
@@ -145,11 +151,52 @@ fs_node_t* fs_walk_path(fs_node_t* from, const char* path) {
 }
 
 fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char* path, char* last_file_buf) {
-	// TODO : parse path, walk
 	// This function does NOT walk into the last component of the path (it may not even exist),
 	// instead it isolates it in the buffer last_file
 	// This buffer is expected to be of size DIR_MAX (defined in fs.h)
-	return 0;
+	if (*path == '/') path++;
+	if (*path == 0) return 0;		// no last component !
+
+	fs_node_t *n = from;
+	ref_fs_node(n);
+
+	while (n && (*path)) {
+		if (*path == '/') {
+			// we don't want multiple slashes, so fail
+			unref_fs_node(n);
+			return 0;
+		}
+
+		const char* d = strchr(path, '/');
+		if (d == 0) {
+			if (strlen(path) >= DIR_MAX - 1) {
+				unref_fs_node(n);
+				return 0;	// sorry, path item too long
+			}
+			strcpy(last_file_buf, path);
+			return n;
+		} else {
+			size_t nlen = d - path;
+			if (nlen >= DIR_MAX - 1) {
+				unref_fs_node(n);
+				return 0;	// sorry, path item too long
+			}
+			strncpy(last_file_buf, path, nlen);
+			last_file_buf[nlen] = 0;
+
+			if (*(d+1) == 0) {
+				// trailing slash !
+				return n;
+			} else {
+				fs_node_t *n2 = fs_walk_one(n, last_file_buf);
+				unref_fs_node(n);
+				n = n2;
+
+				path = d + 1;
+			}
+		}
+	}
+	return n;
 }
 
 // ========================== //
