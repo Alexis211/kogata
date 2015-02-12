@@ -9,7 +9,7 @@
 #define FT_BLOCKDEV 	(0x04)
 #define FT_CHARDEV 		(0x08)
 #define FT_FIFO 		(0x10)
-#define FT_SOCKET 		(0x20)
+// #define FT_SOCKET 		(0x20)		// Not yet! Semantics not defined.	 (TODO)
 
 #define FM_READ 	(0x01)
 #define FM_WRITE 	(0x02)

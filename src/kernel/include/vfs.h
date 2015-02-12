@@ -6,11 +6,12 @@
 #include <fs.h> 		// common header
 
 // How to use :
-// - when using a filesystem : never call the operations in fs_*_ops_t directly, use
-// 		the functions defined bellow
-// - when programming a filesystem : don't worry about allocating the fs_handle_t and fs_t,
+// - When using a filesystem : never call the operations in fs_*_ops_t directly, use
+// 		the functions defined bellow in section "public functions";
+//		Users of the VFS should not manipulate directly fs_node_t items, only fs_t and fs_handle_t
+// - When programming a filesystem : don't worry about allocating the fs_handle_t and fs_t,
 // 		it is done automatically
-// - the three types defined below (filesystem, fs node, file handle) are reference-counters to
+// - The three types defined below (filesystem, fs node, file handle) are reference-counters to
 //		some data managed by the underlying filesystem. The following types are aliases to void*,
 //		but are used to disambiguate the different types of void* : fs_handle_ptr, fs_node_ptr, fs_ptr
 
@@ -18,6 +19,7 @@ typedef void* fs_handle_ptr;
 typedef void* fs_node_ptr;
 typedef void* fs_ptr;
 
+// -------------------------------------------
 // Structure defining a handle to an open file
 
 typedef struct {
@@ -38,17 +40,22 @@ typedef struct fs_handle {
 	int mode;
 } fs_handle_t;
 
+// -------------------------------------------
 // Structure defining a filesystem node
 // In the future this is where FS-level cache may be implemented : calls to dispose() are not
 // executed immediately when refcount falls to zero but only when we need to free memory
+// Remarks :
+//  - fs_node_t not to be used in public interface
+//  - nodes keep a reference to their parent
 
+struct fs_node;
 typedef struct {
 	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
 	bool (*stat)(fs_node_ptr n, stat_t *st);
-	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *n);
+	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *node_d);
 	bool (*delete)(fs_node_ptr n);
 	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
-	int (*ioctl)(fs_node_ptr n, int command, void* data)
+	int (*ioctl)(fs_node_ptr n, int command, void* data);
 	void (*dispose)(fs_node_ptr n);
 } fs_node_ops_t;
 
@@ -62,6 +69,7 @@ typedef struct fs_node {
 	fs_node_ptr data;
 } fs_node_t;
 
+// -------------------------------------------
 // Structure defining a filesystem
 
 typedef struct {
@@ -79,6 +87,7 @@ typedef struct fs {
 	fs_node_t root;
 } fs_t;
 
+// -------------------------------------------
 // Structure defining a filesystem driver
 
 typedef struct {
@@ -86,7 +95,8 @@ typedef struct {
 	bool (*detect)(fs_handle_t *source);
 } fs_driver_ops_t;
 
-// Common functions
+// -------------------------------------------
+// Public functions
 
 void register_fs_driver(const char* name, fs_driver_ops_t *ops);
 
@@ -96,6 +106,7 @@ void ref_fs(fs_t *fs);
 void unref_fs(fs_t *fs);
 
 bool fs_delete(fs_t *fs, const char* file);
+bool fs_create(fs_t *fs, const char* file, int type);
 bool fs_rename(fs_t *fs, const char* from, const char* to);
 bool fs_stat(fs_t *fs, const char* file, stat_t *st);
 int fs_ioctl(fs_t *fs, const char* file, int command, void* data);

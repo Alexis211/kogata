@@ -240,18 +240,23 @@ void kernel_init_stage2(void* data) {
 
 	// Create devfs
 	register_nullfs_driver();
-	fs_t *devfs_fs = make_fs("nullfs", 0, "");
-	ASSERT(devfs_fs != 0);
-	nullfs_t *devfs = as_nullfs(devfs_fs);
+	fs_t *devfs = make_fs("nullfs", 0, "cd");
 	ASSERT(devfs != 0);
+	nullfs_t *devfs_n = as_nullfs(devfs);
+	ASSERT(devfs_n != 0);
 
 	// Add kernel command line to devfs
-	dbg_printf("Kernel command line: '%s'\n", (char*)mbd->cmdline);
-	ASSERT(nullfs_add_ram_file(devfs, "/cmdline",
-			(void*)mbd->cmdline, strlen((char*)mbd->cmdline),
-			false, FM_READ));
+	{
+		dbg_printf("Kernel command line: '%s'\n", (char*)mbd->cmdline);
+		size_t len = strlen((char*)mbd->cmdline);
+		fs_handle_t* cmdline = fs_open(devfs, "/cmdline", FM_WRITE | FM_CREATE);
+		ASSERT(cmdline != 0);
+		ASSERT(file_write(cmdline, 0, len, (char*)mbd->cmdline) == len);
+		unref_file(cmdline);
+	}
 
 	// Populate devfs with files for kernel modules
+	ASSERT(fs_create(devfs, "/mod", FT_DIR));
 	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
 	for (unsigned i = 0; i < mbd->mods_count; i++) {
 		char* modname = (char*)mods[i].string;
@@ -267,16 +272,16 @@ void kernel_init_stage2(void* data) {
 
 		dbg_printf("Adding module to VFS: '%s'\n", name);
 
-		ASSERT(nullfs_add_ram_file(devfs, name,
-							(void*)mods[i].mod_start,
-							mods[i].mod_end - mods[i].mod_start,
-							false,
-							FM_READ | FM_MMAP));
+		size_t len = mods[i].mod_end - mods[i].mod_start;
+		fs_handle_t* mod_f = fs_open(devfs, name, FM_WRITE | FM_CREATE);
+		ASSERT(mod_f != 0);
+		ASSERT(file_write(mod_f, 0, len, (char*)mods[i].mod_start) == len);
+		unref_file(mod_f);
 	}
 
 	// TEST : read /cmdline
 	dbg_printf("Trying to read /cmdline... ");
-	fs_handle_t *f = fs_open(devfs_fs, "/cmdline", FM_READ);
+	fs_handle_t *f = fs_open(devfs, "/cmdline", FM_READ);
 	ASSERT(f != 0);
 	char buf[256];
 	size_t l = file_read(f, 0, 255, buf);
