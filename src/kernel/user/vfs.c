@@ -46,6 +46,7 @@ fs_t *make_fs(const char* drv_name, fs_handle_t *source, char* opts) {
 	fs->root.refs = 1;		// root node is never disposed of (done by fs->shutdown)
 	fs->root.fs = fs;
 	fs->root.parent = 0;
+	fs->root.children = 0;
 
 	if (d->ops->make(source, opts, fs)) {
 		return fs;
@@ -85,30 +86,62 @@ void unref_fs_node(fs_node_t *n) {
 	if (n->refs == 0) {
 		ASSERT(n != &n->fs->root);
 		ASSERT(n->parent != 0);
+		ASSERT(n->name != 0);
+
+		hashtbl_remove(n->parent->children, n->name);
 
 		if (n->ops->dispose) n->ops->dispose(n->data);
+
 		unref_fs_node(n->parent);
 		unref_fs(n->fs);
+
+		free(n->name);
 		free(n);
 	}
 }
 
 fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
+	if (from->children != 0) {
+		fs_node_t *n = (fs_node_t*)hashtbl_find(from->children, file);
+		if (n != 0) {
+			ref_fs_node(n);
+			return n;
+		}
+	}
+
+	bool walk_ok = false, add_ok = false;
+
 	fs_node_t *n = (fs_node_t*)malloc(sizeof(fs_node_t));
 	if (n == 0) return 0;
 
 	n->fs = from->fs;
 	n->refs = 1;
 	n->parent = from;
+	n->children = 0;
+	n->name = strdup(file);
+	if (n->name == 0) goto error;
+	
+	walk_ok = from->ops->walk && from->ops->walk(from->data, file, n);
+	if (!walk_ok) goto error;
 
-	if (from->ops->walk && from->ops->walk(from->data, file, n)) {
-		ref_fs_node(n->parent);
-		ref_fs(n->fs);
-		return n;
-	} else {
-		free(n);
-		return 0;
+	if (from->children == 0) {
+		from->children = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+		if (from->children == 0) goto error;
 	}
+
+	add_ok = hashtbl_add(from->children, n->name, n);
+	if (!add_ok) goto error;
+
+	ref_fs_node(n->parent);
+	ref_fs(n->fs);
+
+	return n;
+
+error:
+	if (walk_ok) n->ops->dispose(n->data);
+	if (n->name != 0) free(n->name);
+	free(n);
+	return 0;
 }
 
 fs_node_t* fs_walk_path(fs_node_t* from, const char* path) {
@@ -199,8 +232,8 @@ fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char* path, char* las
 	return n;
 }
 
-// ========================== //
-// DOING THINGS IN FLESYSTEMS //
+// =========================== //
+// DOING THINGS IN FILESYSTEMS //
 
 bool fs_create(fs_t *fs, const char* file, int type) {
 	char name[DIR_MAX];
@@ -217,6 +250,11 @@ bool fs_unlink(fs_t *fs, const char* file) {
 
 	fs_node_t* n = fs_walk_path_except_last(&fs->root, file, name);
 	if (n == 0) return false;
+
+	if (n->children != 0) {
+		fs_node_t* x = (fs_node_t*)hashtbl_find(n->children, name);
+		if (x != 0) return false;
+	}
 
 	bool ret = n->ops->unlink && n->ops->unlink(n->data, name);
 	unref_fs_node(n);

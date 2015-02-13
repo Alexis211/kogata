@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <malloc.h>
+#include <hashtbl.h>
 
 #include <fs.h> 		// common header
 
@@ -53,8 +54,11 @@ typedef struct fs_handle {
 // Remarks :
 //  - fs_node_t not to be used in public interface
 //  - nodes keep a reference to their parent
-//  - unink() is expected to unink the node from its parent (make it inaccessible), but not dispose
-//		of its data before dispos() is called !!
+//  - a FS node is either in memory (after one call to walk() on its parent), or not in memory
+//		it can be in memory only once : if it is in memory, walk() cannot be called on the parent again
+//  - unlink() is expected to unlink the node from its parent (make it inaccessible) and delete
+//		the corresponding data. It is guaranteed that unlink() is never called on a node that
+//		is currently in use. (different from posix semantics !)
 //  - the root node of a filesystem is created when the filesystem is created
 //	- dispose() is not called on the root node when a filesystem is shutdown
 
@@ -70,10 +74,14 @@ typedef struct {
 } fs_node_ops_t;
 
 typedef struct fs_node {
-	// These three fields are filled by the VFS's generic walk() code
+	// These fields are filled by the VFS's generic walk() code
 	struct fs *fs;
 	int refs;
+	hashtbl_t *children;	// not all children, only those in memory
+
 	struct fs_node *parent;
+	char* name;				// name in parent
+
 	// These fields are filled by the FS's specific walk() code
 	fs_node_ops_t *ops;
 	fs_node_ptr data;
