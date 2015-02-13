@@ -91,6 +91,7 @@ void page_fault_handler(registers_t *regs) {
 		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	// userspace PF handlers should always be preemptible
 
 		dbg_printf("Userspace page fault at 0x%p\n", vaddr);
+		dbg_dump_registers(regs);
 		PANIC("Unhandled userspace page fault");
 		// not handled yet
 		// TODO

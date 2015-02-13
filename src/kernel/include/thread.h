@@ -10,7 +10,7 @@
 
 #define KPROC_STACK_SIZE 0x8000	// 8Kb
 
-#define TASK_SWITCH_FREQUENCY	100		// in herz
+#define TASK_SWITCH_FREQUENCY	50		// in herz
 
 typedef struct saved_context {
 	uint32_t *esp;

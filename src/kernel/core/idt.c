@@ -106,7 +106,6 @@ void idt_irqHandler(registers_t *regs) {
 	}
 	outb(0x20, 0x20);
 
-	dbg_printf("IRQ %i\n", regs->err_code);
 	if (irq_handlers[regs->err_code] != 0) {
 		irq_handlers[regs->err_code](regs);
 	}
@@ -114,7 +113,7 @@ void idt_irqHandler(registers_t *regs) {
 
 /* Caled in interrupt.s when a syscall is called */
 void idt_syscallHandler(registers_t *regs) {
-	dbg_printf("Syscall %i\n", regs->int_no);
+	dbg_printf("Syscall %i (not implemented yet)\n", regs->int_no);
 	// do nothing, yet.
 }
 

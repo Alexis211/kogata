@@ -165,6 +165,7 @@ bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *fs_s) {
 }
 
 void nullfs_fs_shutdown(fs_ptr fs) {
+	dbg_printf("Not implemented: nullfs_fs_shutdown. Memory is leaking.\n");
 	// TODO free all
 }
 
@@ -338,6 +339,8 @@ bool nullfs_d_delete(fs_node_ptr n, const char* file) {
 }
 
 bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name) {
+	dbg_printf("Not implemented: move in nullfs. Failing potentially valid move request.\n");
+
 	return false; //TODO
 }
 
