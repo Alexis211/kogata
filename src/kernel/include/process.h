@@ -27,12 +27,16 @@
 struct process;
 typedef struct process process_t;
 
+typedef void* proc_entry_t;
+
 process_t *current_process();
 
 process_t *new_process(process_t *parent);
 // void delete_process(process_t *p);	// TODO define semantics for freeing stuff
 
-bool start_process(process_t *p, void* entry);	// maps a region for user stack
+pagedir_t *proc_pagedir(process_t *p);
+
+bool start_process(process_t *p, proc_entry_t entry);	// maps a region for user stack
 
 bool proc_add_fs(process_t *p, fs_t *fs, const char* name);
 fs_t *proc_find_fs(process_t *p, const char* name);

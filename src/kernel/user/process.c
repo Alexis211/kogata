@@ -114,6 +114,10 @@ bool start_process(process_t *p, void* entry) {
 	return true;
 }
 
+pagedir_t *proc_pagedir(process_t *p) {
+	return p->pd;
+}
+
 // ================================== //
 // MANAGING FILESYSTEMS FOR PROCESSES //
 // ================================== //
@@ -223,6 +227,10 @@ bool munmap(process_t *proc, void* addr) {
 			}
 		}
 	}
+
+	// TODO : write modified pages back to file!
+
+	if (r->file != 0) unref_file(r->file);
 
 	free(r);
 

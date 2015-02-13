@@ -4,27 +4,25 @@
 #define GDT_ENTRIES 6	// The contents of each entry is defined in gdt_init.
 
 /* 	One entry of the table */
-struct gdt_entry {
+typedef struct {
 	uint16_t limit_low;
 	uint16_t base_low;
 	uint8_t base_middle;
 	uint8_t access;
 	uint8_t granularity;
 	uint8_t base_high;
-} __attribute__((packed));
-typedef struct gdt_entry gdt_entry_t;
+} __attribute__((packed)) gdt_entry_t;
 
 /*	Structure defining the whole table : address and size (in bytes). */
-struct gdt_ptr {
+typedef struct {
 	uint16_t limit;
 	uint32_t base;
-} __attribute__((packed));
-typedef struct gdt_ptr gdt_ptr_t;
+} __attribute__((packed)) gdt_ptr_t;
 
 /*	The TSS is used for hardware multitasking.
 	We don't use that, but we still need a TSS so that user mode process exceptions
 	can be handled correctly by the kernel.	*/
-struct tss_entry {
+typedef struct {
 	uint32_t prev_tss;   // The previous TSS - if we used hardware task switching this would form a linked list.
 	uint32_t esp0;       // The stack pointer to load when we change to kernel mode.
 	uint32_t ss0;        // The stack segment to load when we change to kernel mode.
@@ -52,8 +50,7 @@ struct tss_entry {
 	uint32_t ldt;        // Unused...
 	uint16_t trap;
 	uint16_t iomap_base;
-} __attribute__((packed));
-typedef struct tss_entry tss_entry_t;
+} __attribute__((packed)) tss_entry_t;
 
 // ========================= //
 // Actual definitions
@@ -86,13 +83,11 @@ void gdt_init() {
 	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);		//User data segment		0x20
 
 	// Write TSS
-	memset(&tss_entry, 0, sizeof(tss_entry));
+	memset(&tss_entry, 0, sizeof(tss_entry_t));
 
 	tss_entry.ss0  = 0x10;
 	tss_entry.esp0 = 0;
-
-	tss_entry.cs   = 0x0b;
-	tss_entry.ss = tss_entry.ds = tss_entry.es = tss_entry.fs = tss_entry.gs = 0x13;
+	tss_entry.iomap_base = sizeof(tss_entry_t);
 
 	uint32_t tss_base = (uint32_t)&tss_entry;
 	uint32_t tss_limit = tss_base + sizeof(tss_entry_t);

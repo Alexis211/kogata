@@ -2,8 +2,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+extern int main(int, char**);
+
 void __libkogata_start() {
-	// TODO
-	while(true);
+	// TODO : setup
+
+	main(0, 0);
 }
 

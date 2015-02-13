@@ -3,7 +3,7 @@
 #include <debug.h>
 
 int main(int argc, char **argv) {
-	asm volatile("int $0x80");
+	asm volatile("int $0x40");
 	while(true);
 }
 

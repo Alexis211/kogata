@@ -15,6 +15,8 @@
 
 #include <vfs.h>
 #include <nullfs.h>
+#include <process.h>
+#include <elf.h>
 
 #include <slab_alloc.h>
 #include <hashtbl.h>
@@ -332,6 +334,23 @@ void kernel_init_stage2(void* data) {
 	}
 
 	test_cmdline(mbd, devfs);
+
+	fs_handle_t *init_bin = fs_open(devfs, "/mod/init.bin", FM_READ | FM_MMAP);
+	if (init_bin == 0) PANIC("No init.bin module provided!");
+	if (!is_elf(init_bin)) PANIC("init.bin is not valid ELF32 binary");
+
+	process_t *init_p = new_process(0);
+	ASSERT(init_p != 0);
+
+	bool add_devfs_ok = proc_add_fs(init_p, devfs, "dev");
+	ASSERT(add_devfs_ok);
+
+	proc_entry_t *e = elf_load(init_bin, init_p);
+	if (e == 0) PANIC("Could not load ELF file init.bin");
+
+	unref_file(init_bin);
+
+	start_process(init_p, e);
 
 	//TODO :
 	// - (OK) populate devfs with information regarding kernel command line & modules

@@ -221,7 +221,8 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 		}
 
 		current_pd->page[pt] = pd->page[pt] =
-			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW;
+			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW
+			| ((size_t)vaddr < K_HIGHHALF_ADDR ? PTE_USER : 0);
 		invlpg(&current_pt[pt]);
 	}
 	current_pt[pt].page[page] =
