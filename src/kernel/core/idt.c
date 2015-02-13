@@ -4,6 +4,7 @@
 #include <string.h>
 #include <dbglog.h>
 #include <thread.h>
+#include <syscall.h>
 
 struct idt_entry {
 	uint16_t base_lo;		//Low part of address to jump to
@@ -89,7 +90,7 @@ static isr_handler_t irq_handlers[16] = {0};
 static isr_handler_t ex_handlers[32] = {0};
 
 /*	Called in interrupt.s when an exception fires (interrupt 0 to 31) */
-void idt_exHandler(registers_t *regs) {
+void idt_ex_handler(registers_t *regs) {
 	if (ex_handlers[regs->int_no] != 0) {
 		ex_handlers[regs->int_no](regs);
 	} else {
@@ -105,7 +106,7 @@ void idt_exHandler(registers_t *regs) {
 } 
 
 /*	Called in interrupt.s when an IRQ fires (interrupt 32 to 47) */
-void idt_irqHandler(registers_t *regs) {
+void idt_irq_handler(registers_t *regs) {
 	if (regs->err_code > 7) {
 		outb(0xA0, 0x20);
 	}
@@ -117,9 +118,8 @@ void idt_irqHandler(registers_t *regs) {
 }
 
 /* Caled in interrupt.s when a syscall is called */
-void idt_syscallHandler(registers_t *regs) {
-	dbg_printf("Syscall %i (not implemented yet)\n", regs->int_no);
-	// do nothing, yet.
+void idt_syscall_handler(registers_t *regs) {
+	syscall_handler(regs);
 }
 
 /*	For internal use only. Sets up an entry of the IDT with given parameters. */

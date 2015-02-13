@@ -118,6 +118,10 @@ pagedir_t *proc_pagedir(process_t *p) {
 	return p->pd;
 }
 
+int proc_pid(process_t *p) {
+	return p->pid;
+}
+
 // ================================== //
 // MANAGING FILESYSTEMS FOR PROCESSES //
 // ================================== //
@@ -143,7 +147,7 @@ fs_t *proc_find_fs(process_t *p, const char* name) {
 // USER MEMORY REGION MANAGEMENT //
 // ============================= //
 
-static user_region_t *find_user_region(process_t *proc, void* addr) {
+static user_region_t *find_user_region(process_t *proc, const void* addr) {
 	for (user_region_t *it = proc->regions; it != 0; it = it->next) {
 		if (addr >= it->addr && addr < it->addr + it->size) return it;
 	}
@@ -284,6 +288,26 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 
 	if (r->file != 0) {
 		file_read(r->file, addr - r->addr + r->file_offset, PAGE_SIZE, addr);
+	}
+}
+
+void probe_for_read(const void* addr, size_t len) {
+	process_t *proc = current_process();
+	user_region_t *r = find_user_region(proc, addr);
+	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_READ)) {
+		dbg_printf("Access violation on read at 0x%p len 0x%p in process %d : exiting.\n",
+			addr, len, proc->pid);
+		exit();
+	}
+}
+
+void probe_for_write(const void* addr, size_t len) {
+	process_t *proc = current_process();
+	user_region_t *r = find_user_region(proc, addr);
+	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_WRITE)) {
+		dbg_printf("Access violation on write at 0x%p len 0x%p in process %d : exiting.\n",
+			addr, len, proc->pid);
+		exit();
 	}
 }
 

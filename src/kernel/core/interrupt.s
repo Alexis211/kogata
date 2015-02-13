@@ -1,7 +1,7 @@
 ;************************************************************************************
 
 %macro COMMONSTUB 1
-[EXTERN idt_%1Handler]
+[EXTERN idt_%1_handler]
 %1_common_stub:
 
 	pusha                    ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
@@ -19,7 +19,7 @@
 	; (passing it directly results in GCC trashing the data when doing optimisations)
 	mov eax, esp
 	push eax
-	call idt_%1Handler
+	call idt_%1_handler
 	add esp, 4
 
 	pop eax        ; reload the original data segment descriptor

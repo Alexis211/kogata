@@ -35,15 +35,22 @@ process_t *new_process(process_t *parent);
 // void delete_process(process_t *p);	// TODO define semantics for freeing stuff
 
 pagedir_t *proc_pagedir(process_t *p);
+int proc_pid(process_t *p);
 
 bool start_process(process_t *p, proc_entry_t entry);	// maps a region for user stack
 
 bool proc_add_fs(process_t *p, fs_t *fs, const char* name);
 fs_t *proc_find_fs(process_t *p, const char* name);
+bool proc_rm_fs(process_t *p, const char* name);
 
 bool mmap(process_t *proc, void* addr, size_t size, int mode);		// create empty zone
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode);
 bool mchmap(process_t *proc, void* addr, int mode);
 bool munmap(process_t *proc, void* addr);
+
+// for syscalls : check that process is authorized to do that
+// (if not, process exits with a segfault)
+void probe_for_read(const void* addr, size_t len);
+void probe_for_write(const void* addr, size_t len);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

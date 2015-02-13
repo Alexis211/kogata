@@ -17,6 +17,7 @@
 #include <nullfs.h>
 #include <process.h>
 #include <elf.h>
+#include <syscall.h>
 
 #include <slab_alloc.h>
 #include <hashtbl.h>
@@ -269,6 +270,8 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 
 	kmalloc_setup();
 	kmalloc_test(kernel_data_end);
+
+	setup_syscalls();
 
 	// enter multi-threading mode
 	// interrupts are enabled at this moment, so all
