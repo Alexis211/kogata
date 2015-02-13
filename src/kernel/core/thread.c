@@ -124,13 +124,11 @@ thread_t *new_thread(entry_t entry, void* data) {
 	for (void* i = stack + PAGE_SIZE; i < stack + KPROC_STACK_SIZE; i += PAGE_SIZE) {
 		uint32_t f = frame_alloc(1);
 		if (f == 0) {
-			region_free_unmap_free(stack);
-			free(t);
-			return 0;
+			PANIC("TODO (OOM could not create kernel stack for new thread)");
 		}
 		bool map_ok = pd_map_page(i, f, true);
 		if (!map_ok) {
-			PANIC("TODO");
+			PANIC("TODO (OOM(2) could not create kernel stack for new thread)");
 		}
 	}
 

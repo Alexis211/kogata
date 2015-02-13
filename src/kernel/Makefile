@@ -4,7 +4,7 @@ OBJ = core/loader.o core/kmain.o core/dbglog.o core/sys.o \
 	core/frame.o core/paging.o core/region.o core/kmalloc.o \
 	user/vfs.o user/nullfs.o user/process.o
 
-LIB = ../common/common.lib
+LIB = ../common/libc/libc.lib ../common/libkogata/libkogata.lib ../common/libalgo/libalgo.lib
 
 CFLAGS = -I ./include -I ../common/include
 

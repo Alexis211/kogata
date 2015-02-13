@@ -1,4 +1,4 @@
-DIRS = src/common src/kernel
+DIRS = src/common/libkogata src/common/libc src/common/libalgo src/kernel src/lib/libkogata src/apps/init
 
 all:
 	for dir in $(DIRS); do \
