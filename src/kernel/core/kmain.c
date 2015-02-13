@@ -24,16 +24,17 @@ extern const void k_end_addr;	// defined in linker script : 0xC0000000 plus kern
 
 void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
+	dbg_dump_registers(regs);
 	BOCHS_BREAKPOINT;
 }
 
-void breakpoint_test() {
+void test_breakpoint() {
 	dbg_printf("(BEGIN-TEST 'breakpoint-test)\n");
 	asm volatile("int $0x3");	// test breakpoint
 	dbg_printf("(TEST-OK)\n");
 }
 
-void region_test1() {
+void test_region_1() {
 	dbg_printf("(BEGIN-TEST 'region-test-1)\n");
 	void* p = region_alloc(0x1000, "Test region", 0);
 	dbg_printf("Allocated one-page region: 0x%p\n", p);
@@ -63,7 +64,7 @@ void region_test1() {
 	dbg_printf("(TEST-OK)\n");
 }
 
-void region_test2() {
+void test_region_2() {
 	// allocate a big region and try to write into it
 	dbg_printf("(BEGIN-TEST 'region-test-2)\n");
 	const size_t n = 200;
@@ -188,6 +189,25 @@ void test_hashtbl_2() {
 	dbg_printf("(TEST-OK)\n");
 }
 
+void test_cmdline(multiboot_info_t *mbd, fs_t *devfs) {
+	dbg_printf("(BEGIN-TEST 'test-cmdline)\n");
+
+	fs_handle_t *f = fs_open(devfs, "/cmdline", FM_READ);
+	ASSERT(f != 0);
+
+	char buf[256];
+	size_t l = file_read(f, 0, 255, buf);
+	ASSERT(l > 0);
+	buf[l] = 0;
+
+	unref_file(f);
+	dbg_printf("Command line as in /cmdline file: '%s'.\n", buf);
+
+	ASSERT(strcmp(buf, (char*)mbd->cmdline) == 0);
+
+	dbg_printf("(TEST-OK)\n");
+}
+
 void kernel_init_stage2(void* data);
 void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	// used for allocation of data structures before malloc is set up
@@ -226,7 +246,7 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	idt_init(); dbg_printf("IDT set up.\n");
 	idt_set_ex_handler(EX_BREAKPOINT, breakpoint_handler);
 
-	breakpoint_test();
+	test_breakpoint();
 
 	size_t total_ram = ((mbd->mem_upper + mbd->mem_lower) * 1024);
 	dbg_printf("Total ram: %d Kb\n", total_ram / 1024);
@@ -242,8 +262,8 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	BOCHS_BREAKPOINT;
 
 	region_allocator_init(kernel_data_end);
-	region_test1();
-	region_test2();
+	test_region_1();
+	test_region_2();
 
 	kmalloc_setup();
 	kmalloc_test(kernel_data_end);
@@ -311,16 +331,7 @@ void kernel_init_stage2(void* data) {
 					len, false, FM_READ | FM_MMAP));
 	}
 
-	// TEST : read /cmdline
-	dbg_printf("Trying to read /cmdline... ");
-	fs_handle_t *f = fs_open(devfs, "/cmdline", FM_READ);
-	ASSERT(f != 0);
-	char buf[256];
-	size_t l = file_read(f, 0, 255, buf);
-	ASSERT(l > 0);
-	buf[l] = 0;
-	unref_file(f);
-	dbg_printf("got '%s'.\n", buf);
+	test_cmdline(mbd, devfs);
 
 	//TODO :
 	// - (OK) populate devfs with information regarding kernel command line & modules
