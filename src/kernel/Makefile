@@ -2,7 +2,7 @@
 OBJ = core/loader.o core/kmain.o core/dbglog.o core/sys.o \
 	core/gdt.o core/idt.o core/interrupt.o core/context_switch.o core/thread.o \
 	core/frame.o core/paging.o core/region.o core/kmalloc.o \
-	user/vfs.o user/nullfs.o
+	user/vfs.o user/nullfs.o user/process.o
 
 LIB = ../common/common.lib
 

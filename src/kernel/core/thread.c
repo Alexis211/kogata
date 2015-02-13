@@ -148,7 +148,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 
 	// used by user processes
 	t->proc = 0;
-	t->kmem_violation_handler = 0;
+	t->user_ex_handler = 0;
 
 	return t;
 }

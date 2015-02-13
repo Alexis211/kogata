@@ -3,6 +3,7 @@
 #include <sys.h>
 #include <string.h>
 #include <dbglog.h>
+#include <thread.h>
 
 struct idt_entry {
 	uint16_t base_lo;		//Low part of address to jump to
@@ -92,10 +93,14 @@ void idt_exHandler(registers_t *regs) {
 	if (ex_handlers[regs->int_no] != 0) {
 		ex_handlers[regs->int_no](regs);
 	} else {
-		//TODO: make sure all exceptions happenning in userspace do not cause kernel panic...
-		dbg_printf("Unhandled exception: %i\n", regs->int_no);
-		dbg_dump_registers(regs);
-		PANIC("Unhandled exception");
+		if (regs->eip >= K_HIGHHALF_ADDR) {
+			dbg_printf("Unhandled exception in kernel code: %i\n", regs->int_no);
+			dbg_dump_registers(regs);
+			PANIC("Unhandled exception");
+		} else {
+			ASSERT(current_thread != 0 && current_thread->user_ex_handler != 0);
+			current_thread->user_ex_handler(regs);
+		}
 	}
 } 
 

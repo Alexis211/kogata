@@ -1,6 +1,8 @@
 #include <mutex.h>
 #include <hashtbl.h>
+#include <string.h>
 
+#include <frame.h>
 #include <process.h>
 
 typedef struct user_region {
@@ -29,8 +31,8 @@ typedef struct process {
 
 static int next_pid = 1;
 
-static void proc_kmem_violation(registers_t *regs);
-static void proc_user_pf(void* proc, registers_t *regs, void* addr);
+static void proc_user_exception(registers_t *regs);
+static void proc_usermem_pf(void* proc, registers_t *regs, void* addr);
 
 process_t *current_process() {
 	if (current_thread) return current_thread->proc;
@@ -42,7 +44,7 @@ process_t *current_process() {
 // ============================== //
 
 process_t *new_process(process_t *parent) {
-	process_t *proc = (proces_t*)malloc(sizeof(process_t));
+	process_t *proc = (process_t*)malloc(sizeof(process_t));
 	if (proc == 0) return 0;
 
 	proc->filesystems = create_hashtbl(str_key_eq_fun, str_hash_fun, free, 0);
@@ -51,7 +53,7 @@ process_t *new_process(process_t *parent) {
 		return 0;
 	}
 
-	proc->pd = pagedir_create(proc_user_pf, proc);
+	proc->pd = create_pagedir(proc_usermem_pf, proc);
 	if (proc->pd == 0) {
 		delete_hashtbl(proc->filesystems, 0);
 		free(proc);
@@ -74,24 +76,24 @@ static void run_user_code(void* entry) {
 
 	void* esp = (void*)USERSTACK_ADDR + USERSTACK_SIZE;
 
-	asm volatile("
-			cli;
-
-			mov $0x23, %%ax;
-			mov %%ax, %%ds;
-			mov %%ax, %%es;
-			mov %%ax, %%fs;
-			mov %%ax, %%gs;
-
-			pushl $0x23;
-			pushl %%ebx;
-			pushf;
-			pop %%eax;
-			or $0x200, %%eax;
-			pushl %%eax;
-			pushl $0x1B;
-			pushl %%ecx;
-			iret
+	asm volatile("				\
+			cli;				\
+								\
+			mov $0x23, %%ax;	\
+			mov %%ax, %%ds;		\
+			mov %%ax, %%es;		\
+			mov %%ax, %%fs;		\
+			mov %%ax, %%gs;		\
+								\
+			pushl $0x23;		\
+			pushl %%ebx;		\
+			pushf;				\
+			pop %%eax;			\
+			or $0x200, %%eax;	\
+			pushl %%eax;		\
+			pushl $0x1B;		\
+			pushl %%ecx;		\
+			iret				\
 		"::"b"(esp),"c"(entry));
 }
 bool start_process(process_t *p, void* entry) {
@@ -105,7 +107,7 @@ bool start_process(process_t *p, void* entry) {
 	}
 
 	th->proc = p;
-	th->kmem_violation_handler = proc_kmem_violation;
+	th->user_ex_handler = proc_user_exception;
 	
 	resume_thread(th, false);
 
@@ -137,38 +139,144 @@ fs_t *proc_find_fs(process_t *p, const char* name) {
 // USER MEMORY REGION MANAGEMENT //
 // ============================= //
 
+static user_region_t *find_user_region(process_t *proc, void* addr) {
+	for (user_region_t *it = proc->regions; it != 0; it = it->next) {
+		if (addr >= it->addr && addr < it->addr + it->size) return it;
+	}
+	return 0;
+}
+
 bool mmap(process_t *proc, void* addr, size_t size, int mode) {
-	//TODO
-	return false;
+	if (find_user_region(proc, addr) != 0) return false;
+
+	if ((uint32_t)addr & (~PAGE_MASK)) return false;
+
+	user_region_t *r = (user_region_t*)malloc(sizeof(user_region_t));
+	if (r == 0) return false;
+
+	r->addr = addr;
+	r->size = PAGE_ALIGN_UP(size);
+
+	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR || r->size == 0) {
+		free(r);
+		return false;
+	}
+
+	r->mode = mode;
+	r->file = 0;
+	r->file_offset = 0;
+
+	r->next = proc->regions;
+	proc->regions = r;
+
+	return true;
 }
 
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode) {
-	//TODO
-	return false;
+	if (find_user_region(proc, addr) != 0) return false;
+
+	if ((uint32_t)addr & (~PAGE_MASK)) return false;
+
+	user_region_t *r = (user_region_t*)malloc(sizeof(user_region_t));
+	if (r == 0) return false;
+
+	r->addr = addr;
+	r->size = PAGE_ALIGN_UP(size);
+
+	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR || r->size == 0) {
+		free(r);
+		return false;
+	}
+
+	ref_file(h);
+
+	r->mode = mode;
+	r->file = h;
+	r->file_offset = offset;
+
+	r->next = proc->regions;
+	proc->regions = r;
+
+	return true;
 }
 
 bool mchmap(process_t *proc, void* addr, int mode) {
-	//TODO
-	return false;
+	user_region_t *r = find_user_region(proc, addr);
+
+	if (r == 0) return false;
+	
+	r->mode = mode;
+	return true;
 }
 
 bool munmap(process_t *proc, void* addr) {
-	//TODO
-	return false;
+	user_region_t *r = find_user_region(proc, addr);
+	if (r == 0) return false;
+
+	if (proc->regions == r) {
+		proc->regions = r->next;
+	} else {
+		for (user_region_t *it = proc->regions; it != 0; it = it->next) {
+			if (it->next == r) {
+				it->next = r->next;
+				break;
+			}
+		}
+	}
+
+	free(r);
+
+	return true;
 }
 
 // =============================== //
 // USER MEMORY PAGE FAULT HANDLERS //
 // =============================== //
 
-static void proc_kmem_violation(registers_t *regs) {
-	//TODO
-	dbg_printf("Kernel memory violation in user process : exiting.\n");
+static void proc_user_exception(registers_t *regs) {
+	dbg_printf("Usermode exception in user process : exiting.\n");
+	dbg_dump_registers(regs);
 	exit();
 }
-static void proc_user_pf(void* proc, registers_t *regs, void* addr) {
-	//TODO
-	PANIC("TODO");
+static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
+	process_t *proc = (process_t*)p;
+
+	user_region_t *r = find_user_region(proc, addr);
+	if (r == 0) {
+		dbg_printf("Segmentation fault in process %d (0x%p : not mapped) : exiting.\n", proc->pid, addr);
+		exit();
+	}
+
+	bool wr = ((regs->err_code & PF_WRITE_BIT) != 0);
+	if (wr && !(r->mode & MM_WRITE)) {
+		dbg_printf("Segmentation fault in process %d (0x%p : not allowed to write) : exiting.\n", proc->pid, addr);
+		exit();
+	}
+
+	bool pr = ((regs->err_code & PF_PRESENT_BIT) != 0);
+	ASSERT(!pr);
+
+	addr = (void*)((uint32_t)addr & PAGE_MASK);
+
+	uint32_t frame;
+	do {
+		frame = frame_alloc(1);
+		if (frame == 0) {
+			dbg_printf("OOM for process %d ; yielding and waiting for someone to free some RAM.\n", proc->pid);
+			yield();
+		}
+	} while (frame == 0);
+
+	while(!pd_map_page(addr, frame, (r->mode & MM_WRITE) != 0)) {
+		dbg_printf("OOM(2) for process %d ; yielding and waiting for someone to free some RAM.\n", proc->pid);
+		yield();
+	}
+
+	memset(addr, 0, PAGE_SIZE);		// zero out
+
+	if (r->file != 0) {
+		file_read(r->file, addr - r->addr + r->file_offset, PAGE_SIZE, addr);
+	}
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

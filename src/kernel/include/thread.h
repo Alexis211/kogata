@@ -28,7 +28,7 @@ typedef struct thread {
 	region_info_t *stack_region;
 
 	struct process *proc;
-	isr_handler_t kmem_violation_handler;	// page fault in kernel memory accessed by user code (violation)
+	isr_handler_t user_ex_handler;	// page fault in kernel memory accessed by user code (violation)
 
 	struct thread *next_in_queue;
 } thread_t;

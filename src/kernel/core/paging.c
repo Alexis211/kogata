@@ -65,8 +65,8 @@ void page_fault_handler(registers_t *regs) {
 		// remark : sti should always be executed, it is stupid to run user code with interrupts disabled
 
 		if ((size_t)vaddr >= K_HIGHHALF_ADDR) {
-			ASSERT(current_thread->kmem_violation_handler != 0);
-			current_thread->kmem_violation_handler(regs);
+			ASSERT(current_thread->user_ex_handler != 0);
+			current_thread->user_ex_handler(regs);
 		} else {
 			ASSERT(pd->user_pfh != 0);
 			pd->user_pfh(pd->user_pfh_data, regs, vaddr);
