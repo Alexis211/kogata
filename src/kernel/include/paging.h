@@ -2,6 +2,7 @@
 
 #include <sys.h>
 #include <stdbool.h>
+#include <idt.h>
 
 // Bits in the error code for page fault
 #define PF_PRESENT_BIT		(1<<0)
@@ -12,6 +13,8 @@
 
 struct page_directory;
 typedef struct page_directory pagedir_t;
+
+typedef void (*user_pf_handler_t)(void* handler_data, registers_t *regs, void* addr);
 
 void paging_setup(void* kernel_data_end);
 
@@ -31,7 +34,7 @@ void pd_unmap_page(void* vaddr);	// does nothing if page not mapped
 // case both might require the allocation of a new PT at the same location. These
 // cases are well-handled (the pagedir_t type contains a mutex used for this)
 
-pagedir_t *create_pagedir();		// returns zero on error
+pagedir_t *create_pagedir(user_pf_handler_t pf, void* pf_handler_data);		// returns zero on error
 void delete_pagedir(pagedir_t *pd);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

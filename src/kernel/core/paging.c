@@ -31,6 +31,9 @@ struct page_directory {
 	// then we can use mirroring to edit it
 	// (the last 4M of the address space are mapped to the PD itself)
 
+	user_pf_handler_t user_pfh;
+	void* user_pfh_data;
+
 	mutex_t mutex;
 };
 
@@ -55,6 +58,8 @@ void page_fault_handler(registers_t *regs) {
 
 	bool is_user = ((regs->err_code & PF_USER_BIT) != 0);
 
+	pagedir_t *pd = get_current_pagedir();
+
 	if (is_user) {
 		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	
 		// remark : sti should always be executed, it is stupid to run user code with interrupts disabled
@@ -63,8 +68,8 @@ void page_fault_handler(registers_t *regs) {
 			ASSERT(current_thread->kmem_violation_handler != 0);
 			current_thread->kmem_violation_handler(regs);
 		} else {
-			ASSERT(current_thread->usermem_pf_handler != 0);
-			current_thread->usermem_pf_handler(get_current_pagedir(), regs, vaddr);
+			ASSERT(pd->user_pfh != 0);
+			pd->user_pfh(pd->user_pfh_data, regs, vaddr);
 		}
 	} else {
 		//TODO: instead of panicing, we should try to recover from the exception (?)
@@ -73,7 +78,7 @@ void page_fault_handler(registers_t *regs) {
 			dbg_dump_registers(regs);
 			PANIC("Null pointer dereference in kernel code.");
 		} else if ((size_t)vaddr < K_HIGHHALF_ADDR) {
-			if (current_thread->usermem_pf_handler == 0) {
+			if (pd->user_pfh == 0) {
 				dbg_printf("Userspace page fault at 0x%p, no handler declared\n", vaddr);
 				dbg_dump_registers(regs);
 				PANIC("Unhandled userspace page fault");
@@ -81,7 +86,7 @@ void page_fault_handler(registers_t *regs) {
 
 			// userspace PF handlers should always be preemptible
 			if (regs->eflags & EFLAGS_IF) asm volatile("sti");	
-			current_thread->usermem_pf_handler(get_current_pagedir(), regs, vaddr);
+			pd->user_pfh(pd->user_pfh_data, regs, vaddr);
 		} else {
 			uint32_t pt = PT_OF_ADDR(vaddr);
 
@@ -251,7 +256,7 @@ void pd_unmap_page(void* vaddr) {
 
 // Creation and deletion of page directories
 
-pagedir_t *create_pagedir() {
+pagedir_t *create_pagedir(user_pf_handler_t pf, void* pfd) {
 	uint32_t pd_phys = 0;
 	pagedir_t *pd = 0;
 	void* temp = 0;
@@ -270,6 +275,9 @@ pagedir_t *create_pagedir() {
 
 	pd->phys_addr = pd_phys * PAGE_SIZE;
 	pd->mutex = MUTEX_UNLOCKED;
+
+	pd->user_pfh = pf;
+	pd->user_pfh_data = pfd;
 
 	// initialize PD with zeroes
 	pagetable_t *pt = (pagetable_t*)temp;

@@ -13,8 +13,6 @@
 
 #define TASK_SWITCH_FREQUENCY	50		// in herz
 
-typedef void (*user_pf_handler_t)(pagedir_t *pd, registers_t *regs, void* addr);
-
 typedef struct saved_context {
 	uint32_t *esp;
 	void (*eip)();
@@ -29,8 +27,7 @@ typedef struct thread {
 
 	region_info_t *stack_region;
 
-	struct process *proc;		// process : L1 data structure
-	user_pf_handler_t usermem_pf_handler;	// page fault in user memory
+	struct process *proc;
 	isr_handler_t kmem_violation_handler;	// page fault in kernel memory accessed by user code (violation)
 
 	struct thread *next_in_queue;
@@ -48,5 +45,6 @@ void pause();
 void exit();
 
 void resume_thread(thread_t *thread, bool run_at_once);
+void kill_thread(thread_t *thread);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
