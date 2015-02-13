@@ -95,6 +95,7 @@ void unref_fs_node(fs_node_t *n) {
 		unref_fs_node(n->parent);
 		unref_fs(n->fs);
 
+		if (n->children != 0) delete_hashtbl(n->children, 0);
 		free(n->name);
 		free(n);
 	}
@@ -304,7 +305,14 @@ int fs_ioctl(fs_t *fs, const char* file, int command, void* data) {
 
 fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	fs_node_t *n = fs_walk_path(&fs->root, file);
+	if (n == 0 && (mode & FM_CREATE)) {
+		if (fs_create(fs, file, FT_REGULAR)) {
+			n = fs_walk_path(&fs->root, file);
+		}
+	}
 	if (n == 0) return false;
+
+	mode &= ~FM_CREATE;
 
 	fs_handle_t *h = (fs_handle_t*)malloc(sizeof(fs_handle_t));
 	if (h == 0) {
@@ -346,14 +354,14 @@ int file_get_mode(fs_handle_t *f) {
 }
 
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
-	if (!(f->mode && FM_READ)) return 0;
+	if (!(f->mode & FM_READ)) return 0;
 
 	if (f->ops->read == 0) return 0;
 	return f->ops->read(f->data, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
-	if (!(f->mode && FM_WRITE)) return 0;
+	if (!(f->mode & FM_WRITE)) return 0;
 
 	if (f->ops->write == 0) return 0;
 	return f->ops->write(f->data, offset, len, buf);
@@ -364,6 +372,8 @@ bool file_stat(fs_handle_t *f, stat_t *st) {
 }
 
 bool file_readdir(fs_handle_t *f, dirent_t *d) {
+	if (!(f->mode & FM_READDIR)) return 0;
+
 	return f->ops->readdir && f->ops->readdir(f->data, d);
 }
 

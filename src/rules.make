@@ -1,3 +1,4 @@
+.PRECIOUS: %.o
 
 AS = nasm
 ASFLAGS = -felf -g

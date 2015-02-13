@@ -295,7 +295,46 @@ bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d) {
 }
 
 bool nullfs_d_delete(fs_node_ptr n, const char* file) {
-	return false; //TODO
+	nullfs_dir_t* d = (nullfs_dir_t*)n;
+
+	if (!d->fs->can_delete) return false;
+
+	nullfs_item_t *i = hashtbl_find(d->items_idx, file);
+	if (i == 0) return false;
+
+	if (i->ops == &nullfs_d_ops) {
+		// if it is a subdirectory, check it is empty
+		nullfs_dir_t* sd = (nullfs_dir_t*)i->data;
+		if (sd->items_list != 0) return false;
+
+		delete_hashtbl(sd->items_idx, 0);
+		free(sd);
+	} else if (i->ops == &nullfs_f_ops) {
+		nullfs_file_t* f = (nullfs_file_t*)i->data;
+
+		if (f->own_data) free(f->data);
+		free(f);
+	} else {
+		return false;		// special nodes (devices, ...) may not be deleted
+	}
+
+	hashtbl_remove(d->items_idx, i->name);
+
+	if (d->items_list == i) {
+		d->items_list = i->next;
+	} else {
+		for (nullfs_item_t* it = d->items_list; it != 0; it++) {
+			if (it->next == i) {
+				it->next = i->next;
+				break;
+			}
+		}
+	}
+
+	free(i->name);
+	free(i);
+
+	return true;
 }
 
 bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name) {
@@ -303,11 +342,82 @@ bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, c
 }
 
 bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
-	return false; //TODO
+	nullfs_dir_t *d = (nullfs_dir_t*)n;
+	nullfs_item_t *i = 0;
+
+	if (type == FT_REGULAR) {
+		nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
+		if (f == 0) return false;
+
+		f->ok_modes = FM_READ | FM_WRITE | FM_TRUNC | FM_APPEND;
+		f->data = 0;
+		f->size = 0;
+		f->own_data = false;
+		f->lock = MUTEX_UNLOCKED;
+
+		i = (nullfs_item_t*)malloc(sizeof(nullfs_item_t));
+		if (i == 0) goto f_error;
+
+		i->name = strdup(file);
+		if (i->name == 0) goto f_error;
+
+		i->ops = &nullfs_f_ops;
+		i->data = f;
+
+		bool add_ok = hashtbl_add(d->items_idx, i->name, i);
+		if (!add_ok) goto f_error;
+
+		i->next = d->items_list;
+		d->items_list = i;
+
+		return true;
+
+	f_error:
+		if (i != 0 && i->name != 0) free(i->name);
+		if (i != 0) free(i);
+		free(f);
+		return false;
+	} else if (type == FT_DIR) {
+		nullfs_dir_t *x = (nullfs_dir_t*)malloc(sizeof(nullfs_dir_t));
+		if (x == 0) return false;
+
+		x->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+		if (x->items_idx == 0) goto d_error;
+
+		x->items_list = 0;
+		x->lock = MUTEX_UNLOCKED;
+		x->fs = d->fs;
+
+		i = (nullfs_item_t*)malloc(sizeof(nullfs_item_t));
+		if (i == 0) goto d_error;
+
+		i->name = strdup(file);
+		if (i->name == 0) goto d_error;
+
+		i->ops = &nullfs_d_ops;
+		i->data = x;
+
+		bool add_ok = hashtbl_add(d->items_idx, i->name, i);
+		if (!add_ok) goto d_error;
+
+		i->next = d->items_list;
+		d->items_list = i;
+
+		return true;
+
+	d_error:
+		if (i != 0 && i->name != 0) free(i->name);
+		if (i != 0) free(i);
+		if (x->items_idx != 0) delete_hashtbl(x->items_idx, 0);
+		free(x);
+		return false;
+	} else {
+		return false;
+	}
 }
 
 void nullfs_d_dispose(fs_node_ptr n) {
-	//TODO
+	// nothing to do
 }
 
 
@@ -349,6 +459,14 @@ bool nullfs_f_open(fs_node_ptr n, int mode, fs_handle_t *s) {
 	if (mode & ~f->ok_modes) return false;
 
 	mutex_lock(&f->lock);
+	
+	if (mode & FM_TRUNC) {
+		// truncate file
+		if (f->own_data) free(f->data);
+		f->size = 0;
+		f->own_data = false;
+		f->data = 0;
+	}
 
 	s->mode = mode;
 	s->data = f;
@@ -358,21 +476,51 @@ bool nullfs_f_open(fs_node_ptr n, int mode, fs_handle_t *s) {
 }
 
 bool nullfs_f_stat(fs_node_ptr n, stat_t *st) {
-	return false; //TODO
+	nullfs_file_t *f = (nullfs_file_t*)n;
+
+	st->type = FT_REGULAR;
+	st->access = f->ok_modes;
+	st->size = f->size;
+
+	return true;
 }
 
 void nullfs_f_dispose(fs_node_ptr n) {
-	// TODO
+	// nothing to do
 }
 
 //   -- File handle --
 
-static size_t nullfs_fh_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
-	return 0; //TODO
+static size_t nullfs_fh_read(fs_handle_ptr h, size_t offset, size_t len, char* buf) {
+	nullfs_file_t *f = (nullfs_file_t*)h;
+	
+	if (offset >= f->size) return 0;
+	if (offset + len > f->size) len = f->size - offset;
+
+	memcpy(buf, f->data + offset, len);
+	return len;
 }
 
-static size_t nullfs_fh_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf) {
-	return 0; //TODO
+static size_t nullfs_fh_write(fs_handle_ptr h, size_t offset, size_t len, const char* buf) {
+	nullfs_file_t *f = (nullfs_file_t*)h;
+
+	if (offset + len > f->size) {
+		// resize buffer (zero out new portion)
+		void* new_buffer = malloc(offset + len);
+		if (new_buffer == 0) return 0;
+
+		memcpy(new_buffer, f->data, f->size);
+		if (offset > f->size)
+			memset(new_buffer + f->size, 0, offset - f->size);
+
+		if (f->own_data) free(f->data);
+		f->data = new_buffer;
+		f->own_data = true;
+		f->size = offset + len;
+	}
+
+	memcpy(f->data + offset, buf, len);
+	return len;
 }
 
 static void nullfs_fh_close(fs_handle_ptr h) {

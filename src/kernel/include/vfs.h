@@ -61,6 +61,7 @@ typedef struct fs_handle {
 //		is currently in use. (different from posix semantics !)
 //  - the root node of a filesystem is created when the filesystem is created
 //	- dispose() is not called on the root node when a filesystem is shutdown
+//	- delete() is not expected to delete recursively : it should fail on a non-empty directory
 
 typedef struct {
 	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
