@@ -15,7 +15,7 @@ static void nullfs_fs_shutdown(fs_ptr fs);
 static bool nullfs_d_open(fs_node_ptr n, int mode, fs_handle_t *s);
 static bool nullfs_d_stat(fs_node_ptr n, stat_t *st);
 static bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d);
-static bool nullfs_d_unlink(fs_node_ptr n, const char* file);
+static bool nullfs_d_delete(fs_node_ptr n, const char* file);
 static bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name);
 static bool nullfs_d_create(fs_node_ptr n, const char* file, int type);
 static void nullfs_d_dispose(fs_node_ptr n);
@@ -49,7 +49,7 @@ static fs_node_ops_t nullfs_d_ops = {
 	.open = nullfs_d_open,
 	.stat = nullfs_d_stat,
 	.walk = nullfs_d_walk,
-	.unlink = nullfs_d_unlink,
+	.delete = nullfs_d_delete,
 	.move = nullfs_d_move,
 	.create = nullfs_d_create,
 	.dispose = nullfs_d_dispose,
@@ -69,7 +69,7 @@ static fs_node_ops_t nullfs_f_ops = {
 	.dispose = nullfs_f_dispose,
 	.walk = 0,
 	.create = 0,
-	.unlink = 0,
+	.delete = 0,
 	.move = 0,
 	.ioctl =0,
 };
@@ -87,7 +87,7 @@ static fs_handle_ops_t nullfs_fh_ops = {
 // ====================== //
 
 typedef struct {
-	bool can_create, can_move, can_unlink;
+	bool can_create, can_move, can_delete;
 } nullfs_t;
 
 typedef struct nullfs_item {
@@ -138,7 +138,7 @@ bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *fs_s) {
 
 	fs->can_create = (strchr(opts, 'c') != 0);
 	fs->can_move = (strchr(opts, 'm') != 0);
-	fs->can_unlink = (strchr(opts, 'd') != 0);
+	fs->can_delete = (strchr(opts, 'd') != 0);
 
 	nullfs_dir_t *root = (nullfs_dir_t*)malloc(sizeof(nullfs_dir_t));
 	if (root == 0) {
@@ -264,7 +264,7 @@ bool nullfs_d_stat(fs_node_ptr n, stat_t *st) {
 	st->access = FM_READDIR
 		| (d->fs->can_create ? FM_DCREATE : 0)
 		| (d->fs->can_move ? FM_DMOVE : 0)
-		| (d->fs->can_unlink ? FM_DUNLINK : 0);
+		| (d->fs->can_delete ? FM_DUNLINK : 0);
 
 	st->size = 0;
 	for (nullfs_item_t *i = d->items_list; i != 0; i = i->next)
@@ -294,7 +294,7 @@ bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d) {
 	return true;
 }
 
-bool nullfs_d_unlink(fs_node_ptr n, const char* file) {
+bool nullfs_d_delete(fs_node_ptr n, const char* file) {
 	return false; //TODO
 }
 

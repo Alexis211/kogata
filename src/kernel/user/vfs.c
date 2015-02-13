@@ -245,7 +245,7 @@ bool fs_create(fs_t *fs, const char* file, int type) {
 	return ret;
 }
 
-bool fs_unlink(fs_t *fs, const char* file) {
+bool fs_delete(fs_t *fs, const char* file) {
 	char name[DIR_MAX];
 
 	fs_node_t* n = fs_walk_path_except_last(&fs->root, file, name);
@@ -256,7 +256,7 @@ bool fs_unlink(fs_t *fs, const char* file) {
 		if (x != 0) return false;
 	}
 
-	bool ret = n->ops->unlink && n->ops->unlink(n->data, name);
+	bool ret = n->ops->delete && n->ops->delete(n->data, name);
 	unref_fs_node(n);
 	return ret;
 }

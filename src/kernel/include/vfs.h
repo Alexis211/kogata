@@ -56,8 +56,8 @@ typedef struct fs_handle {
 //  - nodes keep a reference to their parent
 //  - a FS node is either in memory (after one call to walk() on its parent), or not in memory
 //		it can be in memory only once : if it is in memory, walk() cannot be called on the parent again
-//  - unlink() is expected to unlink the node from its parent (make it inaccessible) and delete
-//		the corresponding data. It is guaranteed that unlink() is never called on a node that
+//  - delete() is expected to unlink the node from its parent (make it inaccessible) and delete
+//		the corresponding data. It is guaranteed that delete() is never called on a node that
 //		is currently in use. (different from posix semantics !)
 //  - the root node of a filesystem is created when the filesystem is created
 //	- dispose() is not called on the root node when a filesystem is shutdown
@@ -66,7 +66,7 @@ typedef struct {
 	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
 	bool (*stat)(fs_node_ptr n, stat_t *st);
 	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *node_d);
-	bool (*unlink)(fs_node_ptr n, const char* file);
+	bool (*delete)(fs_node_ptr n, const char* file);
 	bool (*move)(fs_node_ptr dir, const char* old_name, struct fs_node *new_parent, const char *new_name);
 	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
 	int (*ioctl)(fs_node_ptr n, int command, void* data);
@@ -138,7 +138,7 @@ void ref_fs(fs_t *fs);
 void unref_fs(fs_t *fs);
 
 bool fs_create(fs_t *fs, const char* file, int type);
-bool fs_unlink(fs_t *fs, const char* file);
+bool fs_delete(fs_t *fs, const char* file);
 bool fs_move(fs_t *fs, const char* from, const char* to);
 bool fs_stat(fs_t *fs, const char* file, stat_t *st);
 int fs_ioctl(fs_t *fs, const char* file, int command, void* data);
