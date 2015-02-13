@@ -60,6 +60,7 @@ typedef struct tss_entry tss_entry_t;
 
 static gdt_entry_t gdt_entries[GDT_ENTRIES];
 static gdt_ptr_t gdt_ptr;
+static tss_entry_t tss_entry;
 
 /*	For internal use only. Writes one entry of the GDT with given parameters. */
 static void gdt_set_gate(int num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
@@ -84,7 +85,27 @@ void gdt_init() {
 	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);		//User code segment		0x18
 	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);		//User data segment		0x20
 
-	asm volatile ("lgdt %0"::"m"(gdt_ptr):"memory");
+	// Write TSS
+	memset(&tss_entry, 0, sizeof(tss_entry));
+
+	tss_entry.ss0  = 0x10;
+	tss_entry.esp0 = 0;
+
+	tss_entry.cs   = 0x0b;
+	tss_entry.ss = tss_entry.ds = tss_entry.es = tss_entry.fs = tss_entry.gs = 0x13;
+
+	uint32_t tss_base = (uint32_t)&tss_entry;
+	uint32_t tss_limit = tss_base + sizeof(tss_entry_t);
+
+	gdt_set_gate(5, tss_base, tss_limit, 0xE9, 0x00);
+
+	asm volatile("lgdt %0"::"m"(gdt_ptr):"memory");
+
+	asm volatile("movw $0x2b, %%ax; ltr %%ax":::"%eax");
+}
+
+void set_kernel_stack(void* addr) {
+	tss_entry.esp0 = (uint32_t)addr;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

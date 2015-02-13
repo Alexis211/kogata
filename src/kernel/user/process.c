@@ -66,12 +66,50 @@ process_t *new_process(process_t *parent) {
 	return proc;
 }
 
-static void run_user_code(void* data) {
-	// TODO
-	exit();
+static void run_user_code(void* entry) {
+	process_t *proc = current_thread->proc;
+	ASSERT(proc != 0);
+
+	switch_pagedir(proc->pd);
+
+	void* esp = (void*)USERSTACK_ADDR + USERSTACK_SIZE;
+
+	asm volatile("
+			cli;
+
+			mov $0x23, %%ax;
+			mov %%ax, %%ds;
+			mov %%ax, %%es;
+			mov %%ax, %%fs;
+			mov %%ax, %%gs;
+
+			pushl $0x23;
+			pushl %%ebx;
+			pushf;
+			pop %%eax;
+			or $0x200, %%eax;
+			pushl %%eax;
+			pushl $0x1B;
+			pushl %%ecx;
+			iret
+		"::"b"(esp),"c"(entry));
 }
 bool start_process(process_t *p, void* entry) {
-	// TODO
+	bool stack_ok = mmap(p, (void*)USERSTACK_ADDR, USERSTACK_SIZE, MM_READ | MM_WRITE);
+	if (!stack_ok) return false;
+
+	thread_t *th = new_thread(run_user_code, entry);
+	if (th == 0) {
+		munmap(p, (void*)USERSTACK_ADDR);
+		return false;
+	}
+
+	th->proc = p;
+	th->kmem_violation_handler = proc_kmem_violation;
+	
+	resume_thread(th, false);
+
+	return true;
 }
 
 // ================================== //

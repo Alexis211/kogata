@@ -21,6 +21,9 @@
 #define MM_WRITE	(0x02)
 #define MM_EXEC		(0x04)
 
+#define USERSTACK_ADDR	0xB8000000
+#define USERSTACK_SIZE	0x00020000		// 32 KB
+
 struct process;
 typedef struct process process_t;
 

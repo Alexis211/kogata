@@ -2,6 +2,7 @@
 #include <malloc.h>
 #include <dbglog.h>
 #include <idt.h>
+#include <gdt.h>
 
 #include <frame.h>
 #include <paging.h>
@@ -88,6 +89,7 @@ void run_scheduler() {
 
 	current_thread = dequeue_thread();
 	if (current_thread != 0) {
+		set_kernel_stack(current_thread->stack_region->addr + current_thread->stack_region->size);
 		resume_context(&current_thread->ctx);
 	} else {
 		// Wait for an IRQ
@@ -146,7 +148,6 @@ thread_t *new_thread(entry_t entry, void* data) {
 
 	// used by user processes
 	t->proc = 0;
-	t->usermem_pf_handler = 0;
 	t->kmem_violation_handler = 0;
 
 	return t;

@@ -28,7 +28,7 @@ all: $(OUT)
 #	$(CXX) -c $< -o $@ $(CXFLAGS)
 
 clean:
-	rm */*.o || true
+	rm *.o */*.o || true
 mrproper: clean
 	rm $(OUT) || true
 

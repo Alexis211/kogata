@@ -9,6 +9,8 @@
 
 void gdt_init();
 
+void set_kernel_stack(void* addr);
+
 #define K_CODE_SEGMENT 0x08
 #define K_DATA_SEGMENT 0x10
 #define U_CODE_SEGMENT 0x18
