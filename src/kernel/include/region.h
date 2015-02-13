@@ -8,18 +8,18 @@
 #include <paging.h>
 
 struct region_info;
-typedef void (*page_fault_handler_t)(pagedir_t *pd, struct region_info *r, void* addr);
+typedef void (*kernel_pf_handler_t)(pagedir_t *pd, struct region_info *r, void* addr);
 
 typedef struct region_info {
 	void* addr;
 	size_t size;
 	char* type;
-	page_fault_handler_t pf;
+	kernel_pf_handler_t pf;
 } region_info_t;
 
 void region_allocator_init(void* kernel_data_end);
 
-void* region_alloc(size_t size, char* type, page_fault_handler_t pf);	// returns 0 on error
+void* region_alloc(size_t size, char* type, kernel_pf_handler_t pf);	// returns 0 on error
 region_info_t *find_region(void* addr);
 void region_free(void* addr);
 

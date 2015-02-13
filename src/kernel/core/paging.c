@@ -53,48 +53,73 @@ void page_fault_handler(registers_t *regs) {
 	void* vaddr;
 	asm volatile("movl %%cr2, %0":"=r"(vaddr));
 
-	if ((size_t)vaddr >= K_HIGHHALF_ADDR) {
-		uint32_t pt = PT_OF_ADDR(vaddr);
+	bool is_user = ((regs->err_code & PF_USER_BIT) != 0);
 
-		if (current_pd != &kernel_pd && current_pd->page[pt] != kernel_pd.page[pt]) {
-			current_pd->page[pt] = kernel_pd.page[pt];
-			invlpg(&current_pt[pt]);
-			return;
-		}
-		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	// from now on we are preemptible
+	if (is_user) {
+		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	
+		// remark : sti should always be executed, it is stupid to run user code with interrupts disabled
 
-		if (vaddr >= (void*)&kernel_stack_protector && vaddr < (void*)&kernel_stack_protector + PAGE_SIZE) {
-			dbg_printf("Kernel stack overflow at 0x%p\n", vaddr);
-			PANIC("Kernel stack overflow.");
+		if ((size_t)vaddr >= K_HIGHHALF_ADDR) {
+			ASSERT(current_thread->kmem_violation_handler != 0);
+			current_thread->kmem_violation_handler(regs);
+		} else {
+			ASSERT(current_thread->usermem_pf_handler != 0);
+			current_thread->usermem_pf_handler(get_current_pagedir(), regs, vaddr);
 		}
-
-		if ((size_t)vaddr >= PD_MIRROR_ADDR) {
-			dbg_printf("Fault on access to mirrorred PD at 0x%p\n", vaddr);
-			dbg_print_region_info();
-			PANIC("Unhandled kernel space page fault");
-		}
-
-		region_info_t *i = find_region(vaddr);
-		if (i == 0) {
-			dbg_printf("Kernel pagefault in non-existing region at 0x%p\n", vaddr);
-			dbg_dump_registers(regs);
-			PANIC("Unhandled kernel space page fault");
-		}
-		if (i->pf == 0) {
-			dbg_printf("Kernel pagefault in region with no handler at 0x%p\n", vaddr);
-			dbg_dump_registers(regs);
-			dbg_print_region_info();
-			PANIC("Unhandled kernel space page fault");
-		}
-		i->pf(get_current_pagedir(), i, vaddr);
 	} else {
-		if (regs->eflags & EFLAGS_IF) asm volatile("sti");	// userspace PF handlers should always be preemptible
+		//TODO: instead of panicing, we should try to recover from the exception (?)
+		if ((size_t)vaddr < PAGE_SIZE) {
+			dbg_printf("Null pointer dereference in kernel code (0x%p)\n", vaddr);
+			dbg_dump_registers(regs);
+			PANIC("Null pointer dereference in kernel code.");
+		} else if ((size_t)vaddr < K_HIGHHALF_ADDR) {
+			if (current_thread->usermem_pf_handler == 0) {
+				dbg_printf("Userspace page fault at 0x%p, no handler declared\n", vaddr);
+				dbg_dump_registers(regs);
+				PANIC("Unhandled userspace page fault");
+			}
 
-		dbg_printf("Userspace page fault at 0x%p\n", vaddr);
-		dbg_dump_registers(regs);
-		PANIC("Unhandled userspace page fault");
-		// not handled yet
-		// TODO
+			// userspace PF handlers should always be preemptible
+			if (regs->eflags & EFLAGS_IF) asm volatile("sti");	
+			current_thread->usermem_pf_handler(get_current_pagedir(), regs, vaddr);
+		} else {
+			uint32_t pt = PT_OF_ADDR(vaddr);
+
+			if (current_pd != &kernel_pd && current_pd->page[pt] != kernel_pd.page[pt]) {
+				current_pd->page[pt] = kernel_pd.page[pt];
+				invlpg(&current_pt[pt]);
+				return;
+			}
+
+			// from now on we are preemptible
+			if (regs->eflags & EFLAGS_IF) asm volatile("sti");	
+
+			if (vaddr >= (void*)&kernel_stack_protector && vaddr < (void*)&kernel_stack_protector + PAGE_SIZE) {
+				dbg_printf("Kernel stack overflow at 0x%p\n", vaddr);
+				dbg_dump_registers(regs);
+				PANIC("Kernel stack overflow.");
+			}
+
+			if ((size_t)vaddr >= PD_MIRROR_ADDR) {
+				dbg_printf("Fault on access to mirrorred PD at 0x%p\n", vaddr);
+				dbg_print_region_info();
+				PANIC("Unhandled kernel space page fault");
+			}
+
+			region_info_t *i = find_region(vaddr);
+			if (i == 0) {
+				dbg_printf("Kernel pagefault in non-existing region at 0x%p\n", vaddr);
+				dbg_dump_registers(regs);
+				PANIC("Unhandled kernel space page fault");
+			}
+			if (i->pf == 0) {
+				dbg_printf("Kernel pagefault in region with no handler at 0x%p\n", vaddr);
+				dbg_dump_registers(regs);
+				dbg_print_region_info();
+				PANIC("Unhandled kernel space page fault");
+			}
+			i->pf(get_current_pagedir(), i, vaddr);
+		}
 	}
 }
 
@@ -237,7 +262,7 @@ pagedir_t *create_pagedir() {
 	pd = (pagedir_t*)malloc(sizeof(pagedir_t));
 	if (pd == 0) goto error;
 
-	temp = region_alloc(PAGE_SIZE, 0, 0);
+	temp = region_alloc(PAGE_SIZE, "Temporary pagedir mapping", 0);
 	if (temp == 0) goto error;
 
 	bool map_ok = pd_map_page(temp, pd_phys, true);
@@ -262,7 +287,7 @@ pagedir_t *create_pagedir() {
 
 	return pd;
 
-	error:
+error:
 	if (pd_phys != 0) frame_free(pd_phys, 1);
 	if (pd != 0) free(pd);
 	if (temp != 0) region_free(temp);

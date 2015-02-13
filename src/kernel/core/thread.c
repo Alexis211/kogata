@@ -107,10 +107,7 @@ static void run_thread(void (*entry)(void*), void* data) {
 	asm volatile("sti");
 	entry(data);
 
-	current_thread->state = T_STATE_FINISHED;
-	// TODO : add job for deleting the thread, or whatever
-	yield();	// expected never to return!
-	ASSERT(false);
+	exit();
 }
 thread_t *new_thread(entry_t entry, void* data) {
 	thread_t *t = (thread_t*)malloc(sizeof(thread_t));
@@ -147,7 +144,10 @@ thread_t *new_thread(entry_t entry, void* data) {
 
 	t->current_pd_d = get_kernel_pagedir();
 
-	t->proc = 0;	// used by L1 functions
+	// used by user processes
+	t->proc = 0;
+	t->usermem_pf_handler = 0;
+	t->kmem_violation_handler = 0;
 
 	return t;
 }
@@ -194,6 +194,13 @@ void pause() {
 	save_context_and_enter_scheduler(&current_thread->ctx);
 
 	resume_interrupts(st);
+}
+
+void exit() {
+	current_thread->state = T_STATE_FINISHED;
+	// TODO : add job for deleting the thread, or whatever
+	yield();	// expected never to return!
+	ASSERT(false);
 }
 
 void resume_thread(thread_t *thread, bool run_at_once) {

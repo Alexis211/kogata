@@ -238,7 +238,7 @@ void region_free(void* addr) {
 	mutex_unlock(&ra_mutex);
 }
 
-static void* region_alloc_inner(size_t size, char* type, page_fault_handler_t pf, bool use_reserve) {
+static void* region_alloc_inner(size_t size, char* type, kernel_pf_handler_t pf, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
 	for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.first_bigger) {
@@ -282,7 +282,7 @@ static void* region_alloc_inner(size_t size, char* type, page_fault_handler_t pf
 	return 0;	//No big enough block found
 }
 
-void* region_alloc(size_t size, char* type, page_fault_handler_t pf) {
+void* region_alloc(size_t size, char* type, kernel_pf_handler_t pf) {
 	void* result = 0;
 	mutex_lock(&ra_mutex);
 

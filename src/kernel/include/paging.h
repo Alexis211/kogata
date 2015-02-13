@@ -3,9 +3,15 @@
 #include <sys.h>
 #include <stdbool.h>
 
+// Bits in the error code for page fault
+#define PF_PRESENT_BIT		(1<<0)
+#define PF_WRITE_BIT		(1<<1)
+#define PF_USER_BIT			(1<<2)
+#define PF_RSVD_WRITE_BIT	(1<<3)
+#define PF_OPFETCH_BIT		(1<<4)
+
 struct page_directory;
 typedef struct page_directory pagedir_t;
-
 
 void paging_setup(void* kernel_data_end);
 

@@ -3,6 +3,7 @@
 #include <sys.h>
 #include <paging.h>
 #include <region.h>
+#include <idt.h>
 
 #define T_STATE_RUNNING		1
 #define T_STATE_PAUSED	 	2
@@ -11,6 +12,8 @@
 #define KPROC_STACK_SIZE 0x8000	// 8Kb
 
 #define TASK_SWITCH_FREQUENCY	50		// in herz
+
+typedef void (*user_pf_handler_t)(pagedir_t *pd, registers_t *regs, void* addr);
 
 typedef struct saved_context {
 	uint32_t *esp;
@@ -27,6 +30,8 @@ typedef struct thread {
 	region_info_t *stack_region;
 
 	struct process *proc;		// process : L1 data structure
+	user_pf_handler_t usermem_pf_handler;	// page fault in user memory
+	isr_handler_t kmem_violation_handler;	// page fault in kernel memory accessed by user code (violation)
 
 	struct thread *next_in_queue;
 } thread_t;
@@ -40,6 +45,7 @@ extern thread_t *current_thread;
 
 void yield();
 void pause();
+void exit();
 
 void resume_thread(thread_t *thread, bool run_at_once);
 
