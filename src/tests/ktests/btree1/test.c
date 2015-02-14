@@ -3,7 +3,6 @@
 void test_btree_1() {
 	BEGIN_TEST("test-btree-1");
 
-	// hashtable test
 	btree_t *ht = create_btree(str_key_cmp_fun, 0);
 	ASSERT(ht != 0);
 
