@@ -24,6 +24,25 @@ void test_btree_2() {
 
 	for (int i = 0; i < n; i++) {
 		ASSERT(btree_find(ht, (void*)k[i]) == (void*)v[i]);
+		ASSERT(btree_lower(ht, (void*)k[i]) == (void*)v[i]);
+		ASSERT(btree_upper(ht, (void*)k[i]) == (void*)v[i]);
+	}
+
+	// random lower bound/upper bound tests
+	for (int t = 0; t < 100; t++) {
+		const uint32_t xk = prng();
+		int ilower = -1, iupper = -1;
+		for (int i = 1; i < n; i++) {
+			if (k[i] <= xk && (ilower == -1 || k[i] > k[ilower])) ilower = i;
+			if (k[i] >= xk && (iupper == -1 || k[i] < k[iupper])) iupper = i;
+		}
+		dbg_printf("random %d : lower %d (= %d), upper %d (= %d) ; ",
+			xk, k[ilower], v[ilower], k[iupper], v[iupper]);
+		const uint32_t bt_lower = (uint32_t)btree_lower(ht, (void*)xk);
+		const uint32_t bt_upper = (uint32_t)btree_upper(ht, (void*)xk);
+		dbg_printf("got lower %d, upper %d\n", bt_lower, bt_upper);
+		ASSERT(bt_lower == (ilower == -1 ? 0 : v[ilower]));;
+		ASSERT(bt_upper == (iupper == -1 ? 0 : v[iupper]));;
 	}
 
 	for (int i = 0; i < n/2; i++) {

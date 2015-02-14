@@ -261,6 +261,7 @@ void* btree_upper(btree_t *t, const void* key) {
 	return i->val;
 }
 
+
 void btree_iter(btree_t *t, kv_iter_fun_t f) {
 	void iter_aux(btree_item_t *i, kv_iter_fun_t f) {
 		if (i == 0) return;

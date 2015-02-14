@@ -26,7 +26,7 @@ bool str_key_eq_fun(const void* a, const void* b) {
 }
 
 int id_key_cmp_fun(const void* a, const void* b) {
-	return (b == a ? 0 : (b > a ? 1 : -1));
+	return (a == b ? 0 : (a < b ? -1 : 1));
 }
 
 int str_key_cmp_fun(const void* a, const void* b) {
