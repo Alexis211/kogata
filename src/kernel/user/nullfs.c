@@ -149,7 +149,7 @@ bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *fs_s) {
 	root->fs = fs;
 	root->items_list = 0;
 	root->lock = MUTEX_UNLOCKED;
-	root->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+	root->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
 	if (root->items_idx == 0) {
 		free(root);
 		free(fs);
@@ -308,7 +308,7 @@ bool nullfs_d_delete(fs_node_ptr n, const char* file) {
 		nullfs_dir_t* sd = (nullfs_dir_t*)i->data;
 		if (sd->items_list != 0) return false;
 
-		delete_hashtbl(sd->items_idx, 0);
+		delete_hashtbl(sd->items_idx);
 		free(sd);
 	} else if (i->ops == &nullfs_f_ops) {
 		nullfs_file_t* f = (nullfs_file_t*)i->data;
@@ -384,7 +384,7 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 		nullfs_dir_t *x = (nullfs_dir_t*)malloc(sizeof(nullfs_dir_t));
 		if (x == 0) return false;
 
-		x->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+		x->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
 		if (x->items_idx == 0) goto d_error;
 
 		x->items_list = 0;
@@ -411,7 +411,7 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 	d_error:
 		if (i != 0 && i->name != 0) free(i->name);
 		if (i != 0) free(i);
-		if (x->items_idx != 0) delete_hashtbl(x->items_idx, 0);
+		if (x->items_idx != 0) delete_hashtbl(x->items_idx);
 		free(x);
 		return false;
 	} else {

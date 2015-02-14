@@ -125,7 +125,7 @@ void kmalloc_test(void* kernel_data_end) {
 void test_hashtbl_1() {
 	dbg_printf("(BEGIN-TEST 'test-hashtbl-1)\n");
 	// hashtable test
-	hashtbl_t *ht = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+	hashtbl_t *ht = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
 	ASSERT(ht != 0);
 
 	ASSERT(hashtbl_add(ht, "test1", "STRTEST1"));
@@ -151,7 +151,7 @@ void test_hashtbl_1() {
 	ASSERT(hashtbl_find(ht, "test") != 0 &&
 			strcmp(hashtbl_find(ht, "test"), "Forever alone") == 0);
 
-	delete_hashtbl(ht, 0);
+	delete_hashtbl(ht);
 
 	dbg_printf("(TEST-OK)\n");
 }
@@ -159,7 +159,7 @@ void test_hashtbl_1() {
 void test_hashtbl_2() {
 	dbg_printf("(BEGIN-TEST 'test-hashtbl-2)\n");
 
-	hashtbl_t *ht = create_hashtbl(id_key_eq_fun, id_hash_fun, 0, 0);
+	hashtbl_t *ht = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
 	ASSERT(ht != 0);
 
 	ASSERT(hashtbl_add(ht, (void*)12, "TESTSTR12"));
@@ -187,7 +187,7 @@ void test_hashtbl_2() {
 	ASSERT(hashtbl_find(ht, (void*)777) != 0 &&
 			strcmp(hashtbl_find(ht, (void*)777), "TESTSTR777") == 0);
 
-	delete_hashtbl(ht, 0);
+	delete_hashtbl(ht);
 
 	dbg_printf("(TEST-OK)\n");
 }

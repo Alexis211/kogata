@@ -35,7 +35,7 @@ process_t *new_process(process_t *parent) {
 	process_t *proc = (process_t*)malloc(sizeof(process_t));
 	if (proc == 0) return 0;
 
-	proc->filesystems = create_hashtbl(str_key_eq_fun, str_hash_fun, free, 0);
+	proc->filesystems = create_hashtbl(str_key_eq_fun, str_hash_fun, free_key);
 	if (proc->filesystems == 0) {
 		free(proc);
 		return 0;
@@ -43,7 +43,7 @@ process_t *new_process(process_t *parent) {
 
 	proc->pd = create_pagedir(proc_usermem_pf, proc);
 	if (proc->pd == 0) {
-		delete_hashtbl(proc->filesystems, 0);
+		delete_hashtbl(proc->filesystems);
 		free(proc);
 		return 0;
 	}

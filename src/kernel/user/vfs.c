@@ -95,7 +95,7 @@ void unref_fs_node(fs_node_t *n) {
 		unref_fs_node(n->parent);
 		unref_fs(n->fs);
 
-		if (n->children != 0) delete_hashtbl(n->children, 0);
+		if (n->children != 0) delete_hashtbl(n->children);
 		free(n->name);
 		free(n);
 	}
@@ -126,7 +126,7 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 	if (!walk_ok) goto error;
 
 	if (from->children == 0) {
-		from->children = create_hashtbl(str_key_eq_fun, str_hash_fun, 0, 0);
+		from->children = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
 		if (from->children == 0) goto error;
 	}
 
