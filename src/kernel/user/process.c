@@ -33,20 +33,16 @@ process_t *current_process() {
 
 process_t *new_process(process_t *parent) {
 	process_t *proc = (process_t*)malloc(sizeof(process_t));
-	if (proc == 0) return 0;
+	if (proc == 0) goto error;
 
 	proc->filesystems = create_hashtbl(str_key_eq_fun, str_hash_fun, free_key);
-	if (proc->filesystems == 0) {
-		free(proc);
-		return 0;
-	}
+	if (proc->filesystems == 0) goto error;
+
+	proc->regions_idx = create_btree(id_key_cmp_fun, 0);
+	if (proc->regions_idx == 0) goto error;
 
 	proc->pd = create_pagedir(proc_usermem_pf, proc);
-	if (proc->pd == 0) {
-		delete_hashtbl(proc->filesystems);
-		free(proc);
-		return 0;
-	}
+	if (proc->pd == 0) goto error;
 
 	proc->regions = 0;
 	proc->thread = 0;
@@ -54,6 +50,12 @@ process_t *new_process(process_t *parent) {
 	proc->parent = parent;
 
 	return proc;
+
+error:
+	if (proc && proc->regions_idx) delete_btree(proc->regions_idx);
+	if (proc && proc->filesystems) delete_hashtbl(proc->filesystems);
+	if (proc) free(proc);
+	return 0;
 }
 
 static void run_user_code(void* entry) {
@@ -129,10 +131,13 @@ fs_t *proc_find_fs(process_t *p, const char* name) {
 // ============================= //
 
 static user_region_t *find_user_region(process_t *proc, const void* addr) {
-	for (user_region_t *it = proc->regions; it != 0; it = it->next) {
-		if (addr >= it->addr && addr < it->addr + it->size) return it;
-	}
-	return 0;
+	user_region_t *r = (user_region_t*)btree_lower(proc->regions_idx, addr);
+	if (r == 0) return 0;
+
+	ASSERT(addr >= r->addr);
+
+	if (addr >= r->addr + r->size) return 0;
+	return r;
 }
 
 bool mmap(process_t *proc, void* addr, size_t size, int mode) {
@@ -147,6 +152,12 @@ bool mmap(process_t *proc, void* addr, size_t size, int mode) {
 	r->size = PAGE_ALIGN_UP(size);
 
 	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR || r->size == 0) {
+		free(r);
+		return false;
+	}
+
+	bool add_ok = btree_add(proc->regions_idx, r->addr, r);
+	if (!add_ok) {
 		free(r);
 		return false;
 	}
@@ -173,6 +184,12 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 	r->size = PAGE_ALIGN_UP(size);
 
 	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR || r->size == 0) {
+		free(r);
+		return false;
+	}
+
+	bool add_ok = btree_add(proc->regions_idx, r->addr, r);
+	if (!add_ok) {
 		free(r);
 		return false;
 	}
@@ -218,6 +235,7 @@ bool munmap(process_t *proc, void* addr) {
 
 	if (r->file != 0) unref_file(r->file);
 
+	btree_remove_v(proc->regions_idx, r->addr, r);
 	free(r);
 
 	return true;

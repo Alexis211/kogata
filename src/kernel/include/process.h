@@ -11,6 +11,7 @@
 //	- mchmap = change mode on already mapped zone (eg. after loading code)
 
 #include <hashtbl.h>
+#include <btree.h>
 
 #include <thread.h>
 #include <vfs.h>
@@ -28,6 +29,7 @@ struct user_region;
 typedef struct process {
 	pagedir_t *pd;
 	struct user_region *regions;
+	btree_t *regions_idx;
 
 	hashtbl_t *filesystems;
 
