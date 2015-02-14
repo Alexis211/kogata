@@ -11,8 +11,8 @@ static void panic_do(const char* type, const char *msg, const char* file, int li
 	dbg_printf("| System halted -_-'\n");
 	dbg_printf("\\---------------------------------------------------------/");
 	BOCHS_BREAKPOINT;
-#ifdef IS_A_TEST
-	dbg_printf("(TEST-FAIL)\n");
+#ifdef BUILD_KERNEL_TEST
+	dbg_printf("\n(TEST-FAIL)\n");
 #endif
 	asm volatile("hlt");
 }

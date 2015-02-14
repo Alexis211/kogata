@@ -20,5 +20,17 @@ mrproper:
 		$(MAKE) -C $$dir mrproper;   \
 	done
 
-run_tests:
+run_tests: rebuild
 	src/tests/run_tests.sh
+
+run_qemu: all
+	qemu-system-i386 -kernel src/kernel/kernel.bin -serial stdio -m 16 -initrd src/apps/init/init.bin
+
+run_qemu_debug: all
+	qemu-system-i386 -kernel src/kernel/kernel.bin -serial stdio -s -S &	\
+	(sleep 0.1; gdb src/kernel/kernel.bin -x gdb_cmd)
+
+run_bochs_debug: all
+	./make_cdrom.sh
+	bochs -f bochs_debug.cfg -q
+

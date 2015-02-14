@@ -28,7 +28,7 @@
 #define TEST_PLACEHOLDER_AFTER_KMALLOC
 #define TEST_PLACEHOLDER_AFTER_TASKING
 #define TEST_PLACEHOLDER_AFTER_DEVFS
-#ifdef IS_A_TEST
+#ifdef BUILD_KERNEL_TEST
 #define BEGIN_TEST(n) dbg_printf("(BEGIN-TEST %s)\n", n);
 #define TEST_OK { dbg_printf("(TEST-OK)\n"); asm volatile("cli; hlt"); }
 #include <test.c>

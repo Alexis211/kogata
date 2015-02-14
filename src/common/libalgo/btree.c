@@ -24,7 +24,7 @@ btree_t* create_btree(key_cmp_fun_t cf, kv_iter_fun_t relf) {
 	if (t == 0) return 0;
 
 	t->cf = cf;
-	t->releasef = relf;
+	if (t->releasef) t->releasef = relf;
 
 	t->root = 0;
 	t->nitems = 0;
@@ -39,7 +39,7 @@ void delete_btree(btree_t *t) {
 		delete_item_rec(i->left, relf);
 		delete_item_rec(i->right, relf);
 
-		relf(i->key, i->val);
+		if (relf) relf(i->key, i->val);
 		free(i);
 	}
 
@@ -182,7 +182,7 @@ void btree_remove(btree_t *t, const void* key) {
 				new_i = equilibrate(new_i);
 			}
 
-			t->releasef(i->key, i->val);
+			if (t->releasef) t->releasef(i->key, i->val);
 			free(i);
 			t->nitems--;
 
