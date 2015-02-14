@@ -14,9 +14,9 @@
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
 
-static uint8_t vga_color = 7;
-static uint16_t* vga_buffer = 0;
-static uint16_t vga_row = 0, vga_column = 0;
+static uint8_t vga_color;
+static uint16_t* vga_buffer;
+static uint16_t vga_row, vga_column;
 
 static uint16_t make_vgaentry(char c, uint8_t color) {
 	uint16_t c16 = c;
@@ -41,6 +41,7 @@ static void vga_init() {
 	vga_row = 0;
 	vga_column = 0;
 	vga_buffer = (uint16_t*) (K_HIGHHALF_ADDR + 0xB8000);
+	vga_color = 7;
 
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {

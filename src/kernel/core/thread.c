@@ -8,7 +8,6 @@
 #include <paging.h>
 
 void save_context_and_enter_scheduler(saved_context_t *ctx);
-void irq0_save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
 
 thread_t *current_thread = 0;
@@ -156,8 +155,9 @@ thread_t *new_thread(entry_t entry, void* data) {
 // ========== //
 
 static void irq0_handler(registers_t *regs) {
-	if (current_thread != 0)
-		irq0_save_context_and_enter_scheduler(&current_thread->ctx);
+	if (current_thread != 0) {
+		save_context_and_enter_scheduler(&current_thread->ctx);
+	}
 }
 void threading_setup(entry_t cont, void* arg) {
 	set_pit_frequency(TASK_SWITCH_FREQUENCY);

@@ -177,6 +177,10 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 
 	if ((uint32_t)addr & (~PAGE_MASK)) return false;
 
+	int fmode = file_get_mode(h);
+	if (!(fmode & FM_MMAP) || !(fmode & FM_READ)) return false;
+	if ((mode & MM_WRITE) && !(fmode & FM_WRITE)) return false;
+
 	user_region_t *r = (user_region_t*)malloc(sizeof(user_region_t));
 	if (r == 0) return false;
 
@@ -212,6 +216,24 @@ bool mchmap(process_t *proc, void* addr, int mode) {
 	if (r == 0) return false;
 	
 	r->mode = mode;
+
+	// change mode on already mapped pages
+	pagedir_t *save_pd = get_current_pagedir();
+	switch_pagedir(proc->pd);
+	for (void* it = r->addr; it < r->addr + r->size; r += PAGE_SIZE) {
+		uint32_t ent = pd_get_entry(it);
+		uint32_t frame = pd_get_frame(it);
+
+		if (ent & PTE_PRESENT) {
+			bool can_w = (ent & PTE_RW) != 0;
+			bool should_w = (mode & MM_WRITE) != 0;
+			if (can_w != should_w) {
+				pd_map_page(it, frame, should_w);
+			}
+		}
+	}
+	switch_pagedir(save_pd);
+
 	return true;
 }
 
@@ -230,12 +252,27 @@ bool munmap(process_t *proc, void* addr) {
 		}
 	}
 
-	// TODO : write modified pages back to file!
-	// TODO : unmap mapped page for region...
+	btree_remove_v(proc->regions_idx, r->addr, r);
+
+	// Unmap that stuff
+	pagedir_t *save_pd = get_current_pagedir();
+	switch_pagedir(proc->pd);
+	for (void* it = r->addr; it < r->addr + r->size; r += PAGE_SIZE) {
+		uint32_t ent = pd_get_entry(it);
+		uint32_t frame = pd_get_frame(it);
+
+		if (ent & PTE_PRESENT) {
+			if ((ent & PTE_DIRTY) && (r->mode & MM_WRITE) && r->file != 0) {
+				file_write(r->file, it - r->addr + r->file_offset, PAGE_SIZE, it);
+			}
+			pd_unmap_page(it);
+			frame_free(frame, 1);
+		}
+	}
+	switch_pagedir(save_pd);
 
 	if (r->file != 0) unref_file(r->file);
 
-	btree_remove_v(proc->regions_idx, r->addr, r);
 	free(r);
 
 	return true;

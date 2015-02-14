@@ -4,11 +4,11 @@ AS = nasm
 ASFLAGS = -felf -g
 
 CC = i586-elf-gcc
-CFLAGS += -ffreestanding -O2 -std=gnu99 -Wall -Wextra -Werror -I . -I ./include -g -Wno-unused-parameter
+CFLAGS += -ffreestanding -std=gnu99 -Wall -Wextra -Werror -Wno-unused-parameter -I . -I ./include -g
 # CXX = i586-elf-g++
 # CXFLAGS = -ffreestanding -O3 -Wall -Wextra -I . -I ./include -fno-exceptions -fno-rtti
 LD = i586-elf-gcc
-LDFLAGS += -ffreestanding -O2 -nostdlib -lgcc
+LDFLAGS += -ffreestanding -nostdlib -lgcc
 
 all: $(OUT)
 

@@ -4,11 +4,10 @@
 [GLOBAL save_context_and_enter_scheduler]
 ; void save_context_and_enter_scheduler(struct saved_context *ctx);
 save_context_and_enter_scheduler:
-	pushf
+	pushf					; push flags
 	cli
-	pusha					; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
-
-	mov eax, cr3
+	pusha					; push general registers
+	mov eax, cr3			; push CR3
 	push eax
 
 	mov eax, [esp+44]		; get address of saved_context structure
@@ -19,32 +18,10 @@ save_context_and_enter_scheduler:
 	jmp run_scheduler
 
 resume_saved_context:
-	pop eax
+	pop eax			; restore CR3
 	mov cr3, eax
-
-	popa
-	popf
-	ret
-
-[GLOBAL irq0_save_context_and_enter_scheduler]
-; meant to be called on IRQ0
-; general registers already saved by IRQ handler stub
-; flags already saved by interruption and interruptions disabled
-; only saves CR3
-irq0_save_context_and_enter_scheduler:
-	mov eax, cr3
-	push eax
-
-	mov eax, [esp+8]		; get address of saved_context structure
-	mov [eax], esp			; save esp
-	mov dword [eax+4], resume_saved_irq0_context		; save eip
-
-	mov esp, kernel_stack_top
-	jmp run_scheduler
-
-resume_saved_irq0_context:
-	pop eax
-	mov cr3, eax
+	popa			; restore general registers
+	popf			; restore flags
 	ret
 
 

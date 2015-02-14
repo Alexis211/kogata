@@ -11,6 +11,17 @@
 #define PF_RSVD_WRITE_BIT	(1<<3)
 #define PF_OPFETCH_BIT		(1<<4)
 
+#define PTE_PRESENT			(1<<0)
+#define PTE_RW				(1<<1)
+#define PTE_USER			(1<<2)
+#define PTE_WRITE_THROUGH	(1<<3)
+#define PTE_DISABLE_CACHE	(1<<4)
+#define PTE_ACCESSED		(1<<5)
+#define PTE_DIRTY			(1<<6)		// only PTE
+#define PTE_SIZE_4M			(1<<7)		// only PDE
+#define PTE_GLOBAL			(1<<8)		// only PTE
+#define PTE_FRAME_SHIFT		12
+
 struct page_directory;
 typedef struct page_directory pagedir_t;
 
@@ -25,6 +36,7 @@ void switch_pagedir(pagedir_t *pd);
 
 // these functions are always relative to the currently mapped page directory
 uint32_t pd_get_frame(void* vaddr);		// get physical frame for virtual address
+uint32_t pd_get_entry(void* vaddr);		// same as pd_get_frame but returns whole entry with flags
 bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw);		// returns true on success, false on failure
 void pd_unmap_page(void* vaddr);	// does nothing if page not mapped
 

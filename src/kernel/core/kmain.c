@@ -95,13 +95,15 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	dbg_printf("Paging seems to be working!\n");
 
 	region_allocator_init(kernel_data_end);
-
+	dbg_printf("Region allocator initialized.\n");
 	TEST_PLACEHOLDER_AFTER_REGION;
 
 	kmalloc_setup();
+	dbg_printf("Kernel malloc setup ok.\n");
 	TEST_PLACEHOLDER_AFTER_KMALLOC;
 
 	setup_syscalls();
+	dbg_printf("System calls setup ok.\n");
 
 	// enter multi-threading mode
 	// interrupts are enabled at this moment, so all
@@ -111,6 +113,8 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 }
 
 void kernel_init_stage2(void* data) {
+	dbg_printf("Threading setup ok.\n");
+
 	multiboot_info_t *mbd = (multiboot_info_t*)data;
 
 	dbg_print_region_info();

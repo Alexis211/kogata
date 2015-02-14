@@ -34,9 +34,10 @@ proc_entry_t elf_load(fs_handle_t *f, process_t* process) {
 		if (read_phdr_r != sizeof(elf_phdr_t)) goto error;
 
 		if (phdr.p_type == PT_LOAD) {
-			if (phdr.p_flags & PF_W) {
-				mmap(process, (void*)phdr.p_vaddr, phdr.p_memsz,
+			if ((phdr.p_flags & PF_W) || !(file_get_mode(f) & FM_MMAP)) {
+				bool mmap_ok = mmap(process, (void*)phdr.p_vaddr, phdr.p_memsz,
 						((phdr.p_flags & PF_R) ? MM_READ : 0) | MM_WRITE);
+				if (!mmap_ok) goto error;
 
 				size_t read_r = file_read(f, phdr.p_offset, phdr.p_filesz, (char*)phdr.p_vaddr);
 				if (read_r != phdr.p_filesz) goto error;
@@ -44,16 +45,22 @@ proc_entry_t elf_load(fs_handle_t *f, process_t* process) {
 				if (phdr.p_memsz > phdr.p_filesz) {
 					memset((char*)phdr.p_vaddr + phdr.p_filesz, 0, phdr.p_memsz - phdr.p_filesz);
 				}
+
+				if (!(phdr.p_flags & PF_W)) {
+					bool mchmap_ok = mchmap(process, (void*)phdr.p_vaddr,
+							((phdr.p_flags & PF_R) ? MM_READ : 0));
+					if (!mchmap_ok) goto error;
+				}
 			} else {
 				if (phdr.p_filesz != phdr.p_memsz) {
 					dbg_printf("Strange ELF file...\n");
-					goto error;
 				}
 
-				mmap_file(process,
-						f, phdr.p_offset,
-						(void*)phdr.p_vaddr, phdr.p_memsz,
-						((phdr.p_flags & PF_R) ? MM_READ : 0) | ((phdr.p_flags & PF_X) ? MM_EXEC : 0));
+				bool mmap_ok = mmap_file(process,
+							f, phdr.p_offset,
+							(void*)phdr.p_vaddr, phdr.p_memsz,
+							((phdr.p_flags & PF_R) ? MM_READ : 0) | ((phdr.p_flags & PF_X) ? MM_EXEC : 0));
+				if (!mmap_ok) goto error;
 			}
 		}
 	}

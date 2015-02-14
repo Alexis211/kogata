@@ -10,17 +10,6 @@
 #define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)x >> (PAGE_SHIFT + PT_SHIFT))
 
-#define PTE_PRESENT			(1<<0)
-#define PTE_RW				(1<<1)
-#define PTE_USER			(1<<2)
-#define PTE_WRITE_THROUGH	(1<<3)
-#define PTE_DISABLE_CACHE	(1<<4)
-#define PTE_ACCESSED		(1<<5)
-#define PTE_DIRTY			(1<<6)		// only PTE
-#define PTE_SIZE_4M			(1<<7)		// only PDE
-#define PTE_GLOBAL			(1<<8)		// only PTE
-#define PTE_FRAME_SHIFT		12
-
 typedef struct page_table {
 	uint32_t page[1024];
 } pagetable_t;
@@ -107,7 +96,7 @@ void page_fault_handler(registers_t *regs) {
 
 			if ((size_t)vaddr >= PD_MIRROR_ADDR) {
 				dbg_printf("Fault on access to mirrorred PD at 0x%p\n", vaddr);
-				dbg_print_region_info();
+				dbg_dump_registers(regs);
 				PANIC("Unhandled kernel space page fault");
 			}
 
@@ -164,10 +153,11 @@ void paging_setup(void* kernel_data_end) {
 
 	// paging already enabled in loader, nothing to do.
 
-	// disable 4M pages (remove PSE bit in CR4)
+	
 	uint32_t cr4;
 	asm volatile("movl %%cr4, %0": "=r"(cr4));
-	cr4 &= ~0x00000010;
+	cr4 &= ~(1<<4);		// disable 4M pages (remove PSE bit in CR4)
+	cr4 |= (1<<7);		// enable global PTE/PDE
 	asm volatile("movl %0, %%cr4":: "r"(cr4));
 
 	idt_set_ex_handler(EX_PAGE_FAULT, page_fault_handler);
@@ -191,15 +181,19 @@ void switch_pagedir(pagedir_t *pd) {
 // Mapping and unmapping of pages //
 // ============================== //
 
-uint32_t pd_get_frame(void* vaddr) {
+uint32_t pd_get_entry(void* vaddr) {
 	uint32_t pt = PT_OF_ADDR(vaddr);
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 
-	if (!pd->page[pt] & PTE_PRESENT) return 0;
-	if (!current_pt[pt].page[page] & PTE_PRESENT) return 0;
-	return current_pt[pt].page[page] >> PTE_FRAME_SHIFT;
+	if (!(pd->page[pt] & PTE_PRESENT)) return 0;
+	if (!(current_pt[pt].page[page] & PTE_PRESENT)) return 0;
+	return current_pt[pt].page[page];
+}
+
+uint32_t pd_get_frame(void* vaddr) {
+	return pd_get_entry(vaddr) >> PTE_FRAME_SHIFT;
 }
 
 bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
@@ -213,7 +207,7 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 	mutex_lock(&pdd->mutex);
 
-	if (!pd->page[pt] & PTE_PRESENT) {
+	if (!(pd->page[pt] & PTE_PRESENT)) {
 		uint32_t new_pt_frame = frame_alloc(1);
 		if (new_pt_frame == 0) {
 			mutex_unlock(&pdd->mutex);
@@ -243,8 +237,8 @@ void pd_unmap_page(void* vaddr) {
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
 	// no need to lock the PD's mutex
 
-	if (!pd->page[pt] & PTE_PRESENT) return;
-	if (!current_pt[pt].page[page] & PTE_PRESENT) return;
+	if (!(pd->page[pt] & PTE_PRESENT)) return;
+	if (!(current_pt[pt].page[page] & PTE_PRESENT)) return;
 
 	current_pt[pt].page[page] = 0;
 	invlpg(vaddr);
