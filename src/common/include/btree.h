@@ -7,6 +7,7 @@
 //	- btree_lower returns any item with matching key, or if none returns last item with smaller key
 //	- btree_upper returns any item with matching key, or if none returns first item with bigger key
 //	- btree_remove removes *all bindings* with matching key
+//	- btree_remove_v removes bindings with matching *key and value*
 //	- btree_iter_on calls iterator function on all bindings with matching key
 
 // Memory management is same as for hashtbl (a kv_iter_fun_t is called when an item is released)
@@ -19,6 +20,7 @@ void delete_btree(btree_t *t);
 
 bool btree_add(btree_t *t, void* key, void* val);
 void btree_remove(btree_t *t, const void* key);
+void btree_remove_v(btree_t *t, const void* key, const void* value);
 
 void* btree_find(btree_t *i, const void* key);
 void* btree_lower(btree_t *i, const void* key);

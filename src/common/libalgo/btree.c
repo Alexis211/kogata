@@ -193,6 +193,61 @@ void btree_remove(btree_t *t, const void* key) {
 	t->root = remove_aux(t, t->root, key);
 }
 
+void btree_remove_v(btree_t *t, const void* key, const void* val) {
+	btree_item_t *extract_smallest(btree_item_t *i, btree_item_t **out_smallest) {
+		ASSERT(i != 0);
+		if (i->left == 0) {
+			*out_smallest = i;
+			return i->right;
+		} else {
+			i->left = extract_smallest(i->left, out_smallest);
+			recalc_height(i);
+			return equilibrate(i);
+		}
+	}
+
+	btree_item_t *remove_aux(btree_t *t, btree_item_t *i, const void* key, const void* val) {
+		if (i == 0) return 0;
+
+		int c = t->cf(key, i->key);
+		if (c < 0) {
+			i->left = remove_aux(t, i->left, key, val);
+			return equilibrate(i);
+		} else if (c > 0) {
+			i->right = remove_aux(t, i->right, key, val);
+			return equilibrate(i);
+		} else if (i->val == i) {
+			// remove item i
+
+			btree_item_t *new_i;
+			if (i->right == 0 || i->left == 0) {
+				new_i = (i->right == 0 ? i->left : i->right);
+			} else {
+				btree_item_t *new_i_right = extract_smallest(i->right, &new_i);
+
+				new_i->left = i->left;
+				new_i->right = new_i_right;
+
+				recalc_height(new_i);
+				new_i = equilibrate(new_i);
+			}
+
+			if (t->releasef) t->releasef(i->key, i->val);
+			free(i);
+			t->nitems--;
+
+			return remove_aux(t, new_i, key, val);	// loop because several elements may correspond
+		} else {
+			i->left = remove_aux(t, i->left, key, val);
+			i->right = remove_aux(t, i->right, key, val);
+			recalc_height(i);
+			return equilibrate(i);
+		}
+	}
+
+	t->root = remove_aux(t, t->root, key, val);
+}
+
 // ======================== //
 // LOOKING UP AND ITERATING //
 // ======================== //
