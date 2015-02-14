@@ -14,3 +14,5 @@ void yield() {
 void exit(int code) {
 	asm volatile("int $0x40"::"a"(SC_EXIT),"b"(code));
 }
+
+/* vim: set ts=4 sw=4 tw=0 noet :*/

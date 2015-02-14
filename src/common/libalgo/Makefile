@@ -1,4 +1,4 @@
-OBJ = hashtbl.o
+OBJ = keyval.o hashtbl.o btree.o
 
 LIB = 
 

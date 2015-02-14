@@ -1,6 +1,6 @@
-#include <hashtbl.h>
 #include <malloc.h>
-#include <string.h>
+
+#include <hashtbl.h>
 
 #define DEFAULT_HT_INIT_SIZE 16
 #define SLOT_OF_HASH(k, nslots) (((size_t)(k)*21179)%(size_t)(nslots))
@@ -109,16 +109,6 @@ bool hashtbl_add(hashtbl_t *ht, void* key, void* v) {
 	return true;
 }
 
-void* hashtbl_find(hashtbl_t* ht, const void* key) {
-	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
-
-	for (hashtbl_item_t *i = ht->items[slot]; i != 0; i = i->next) {
-		if (ht->ef(i->key, key)) return i->val;
-	}
-
-	return 0;
-}
-
 void hashtbl_remove(hashtbl_t* ht, const void* key) {
 	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
 
@@ -148,45 +138,26 @@ void hashtbl_remove(hashtbl_t* ht, const void* key) {
 	hashtbl_check_size(ht);
 }
 
+void* hashtbl_find(hashtbl_t* ht, const void* key) {
+	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
+
+	for (hashtbl_item_t *i = ht->items[slot]; i != 0; i = i->next) {
+		if (ht->ef(i->key, key)) return i->val;
+	}
+
+	return 0;
+}
+
+void hashtbl_iter(hashtbl_t *ht, kv_iter_fun_t f) {
+	for (size_t s = 0; s < ht->size; s++) {
+		for (hashtbl_item_t *i = ht->items[s]; i != 0; i = i->next) {
+			f(i->key, i->val);
+		}
+	}
+}
+
 size_t hashtbl_count(hashtbl_t* ht) {
 	return ht->nitems;
-}
-
-// ================================== //
-// UTILITY FUNCTIONS (HASH, EQ, FREE) //
-// ================================== //
-
-hash_t id_hash_fun(const void* v) {
-	return (hash_t)v;
-}
-
-hash_t str_hash_fun(const void* v) {
-	hash_t h = 712;
-	for (char* s = (char*)v; *s != 0; s++) {
-		h = h * 101 + *s;
-	}
-	return h;
-}
-
-bool id_key_eq_fun(const void* a, const void* b) {
-	return a == b;
-}
-
-bool str_key_eq_fun(const void* a, const void* b) {
-	return strcmp((const char*)a, (const char*)b) == 0;
-}
-
-void free_key(void* key, void* val) {
-	free(key);
-}
-
-void free_val(void* key, void* val) {
-	free(val);
-}
-
-void free_key_val(void* key, void* val) {
-	free(key);
-	free(val);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
