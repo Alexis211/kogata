@@ -19,3 +19,6 @@ mrproper:
 	for dir in $(DIRS); do \
 		$(MAKE) -C $$dir mrproper;   \
 	done
+
+run_tests:
+	src/tests/run_tests.sh

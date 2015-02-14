@@ -1,5 +1,5 @@
 
-OBJ = core/loader.o core/kmain.o core/dbglog.o core/sys.o \
+OBJ = core/loader.o core/dbglog.o core/sys.o \
 	core/gdt.o core/idt.o core/interrupt.o core/context_switch.o core/thread.o \
 	core/frame.o core/paging.o core/region.o core/kmalloc.o \
 	user/vfs.o user/nullfs.o user/process.o user/elf.o user/syscall.o
@@ -10,6 +10,11 @@ CFLAGS = -I ./include -I ../common/include
 
 LDFLAGS = -T linker.ld -Xlinker -Map=kernel.map
 
-OUT = kernel.bin
+OUT = kernel.lib
 
 include ../rules.make
+
+kernel.bin: kernel.lib core/kmain.o
+	$(LD) $(LDFLAGS) -o $@ $^
+
+all: $(OUT) kernel.bin

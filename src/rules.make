@@ -12,11 +12,8 @@ LDFLAGS += -ffreestanding -O2 -nostdlib -lgcc
 
 all: $(OUT)
 
-%.bin: $(OBJ)
-	$(LD) $(LDFLAGS) -o $@ $^ $(LIB)
-
-%.lib: $(OBJ)
-	$(LD) $(LDFLAGS) -r -o $@ $^ $(LIB)
+$(OUT): $(OBJ) $(LIB)
+	OUT=$(OUT); $(LD) $(LDFLAGS) `if [ $${OUT##*.} = lib ]; then echo -r; fi` -o $@ $^
 
 %.o: %.s
 	$(AS) $(ASFLAGS) -o $@ $<

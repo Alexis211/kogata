@@ -20,8 +20,20 @@
 #include <syscall.h>
 
 #include <slab_alloc.h>
-#include <hashtbl.h>
 #include <string.h>
+
+// ===== FOR TESTS =====
+#define TEST_PLACEHOLDER_AFTER_IDT
+#define TEST_PLACEHOLDER_AFTER_REGION
+#define TEST_PLACEHOLDER_AFTER_KMALLOC
+#define TEST_PLACEHOLDER_AFTER_TASKING
+#define TEST_PLACEHOLDER_AFTER_DEVFS
+#ifdef IS_A_TEST
+#define BEGIN_TEST(n) dbg_printf("(BEGIN-TEST %s)\n", n);
+#define TEST_OK { dbg_printf("(TEST-OK)\n"); asm volatile("cli; hlt"); }
+#include <test.c>
+#endif
+// ===== / FOR TESTS ====
 
 extern const void k_end_addr;	// defined in linker script : 0xC0000000 plus kernel stuff
 
@@ -29,186 +41,6 @@ void breakpoint_handler(registers_t *regs) {
 	dbg_printf("Breakpoint! (int3)\n");
 	dbg_dump_registers(regs);
 	BOCHS_BREAKPOINT;
-}
-
-void test_breakpoint() {
-	dbg_printf("(BEGIN-TEST 'breakpoint-test)\n");
-	asm volatile("int $0x3");	// test breakpoint
-	dbg_printf("(TEST-OK)\n");
-}
-
-void test_region_1() {
-	dbg_printf("(BEGIN-TEST 'region-test-1)\n");
-	void* p = region_alloc(0x1000, "Test region", 0);
-	dbg_printf("Allocated one-page region: 0x%p\n", p);
-	dbg_print_region_info();
-	void* q = region_alloc(0x1000, "Test region", 0);
-	dbg_printf("Allocated one-page region: 0x%p\n", q);
-	dbg_print_region_info();
-	void* r = region_alloc(0x2000, "Test region", 0);
-	dbg_printf("Allocated two-page region: 0x%p\n", r);
-	dbg_print_region_info();
-	void* s = region_alloc(0x10000, "Test region", 0);
-	dbg_printf("Allocated 16-page region: 0x%p\n", s);
-	dbg_print_region_info();
-	region_free(p);
-	dbg_printf("Freed region 0x%p\n", p);
-	dbg_print_region_info();
-	region_free(q);
-	dbg_printf("Freed region 0x%p\n", q);
-	dbg_print_region_info();
-	region_free(r);
-	dbg_printf("Freed region 0x%p\n", r);
-	dbg_print_region_info();
-	region_free(s);
-	dbg_printf("Freed region 0x%p\n", s);
-	dbg_print_region_info();
-
-	dbg_printf("(TEST-OK)\n");
-}
-
-void test_region_2() {
-	// allocate a big region and try to write into it
-	dbg_printf("(BEGIN-TEST 'region-test-2)\n");
-	const size_t n = 200;
-	void* p0 = region_alloc(n * PAGE_SIZE, "Test big region", default_allocator_pf_handler);
-	for (size_t i = 0; i < n; i++) {
-		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
-		x[0] = 12;
-		x[1] = (i * 20422) % 122;
-	}
-	// unmap memory
-	for (size_t i = 0; i < n; i++) {
-		void* p = p0 + i * PAGE_SIZE;
-		uint32_t *x = (uint32_t*)p;
-		ASSERT(x[1] == (i * 20422) % 122);
-
-		uint32_t f = pd_get_frame(p);
-		ASSERT(f != 0);
-		pd_unmap_page(p);
-		ASSERT(pd_get_frame(p) == 0);
-
-		frame_free(f, 1);
-	}
-	region_free(p0);
-
-	dbg_printf("(TEST-OK)\n");
-}
-
-void kmalloc_test(void* kernel_data_end) {
-	dbg_printf("(BEGIN-TEST 'kmalloc-test)\n");
-	// Test kmalloc !
-	dbg_print_region_info();
-	const int m = 200;
-	uint16_t** ptr = malloc(m * sizeof(uint32_t));
-	for (int i = 0; i < m; i++) {
-		size_t s = 1 << ((i * 7) % 11 + 2);
-		ptr[i] = (uint16_t*)malloc(s);
-		ASSERT((void*)ptr[i] >= kernel_data_end && (size_t)ptr[i] < 0xFFC00000);
-		*ptr[i] = ((i * 211) % 1024);
-	}
-	dbg_printf("Fully allocated.\n");
-	dbg_print_region_info();
-	for (int i = 0; i < m; i++) {
-		for (int j = i; j < m; j++) {
-			ASSERT(*ptr[j] == (j * 211) % 1024);
-		}
-		free(ptr[i]);
-	}
-	free(ptr);
-	dbg_printf("Kmalloc test OK.\n");
-	dbg_print_region_info();
-
-	dbg_printf("(TEST-OK)\n");
-}
-
-void test_hashtbl_1() {
-	dbg_printf("(BEGIN-TEST 'test-hashtbl-1)\n");
-	// hashtable test
-	hashtbl_t *ht = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
-	ASSERT(ht != 0);
-
-	ASSERT(hashtbl_add(ht, "test1", "STRTEST1"));
-	ASSERT(hashtbl_add(ht, "test2", "STRTEST2"));
-	ASSERT(hashtbl_find(ht, "test1") != 0 && 
-			strcmp(hashtbl_find(ht, "test1"), "STRTEST1") == 0);
-	ASSERT(hashtbl_find(ht, "test2") != 0 &&
-			strcmp(hashtbl_find(ht, "test2"), "STRTEST2") == 0);
-	ASSERT(hashtbl_find(ht, "test") == 0);
-
-	ASSERT(hashtbl_add(ht, "test", "Forever alone"));
-	ASSERT(hashtbl_find(ht, "test1") != 0 &&
-			strcmp(hashtbl_find(ht, "test1"), "STRTEST1") == 0);
-	ASSERT(hashtbl_find(ht, "test2") != 0 &&
-			strcmp(hashtbl_find(ht, "test2"), "STRTEST2") == 0);
-	ASSERT(hashtbl_find(ht, "test") != 0 &&
-			strcmp(hashtbl_find(ht, "test"), "Forever alone") == 0);
-
-	hashtbl_remove(ht, "test1");
-	ASSERT(hashtbl_find(ht, "test1") == 0);
-	ASSERT(hashtbl_find(ht, "test2") != 0 &&
-			strcmp(hashtbl_find(ht, "test2"), "STRTEST2") == 0);
-	ASSERT(hashtbl_find(ht, "test") != 0 &&
-			strcmp(hashtbl_find(ht, "test"), "Forever alone") == 0);
-
-	delete_hashtbl(ht);
-
-	dbg_printf("(TEST-OK)\n");
-}
-
-void test_hashtbl_2() {
-	dbg_printf("(BEGIN-TEST 'test-hashtbl-2)\n");
-
-	hashtbl_t *ht = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
-	ASSERT(ht != 0);
-
-	ASSERT(hashtbl_add(ht, (void*)12, "TESTSTR12"));
-	ASSERT(hashtbl_add(ht, (void*)777, "TESTSTR777"));
-
-	ASSERT(hashtbl_find(ht, (void*)12) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)12), "TESTSTR12") == 0);
-	ASSERT(hashtbl_find(ht, (void*)777) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)777), "TESTSTR777") == 0);
-	ASSERT(hashtbl_find(ht, (void*)144) == 0);
-
-	ASSERT(hashtbl_add(ht, (void*)144, "Forever alone"));
-
-	ASSERT(hashtbl_find(ht, (void*)12) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)12), "TESTSTR12") == 0);
-	ASSERT(hashtbl_find(ht, (void*)144) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)144), "Forever alone") == 0);
-	ASSERT(hashtbl_find(ht, (void*)777) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)777), "TESTSTR777") == 0);
-
-	hashtbl_remove(ht, (void*)12);
-	ASSERT(hashtbl_find(ht, (void*)12) == 0);
-	ASSERT(hashtbl_find(ht, (void*)144) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)144), "Forever alone") == 0);
-	ASSERT(hashtbl_find(ht, (void*)777) != 0 &&
-			strcmp(hashtbl_find(ht, (void*)777), "TESTSTR777") == 0);
-
-	delete_hashtbl(ht);
-
-	dbg_printf("(TEST-OK)\n");
-}
-
-void test_cmdline(multiboot_info_t *mbd, fs_t *devfs) {
-	dbg_printf("(BEGIN-TEST 'test-cmdline)\n");
-
-	fs_handle_t *f = fs_open(devfs, "/cmdline", FM_READ);
-	ASSERT(f != 0);
-
-	char buf[256];
-	size_t l = file_read(f, 0, 255, buf);
-	ASSERT(l > 0);
-	buf[l] = 0;
-
-	unref_file(f);
-	dbg_printf("Command line as in /cmdline file: '%s'.\n", buf);
-
-	ASSERT(strcmp(buf, (char*)mbd->cmdline) == 0);
-
-	dbg_printf("(TEST-OK)\n");
 }
 
 void kernel_init_stage2(void* data);
@@ -249,7 +81,7 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	idt_init(); dbg_printf("IDT set up.\n");
 	idt_set_ex_handler(EX_BREAKPOINT, breakpoint_handler);
 
-	test_breakpoint();
+	TEST_PLACEHOLDER_AFTER_IDT;
 
 	size_t total_ram = ((mbd->mem_upper + mbd->mem_lower) * 1024);
 	dbg_printf("Total ram: %d Kb\n", total_ram / 1024);
@@ -262,14 +94,12 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	paging_setup(kernel_data_end);
 	dbg_printf("Paging seems to be working!\n");
 
-	BOCHS_BREAKPOINT;
-
 	region_allocator_init(kernel_data_end);
-	test_region_1();
-	test_region_2();
+
+	TEST_PLACEHOLDER_AFTER_REGION;
 
 	kmalloc_setup();
-	kmalloc_test(kernel_data_end);
+	TEST_PLACEHOLDER_AFTER_KMALLOC;
 
 	setup_syscalls();
 
@@ -286,8 +116,7 @@ void kernel_init_stage2(void* data) {
 	dbg_print_region_info();
 	dbg_print_frame_stats();
 
-	test_hashtbl_1();
-	test_hashtbl_2();
+	TEST_PLACEHOLDER_AFTER_TASKING;
 
 	// Create devfs
 	register_nullfs_driver();
@@ -336,7 +165,7 @@ void kernel_init_stage2(void* data) {
 					len, false, FM_READ | FM_MMAP));
 	}
 
-	test_cmdline(mbd, devfs);
+	TEST_PLACEHOLDER_AFTER_DEVFS;
 
 	fs_handle_t *init_bin = fs_open(devfs, "/mod/init.bin", FM_READ | FM_MMAP);
 	if (init_bin == 0) PANIC("No init.bin module provided!");
