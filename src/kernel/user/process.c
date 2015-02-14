@@ -17,18 +17,6 @@ typedef struct user_region {
 	struct user_region *next;
 } user_region_t;
 
-typedef struct process {
-	pagedir_t *pd;
-	user_region_t *regions;
-
-	hashtbl_t *filesystems;
-
-	thread_t *thread;
-
-	int pid;
-	struct process *parent;
-} process_t;
-
 static int next_pid = 1;
 
 static void proc_user_exception(registers_t *regs);
@@ -114,13 +102,6 @@ bool start_process(process_t *p, void* entry) {
 	return true;
 }
 
-pagedir_t *proc_pagedir(process_t *p) {
-	return p->pd;
-}
-
-int proc_pid(process_t *p) {
-	return p->pid;
-}
 
 // ================================== //
 // MANAGING FILESYSTEMS FOR PROCESSES //

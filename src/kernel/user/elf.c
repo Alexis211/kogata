@@ -21,7 +21,7 @@ proc_entry_t elf_load(fs_handle_t *f, process_t* process) {
 	int i;
 
 	pagedir_t *r = get_current_pagedir();
-	switch_pagedir(proc_pagedir(process));
+	switch_pagedir(process->pd);
 
 	// TODO : when we fail, free ressources ?
 

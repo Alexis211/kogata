@@ -4,12 +4,7 @@
 #include <string.h>
 
 void dbg_print(const char* str) {
-
-	char buf[256];
-	strncpy(buf, str, 256);
-	buf[255] = 0;
-
-	asm volatile("int $0x40"::"a"(SC_DBG_PRINT),"b"(buf));
+	asm volatile("int $0x40"::"a"(SC_DBG_PRINT),"b"(str),"c"(strlen(str)));
 }
 
 void yield() {

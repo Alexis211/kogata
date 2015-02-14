@@ -24,8 +24,18 @@
 #define USERSTACK_ADDR	0xB8000000
 #define USERSTACK_SIZE	0x00020000		// 32 KB
 
-struct process;
-typedef struct process process_t;
+struct user_region;
+typedef struct process {
+	pagedir_t *pd;
+	struct user_region *regions;
+
+	hashtbl_t *filesystems;
+
+	thread_t *thread;
+
+	int pid;
+	struct process *parent;
+} process_t;
 
 typedef void* proc_entry_t;
 
@@ -33,9 +43,6 @@ process_t *current_process();
 
 process_t *new_process(process_t *parent);
 // void delete_process(process_t *p);	// TODO define semantics for freeing stuff
-
-pagedir_t *proc_pagedir(process_t *p);
-int proc_pid(process_t *p);
 
 bool start_process(process_t *p, proc_entry_t entry);	// maps a region for user stack
 

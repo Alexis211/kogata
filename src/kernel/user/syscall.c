@@ -8,12 +8,25 @@ typedef uint32_t (*syscall_handler_t)(uint32_t, uint32_t, uint32_t, uint32_t, ui
 
 static syscall_handler_t sc_handlers[SC_MAX] = { 0 };
 
+static char* sc_copy_string(uint32_t s, uint32_t slen) {
+	const char* addr = (const char*)s;
+	probe_for_read(addr, slen);
+
+	char* buf = malloc(slen+1);
+	if (buf == 0) return 0;
+
+	memcpy(buf, addr, slen);
+	buf[slen] = 0;
+
+	return buf;
+}
+
 // ==================== //
 // THE SYSCALLS CODE !! //
 // ==================== //
 
 static uint32_t exit_sc(uint32_t code, uint32_t uu1, uint32_t uu2, uint32_t uu3, uint32_t uu4) {
-	dbg_printf("Proc %d exit with code %d\n", proc_pid(current_process()), code);
+	dbg_printf("Proc %d exit with code %d\n", current_process()->pid, code);
 	// TODO : use code... and process exiting is not supposed to be done this way
 
 	exit();
@@ -25,16 +38,13 @@ static uint32_t yield_sc() {
 	return 0;
 }
 
-static uint32_t dbg_print_sc(uint32_t x, uint32_t uu1, uint32_t uu2, uint32_t uu3, uint32_t uu4) {
-	const char* addr = (const char*)x;
-	probe_for_read(addr, 256);
+static uint32_t dbg_print_sc(uint32_t s, uint32_t slen, uint32_t uu2, uint32_t uu3, uint32_t uu4) {
+	char* msg = sc_copy_string(s, slen);
+	if (msg == 0) return -1;
 
-	char buf[256];
-	memcpy(buf, addr, 256);
-	buf[255] = 0;
+	dbg_print(msg);
 
-	dbg_print(buf);
-
+	free(msg);
 	return 0;
 }
 
