@@ -220,7 +220,7 @@ bool mchmap(process_t *proc, void* addr, int mode) {
 	// change mode on already mapped pages
 	pagedir_t *save_pd = get_current_pagedir();
 	switch_pagedir(proc->pd);
-	for (void* it = r->addr; it < r->addr + r->size; r += PAGE_SIZE) {
+	for (void* it = r->addr; it < r->addr + r->size; it += PAGE_SIZE) {
 		uint32_t ent = pd_get_entry(it);
 		uint32_t frame = pd_get_frame(it);
 

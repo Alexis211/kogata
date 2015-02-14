@@ -7,8 +7,8 @@
 #include <thread.h>
 #include <malloc.h>
 
-#define PAGE_OF_ADDR(x)		(((size_t)x >> PAGE_SHIFT) % N_PAGES_IN_PT)
-#define PT_OF_ADDR(x)		((size_t)x >> (PAGE_SHIFT + PT_SHIFT))
+#define PAGE_OF_ADDR(x)		(((size_t)(x) >> PAGE_SHIFT) % N_PAGES_IN_PT)
+#define PT_OF_ADDR(x)		((size_t)(x) >> (PAGE_SHIFT + PT_SHIFT))
 
 typedef struct page_table {
 	uint32_t page[1024];
@@ -197,14 +197,16 @@ uint32_t pd_get_frame(void* vaddr) {
 }
 
 bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
-	uint32_t pt = PT_OF_ADDR(vaddr);
-	uint32_t page = PAGE_OF_ADDR(vaddr);
+	const uint32_t pt = PT_OF_ADDR(vaddr);
+	const uint32_t page = PAGE_OF_ADDR(vaddr);
 
 	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
 	
-	pagedir_t *pdd = ((size_t)vaddr >= K_HIGHHALF_ADDR || current_thread == 0
-							? &kernel_pd_d : current_thread->current_pd_d);
-	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
+	bool on_kernel_pd = (size_t)vaddr >= K_HIGHHALF_ADDR || current_thread == 0;
+	
+	pagedir_t *pdd = (on_kernel_pd ? &kernel_pd_d : current_thread->current_pd_d);
+	pagetable_t *pd = (on_kernel_pd ? &kernel_pd : current_pd);
+
 	mutex_lock(&pdd->mutex);
 
 	if (!(pd->page[pt] & PTE_PRESENT)) {
