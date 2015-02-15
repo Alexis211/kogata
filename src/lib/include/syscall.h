@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <syscallid.h>
+#include <syscallproto.h>
 
 #include <fs.h>
 #include <debug.h>

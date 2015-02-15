@@ -1,7 +1,7 @@
 #pragma once
 
 #include <idt.h>
-#include <syscallid.h>
+#include <syscallproto.h>
 
 void setup_syscalls();
 
