@@ -90,3 +90,9 @@ running the tests):
 	src/apps/             userspace binaries
 	src/tests/            test suite
 
+## Licence
+
+None of the source files have a licence header because it's cumbersome. All the
+code and associated documentation found in this repository is released under
+the ISC licence as detailed in the `COPYING` file.
+
