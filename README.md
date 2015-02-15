@@ -90,6 +90,15 @@ running the tests):
 	src/apps/             userspace binaries
 	src/tests/            test suite
 
+## Important TODOs
+
+* The VFS code is not thread-safe ! Very dangerous, must be taken care of soon.
+  (important design considerations not to be overlooked)
+* How does a process exit, what does it do, how do processes synchronize ?
+* Have several threads in a single process
+* Better handling of errors (rather than panicing) ; userspace apps should not
+  have the possibility of crashing the system
+
 ## Licence
 
 None of the source files have a licence header because it's cumbersome. All the
