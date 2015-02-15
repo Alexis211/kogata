@@ -16,7 +16,7 @@ It relies on a few functions being exported :
 
 These function are supposed to be defined in the code that calls
 the common functions. The headers for these functions are to be
-found in `debug.h` and `malloc.h`.
+found in `debug.h`, `mutex.h` and `malloc.h`.
 
 In kernel code, these functions are defined somewhere in the kernel.
 In user code, these functions are defined in the user part of libkogata.
