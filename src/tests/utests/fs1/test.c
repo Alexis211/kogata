@@ -4,7 +4,6 @@
 
 #include <syscall.h>
 #include <debug.h>
-#include <user_region.h>
 
 int main(int argc, char **argv) {
 	dbg_print("Hello, world! from user process.\n");
@@ -23,8 +22,7 @@ int main(int argc, char **argv) {
 			if (ff != 0) {
 				dbg_printf("ok, open as %d\n", ff);
 				char* cont = malloc(x.st.size + 1);
-				dbg_print_region_info();
-				read(ff, 0, x.st.size, cont);
+				ASSERT(read(ff, 0, x.st.size, cont) == x.st.size);
 				cont[x.st.size] = 0;
 				dbg_printf("> '%s'\n", cont);
 				close(ff);
@@ -35,7 +33,8 @@ int main(int argc, char **argv) {
 	}
 	close(f);
 
+	dbg_printf("(TEST-OK)\n");
+
 	return 0;
 }
 
-/* vim: set ts=4 sw=4 tw=0 noet :*/

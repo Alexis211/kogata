@@ -148,7 +148,7 @@ void kernel_init_stage2(void* data) {
 		char *b = strrchr(modname, '/');
 		if (b != 0) modname = b+1; 		// ignore path
 
-		char name[6 + strlen(b)];
+		char name[6 + strlen(modname)];
 		strcpy(name, "/mod/");
 		strcpy(name+5, modname);
 
