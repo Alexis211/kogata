@@ -18,7 +18,6 @@
 
 #include <mmap.h>
 
-
 #define USERSTACK_ADDR	0xB8000000
 #define USERSTACK_SIZE	0x00020000		// 32 KB
 
@@ -29,6 +28,8 @@ typedef struct process {
 	btree_t *regions_idx;
 
 	hashtbl_t *filesystems;
+	hashtbl_t *files;
+	int next_fd;
 
 	thread_t *thread;
 
@@ -47,7 +48,10 @@ bool start_process(process_t *p, proc_entry_t entry);	// maps a region for user 
 
 bool proc_add_fs(process_t *p, fs_t *fs, const char* name);
 fs_t *proc_find_fs(process_t *p, const char* name);
-bool proc_rm_fs(process_t *p, const char* name);
+void proc_rm_fs(process_t *p, const char* name);
+int proc_add_fd(process_t *p, fs_handle_t *f);		// on error returns 0, nonzero other<ise
+fs_handle_t *proc_read_fd(process_t *p, int fd);
+void proc_close_fd(process_t *p, int fd);
 
 bool mmap(process_t *proc, void* addr, size_t size, int mode);		// create empty zone
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode);

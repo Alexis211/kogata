@@ -30,12 +30,6 @@ I would love to have kogata fit on a 1.44MB floppy and run with a full GUI and
 some cool apps (remember the QNX demo floppy!). Also, I want to be able to use
 it on older computers and prove that such machines can still be put to use.
 
-### Plans for the future
-
-* Module system for extending the kernel
-* In userspace, simple Scheme-like scripting language
-* The obvious stuff ;-)
-
 ## How to build
 
 ### Requirements
@@ -104,10 +98,17 @@ running the tests):
 * Have several threads in a single process
 * Better handling of errors (rather than panicing) ; userspace apps should not
   have the possibility of crashing the system
+* How does a process transmit information (such as environment or arguments) to its children ?
 
 ### Things not sure
 
 * VFS thread safety : is the design correct ? (probably)
+
+### Plans for the later future
+
+* Module system for extending the kernel
+* In userspace, simple Scheme-like scripting language
+* The obvious stuff ;-)
 
 ## Licence
 

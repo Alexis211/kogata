@@ -30,7 +30,7 @@ char *strcpy(char *dest, const char *src) {
 }
 
 char *strncpy(char *dest, const char *src, size_t n) {
-	size_t x = strlen(src + 1);
+	size_t x = strlen(src);
 	if (n < x) x = n;
 	memcpy(dest, src, x);
 	if (n > x) memset(dest + x, 0, n - x);

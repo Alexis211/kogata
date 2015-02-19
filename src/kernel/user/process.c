@@ -38,6 +38,9 @@ process_t *new_process(process_t *parent) {
 	proc->filesystems = create_hashtbl(str_key_eq_fun, str_hash_fun, free_key);
 	if (proc->filesystems == 0) goto error;
 
+	proc->files = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
+	if (proc->files == 0) goto error;
+
 	proc->regions_idx = create_btree(id_key_cmp_fun, 0);
 	if (proc->regions_idx == 0) goto error;
 
@@ -48,12 +51,14 @@ process_t *new_process(process_t *parent) {
 	proc->thread = 0;
 	proc->pid = (next_pid++);
 	proc->parent = parent;
+	proc->next_fd = 1;
 
 	return proc;
 
 error:
 	if (proc && proc->regions_idx) delete_btree(proc->regions_idx);
 	if (proc && proc->filesystems) delete_hashtbl(proc->filesystems);
+	if (proc && proc->files) delete_hashtbl(proc->files);
 	if (proc) free(proc);
 	return 0;
 }
@@ -123,7 +128,32 @@ bool proc_add_fs(process_t *p, fs_t *fs, const char* name) {
 }
 
 fs_t *proc_find_fs(process_t *p, const char* name) {
-	return hashtbl_find(p->filesystems, name);
+	return (fs_t*)hashtbl_find(p->filesystems, name);
+}
+
+void proc_remove_fs(process_t *p, const char* name) {
+	hashtbl_remove(p->filesystems, name);
+}
+
+int proc_add_fd(process_t *p, fs_handle_t *f) {
+	int fd = p->next_fd++;
+
+	bool add_ok = hashtbl_add(p->files, (void*)fd, f);
+	if (!add_ok) return 0;
+
+	return fd;
+}
+
+fs_handle_t *proc_read_fd(process_t *p, int fd) {
+	return (fs_handle_t*)hashtbl_find(p->files, (void*)fd);
+}
+
+void proc_close_fd(process_t *p, int fd) {
+	fs_handle_t *x = proc_read_fd(p, fd);
+	if (x != 0) {
+		unref_file(x);
+		hashtbl_remove(p->files, (void*)fd);
+	}
 }
 
 // ============================= //
