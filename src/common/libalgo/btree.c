@@ -216,7 +216,7 @@ void btree_remove_v(btree_t *t, const void* key, const void* val) {
 		} else if (c > 0) {
 			i->right = remove_aux(t, i->right, key, val);
 			return equilibrate(i);
-		} else if (i->val == i) {
+		} else if (i->val == val) {
 			// remove item i
 
 			btree_item_t *new_i;

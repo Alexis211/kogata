@@ -3,7 +3,7 @@
 #include <idt.h>
 #include <syscallproto.h>
 
-void setup_syscalls();
+void setup_syscall_table();
 
 void syscall_handler(registers_t *regs);
 

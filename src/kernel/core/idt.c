@@ -4,7 +4,7 @@
 #include <string.h>
 #include <dbglog.h>
 #include <thread.h>
-#include <syscall.h>
+#include <sct.h>
 
 struct idt_entry {
 	uint16_t base_lo;		//Low part of address to jump to

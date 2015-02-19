@@ -102,14 +102,15 @@ typedef struct {
 	nullfs_item_t *items_list;
 	hashtbl_t *items_idx;
 
-	mutex_t lock;		// always locked when open (cannot create/delete/move)
+	mutex_t lock;
 
 	nullfs_t *fs;
 } nullfs_dir_t;
 
 typedef struct {
-	nullfs_item_t *it;
 	nullfs_dir_t *d;
+	int nitems, i;
+	dirent_t *items;
 } nullfs_dh_t;
 
 typedef struct {
@@ -118,7 +119,7 @@ typedef struct {
 	bool own_data;
 	int ok_modes;
 	
-	mutex_t lock;
+	mutex_t lock;		// locked on open
 } nullfs_file_t;
 
 // No nullfs_file_handle_t struct, we don't need it. The handle's data
@@ -241,19 +242,45 @@ bool nullfs_d_open(fs_node_ptr n, int mode, fs_handle_t *s) {
 	if (!got_lock) return false;
 
 	nullfs_dh_t *h = (nullfs_dh_t*)malloc(sizeof(nullfs_dh_t));
-	if (h == 0) {
-		mutex_unlock(&d->lock);
-		return false;
+	if (h == 0) goto fail;
+
+	h->nitems = hashtbl_count(d->items_idx);
+	if (h->nitems > 0) {
+		h->items = (dirent_t*)malloc(h->nitems * sizeof(dirent_t));
+		if (h->nitems == 0) goto fail;
+
+		int i = 0;
+		for (nullfs_item_t *it = d->items_list; it != 0; it = it->next) {
+			strncpy(h->items[i].name, it->name, DIR_MAX);
+			h->items[i].name[DIR_MAX-1] = 0;	// make sur it's null-terminated
+			if (it->ops->stat) {
+				it->ops->stat(it->data, &h->items[i].st);
+			} else {
+				// no stat operation : should we do something else ?
+				memset(&h->items[i].st, 0, sizeof(stat_t));
+			}
+
+			i++;
+		}
+		ASSERT(i == h->nitems);
 	}
 
-	h->it = d->items_list;
 	h->d = d;
+	h->i = 0;
 
 	s->data = h;
 	s->ops = &nullfs_dh_ops;
 	s->mode = FM_READDIR;
 
+	mutex_unlock(&d->lock);
+
 	return true;
+
+fail:
+	mutex_unlock(&d->lock);
+	if (h && h->items) free(h->items);
+	if (h) free(h);
+	return false;
 }
 
 bool nullfs_d_stat(fs_node_ptr n, stat_t *st) {
@@ -445,19 +472,11 @@ void nullfs_d_dispose(fs_node_ptr n) {
 bool nullfs_dh_readdir(fs_handle_ptr f, dirent_t *d) {
 	nullfs_dh_t *h = (nullfs_dh_t*)f;
 
-	if (h->it == 0) {
+	if (h->i >= h->nitems) {
 		return false;
 	} else {
-		strncpy(d->name, h->it->name, DIR_MAX);
-		d->name[DIR_MAX-1] = 0;	// make sur it's null-terminated
-		if (h->it->ops->stat) {
-			h->it->ops->stat(h->it->data, &d->st);
-		} else {
-			// no stat operation : should we do something else ?
-			memset(&d->st, 0, sizeof(stat_t));
-		}
-		h->it = h->it->next;
-
+		memcpy(d, &h->items[h->i], sizeof(dirent_t));
+		h->i++;
 		return true;
 	}
 }
@@ -465,8 +484,7 @@ bool nullfs_dh_readdir(fs_handle_ptr f, dirent_t *d) {
 void nullfs_dh_close(fs_handle_ptr f) {
 	nullfs_dh_t *h = (nullfs_dh_t*)f;
 
-	mutex_unlock(&h->d->lock);
-
+	if (h->items) free(h->items);
 	free(h);
 }
 

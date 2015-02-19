@@ -2,7 +2,7 @@
 #include <process.h>
 #include <vfs.h>
 
-#include <syscall.h>
+#include <sct.h>
 
 typedef struct {
 	uint32_t sc_id, a, b, c, d, e;		// a: ebx, b: ecx, c: edx, d: esi, e: edi
@@ -274,7 +274,7 @@ static uint32_t get_mode_sc(sc_args_t args) {
 // SYSCALLS SETUP ROUTINE //
 // ====================== //
 
-void setup_syscalls() {
+void setup_syscall_table() {
 	sc_handlers[SC_EXIT] = exit_sc;
 	sc_handlers[SC_YIELD] = yield_sc;
 	sc_handlers[SC_DBG_PRINT] = dbg_print_sc;

@@ -17,7 +17,7 @@
 #include <nullfs.h>
 #include <process.h>
 #include <elf.h>
-#include <syscall.h>
+#include <sct.h>
 
 #include <slab_alloc.h>
 #include <string.h>
@@ -102,7 +102,7 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	dbg_printf("Kernel malloc setup ok.\n");
 	TEST_PLACEHOLDER_AFTER_KMALLOC;
 
-	setup_syscalls();
+	setup_syscall_table();
 	dbg_printf("System calls setup ok.\n");
 
 	// enter multi-threading mode
