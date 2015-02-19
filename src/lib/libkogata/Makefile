@@ -1,4 +1,4 @@
-OBJ = start.o malloc.o debug.o syscall.o
+OBJ = start.o malloc.o debug.o syscall.o user_region.o
 
 LIB = ../../common/libkogata/libkogata.lib
 

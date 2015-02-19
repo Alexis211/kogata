@@ -97,7 +97,7 @@ running the tests):
 * Implement syscalls
 * Write device drivers : VGA, keyboard, ATA, FAT, VESA
 
-### Important TODOs not to overlook
+### Things to design
 
 * How does a process exit, what does it do, how do processes synchronize ?
 * Timers, workers, sleeping

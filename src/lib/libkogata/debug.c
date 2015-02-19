@@ -2,13 +2,17 @@
 
 #include <debug.h>
 
+#include <syscall.h>
+
 void panic(const char* msg, const char* file, int line) {
-	// TODO
+	dbg_printf("Panic '%s', at %s:%d\n", msg, file, line);
+	exit(-1);
 	while(true);
 }
 
 void panic_assert(const char* assert, const char* file, int line) {
-	// TODO
+	dbg_printf("Assert failed '%s', at %s:%d\n", assert, file, line);
+	exit(-1);
 	while(true);
 }
 

@@ -1,9 +1,13 @@
 #include <syscall.h>
 
-extern int main(int, char**);
+void malloc_setup();
+
+int main(int, char**);
 
 void __libkogata_start() {
-	// TODO : setup
+	malloc_setup();
+
+	// TODO : more setup ?
 
 	int ret = main(0, 0);
 

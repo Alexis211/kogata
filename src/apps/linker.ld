@@ -19,6 +19,7 @@ SECTIONS{
 		*(.dtor*)
 		end_dtors = .;
         *(.data)
+		*(.locks)
     }
  
     .bss : {

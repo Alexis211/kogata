@@ -151,7 +151,8 @@ bool mmap(process_t *proc, void* addr, size_t size, int mode) {
 	r->addr = addr;
 	r->size = PAGE_ALIGN_UP(size);
 
-	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR || r->size == 0) {
+	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR
+		|| r->addr + r->size <= r->addr || r->size == 0) {
 		free(r);
 		return false;
 	}
@@ -187,7 +188,8 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 	r->addr = addr;
 	r->size = PAGE_ALIGN_UP(size);
 
-	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR || r->size == 0) {
+	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR
+		|| r->addr + r->size <= r->addr || r->size == 0) {
 		free(r);
 		return false;
 	}
@@ -257,7 +259,7 @@ bool munmap(process_t *proc, void* addr) {
 	// Unmap that stuff
 	pagedir_t *save_pd = get_current_pagedir();
 	switch_pagedir(proc->pd);
-	for (void* it = r->addr; it < r->addr + r->size; r += PAGE_SIZE) {
+	for (void* it = r->addr; it < r->addr + r->size; it += PAGE_SIZE) {
 		uint32_t ent = pd_get_entry(it);
 		uint32_t frame = pd_get_frame(it);
 
@@ -293,6 +295,7 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	user_region_t *r = find_user_region(proc, addr);
 	if (r == 0) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not mapped) : exiting.\n", proc->pid, addr);
+		dbg_dump_registers(regs);
 		exit();
 	}
 
