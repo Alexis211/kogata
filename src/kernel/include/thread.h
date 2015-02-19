@@ -11,7 +11,7 @@
 
 #define KPROC_STACK_SIZE 0x8000	// 8Kb
 
-#define TASK_SWITCH_FREQUENCY	50		// in herz
+#define TASK_SWITCH_FREQUENCY	100		// in herz
 
 typedef struct saved_context {
 	uint32_t *esp;
@@ -43,8 +43,9 @@ extern thread_t *current_thread;
 void yield();
 void pause();
 void exit();
+void usleep(int usecs);
 
-void resume_thread(thread_t *thread, bool run_at_once);
+bool resume_thread(thread_t *thread, bool run_at_once); // true if thrad was paused, false if was running
 void kill_thread(thread_t *thread);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

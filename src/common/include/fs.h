@@ -20,10 +20,11 @@
 #define FM_CREATE   (0x10)
 #define FM_TRUNC    (0x20)
 #define FM_APPEND   (0x40)
-#define FM_IOCTL	(0x80)
-#define FM_DCREATE	(0x100)		// create file in directory
-#define FM_DMOVE	(0x200)		// move file from directory
-#define FM_DUNLINK	(0x400)		// delete file from directory
+#define FM_IOCTL	(0x100)
+#define FM_BLOCKING	(0x200)
+#define FM_DCREATE	(0x1000)		// create file in directory
+#define FM_DMOVE	(0x2000)		// move file from directory
+#define FM_DUNLINK	(0x4000)		// delete file from directory
 
 typedef struct {
 	int type;

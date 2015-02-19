@@ -11,6 +11,7 @@
 #include <region.h>
 #include <kmalloc.h>
 
+#include <worker.h>
 #include <thread.h>
 
 #include <vfs.h>
@@ -120,21 +121,29 @@ void kernel_init_stage2(void* data) {
 	dbg_print_region_info();
 	dbg_print_frame_stats();
 
+	// Launch some worker threads
+	start_workers(2);
+
+	// test sleep()
+	dbg_printf("Testing sleep() : ");
+	for (int i = 0; i < 20; i++) {
+		usleep(50000);
+		dbg_printf(".");
+	}
+	dbg_printf("\n");
+
 	TEST_PLACEHOLDER_AFTER_TASKING;
 
 	// Create devfs
 	register_nullfs_driver();
-	fs_t *devfs = make_fs("nullfs", 0, "cd");
+	fs_t *devfs = make_fs("nullfs", 0, "");
 	ASSERT(devfs != 0);
 
 	// Add kernel command line to devfs
 	{
 		dbg_printf("Kernel command line: '%s'\n", (char*)mbd->cmdline);
 		size_t len = strlen((char*)mbd->cmdline);
-		fs_handle_t* cmdline = fs_open(devfs, "/cmdline", FM_WRITE | FM_CREATE);
-		ASSERT(cmdline != 0);
-		ASSERT(file_write(cmdline, 0, len, (char*)mbd->cmdline) == len);
-		unref_file(cmdline);
+		ASSERT(nullfs_add_ram_file(devfs, "/cmdline", (char*)mbd->cmdline, len, false, FM_READ));
 	}
 
 	// Populate devfs with files for kernel modules

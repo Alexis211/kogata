@@ -6,6 +6,7 @@
 #define SC_DBG_PRINT	0		// args: msg, msg_strlen
 #define SC_EXIT			1		// args: code
 #define SC_YIELD		2		// args: ()
+#define SC_USLEEP		3		// args: usecs
 
 #define	SC_MMAP			10		// args: addr, size, mode
 #define SC_MMAP_FILE	11		// args: handle, offset, addr, size, mode

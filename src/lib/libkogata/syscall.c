@@ -35,6 +35,10 @@ void exit(int code) {
 	call(SC_EXIT, code, 0, 0, 0, 0);
 }
 
+void usleep(int usecs) {
+	call(SC_USLEEP, usecs, 0, 0, 0, 0);
+}
+
 bool mmap(void* addr, size_t size, int mode) {
 	return call(SC_MMAP, (uint32_t)addr, size, mode, 0, 0);
 }

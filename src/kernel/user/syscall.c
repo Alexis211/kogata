@@ -43,6 +43,11 @@ static uint32_t yield_sc(sc_args_t args) {
 	return 0;
 }
 
+static uint32_t usleep_sc(sc_args_t args) {
+	usleep(args.a);
+	return 0;
+}
+
 static uint32_t dbg_print_sc(sc_args_t args) {
 	char* msg = sc_copy_string(args.a, args.b);
 	if (msg == 0) return -1;
@@ -287,6 +292,7 @@ void setup_syscall_table() {
 	sc_handlers[SC_EXIT] = exit_sc;
 	sc_handlers[SC_YIELD] = yield_sc;
 	sc_handlers[SC_DBG_PRINT] = dbg_print_sc;
+	sc_handlers[SC_USLEEP] = usleep_sc;
 
 	sc_handlers[SC_MMAP] = mmap_sc;
 	sc_handlers[SC_MMAP_FILE] = mmap_file_sc;

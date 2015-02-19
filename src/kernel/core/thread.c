@@ -6,6 +6,7 @@
 
 #include <frame.h>
 #include <paging.h>
+#include <worker.h>
 
 void save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
@@ -155,6 +156,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 // ========== //
 
 static void irq0_handler(registers_t *regs) {
+	worker_notify_time(1000000 / TASK_SWITCH_FREQUENCY);
 	if (current_thread != 0) {
 		save_context_and_enter_scheduler(&current_thread->ctx);
 	}
@@ -195,6 +197,16 @@ void pause() {
 	resume_interrupts(st);
 }
 
+void usleep(int usecs) {
+	void sleeper_resume(void* t) {
+		thread_t *thread = (thread_t*)t;
+		resume_thread(thread, true);
+	}
+	if (current_thread == 0) return;
+	bool ok = worker_push_in(usecs, sleeper_resume, current_thread);
+	if (ok) pause();
+}
+
 void exit() {
 	current_thread->state = T_STATE_FINISHED;
 	// TODO : add job for deleting the thread, or whatever
@@ -202,16 +214,21 @@ void exit() {
 	ASSERT(false);
 }
 
-void resume_thread(thread_t *thread, bool run_at_once) {
+bool resume_thread(thread_t *thread, bool run_at_once) {
+	bool ret = false;
+
 	bool st = disable_interrupts();
 
 	if (thread->state == T_STATE_PAUSED) {
+		ret = true;
 		thread->state = T_STATE_RUNNING;
 		enqueue_thread(thread, false);
 	}
 	if (run_at_once) yield();
 
 	resume_interrupts(st);
+
+	return ret;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

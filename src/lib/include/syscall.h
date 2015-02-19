@@ -15,6 +15,7 @@ typedef int fd_t;
 void dbg_print(const char* str);
 void yield();
 void exit(int code);
+void usleep(int usecs);
 
 bool mmap(void* addr, size_t size, int mode);
 bool mmap_file(fd_t file, size_t offset, void* addr, size_t size, int mode);
