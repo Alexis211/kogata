@@ -90,14 +90,24 @@ running the tests):
 	src/apps/             userspace binaries
 	src/tests/            test suite
 
-## Important TODOs
+## Roadmap
 
-* The VFS code is not thread-safe ! Very dangerous, must be taken care of soon.
-  (important design considerations not to be overlooked)
+### Plans for soon
+
+* Implement syscalls
+* Write device drivers : VGA, keyboard, ATA, FAT, VESA
+
+### Important TODOs not to overlook
+
 * How does a process exit, what does it do, how do processes synchronize ?
+* Timers, workers, sleeping
 * Have several threads in a single process
 * Better handling of errors (rather than panicing) ; userspace apps should not
   have the possibility of crashing the system
+
+### Things not sure
+
+* VFS thread safety : is the design correct ? (probably)
 
 ## Licence
 

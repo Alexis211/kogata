@@ -28,7 +28,7 @@ void register_fs_driver(const char* name, fs_driver_ops_t *ops) {
 // CREATING AND DELETING FILE SYSTEMS //
 // ================================== //
 
-fs_t *make_fs(const char* drv_name, fs_handle_t *source, char* opts) {
+fs_t *make_fs(const char* drv_name, fs_handle_t *source, const char* opts) {
 	// Look for driver
 	fs_driver_t *d = 0;
 	for(fs_driver_t *i = drivers; i != 0; i = i->next) {
@@ -56,8 +56,8 @@ fs_t *make_fs(const char* drv_name, fs_handle_t *source, char* opts) {
 	}
 }
 
-bool fs_add_source(fs_t *fs, fs_handle_t *source) {
-	return fs->ops->add_source && fs->ops->add_source(fs->data, source);
+bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts) {
+	return fs->ops->add_source && fs->ops->add_source(fs->data, source, opts);
 }
 
 void ref_fs(fs_t *fs) {
@@ -78,19 +78,23 @@ void unref_fs(fs_t *fs) {
 // WALKING IN THE FILE SYSTEM CREATING AND DELETING NODES //
 
 void ref_fs_node(fs_node_t *n) {
+	mutex_lock(&n->lock);
 	n->refs++;
+	mutex_unlock(&n->lock);
 }
 
 void unref_fs_node(fs_node_t *n) {
+	mutex_lock(&n->lock);
 	n->refs--;
 	if (n->refs == 0) {
 		ASSERT(n != &n->fs->root);
 		ASSERT(n->parent != 0);
 		ASSERT(n->name != 0);
 
+		mutex_lock(&n->parent->lock);
 		hashtbl_remove(n->parent->children, n->name);
-
 		if (n->ops->dispose) n->ops->dispose(n->data);
+		mutex_unlock(&n->parent->lock);
 
 		unref_fs_node(n->parent);
 		unref_fs(n->fs);
@@ -98,14 +102,19 @@ void unref_fs_node(fs_node_t *n) {
 		if (n->children != 0) delete_hashtbl(n->children);
 		free(n->name);
 		free(n);
+	} else {
+		mutex_unlock(&n->lock);
 	}
 }
 
 fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
+	mutex_lock(&from->lock);
+
 	if (from->children != 0) {
 		fs_node_t *n = (fs_node_t*)hashtbl_find(from->children, file);
 		if (n != 0) {
 			ref_fs_node(n);
+			mutex_unlock(&from->lock);
 			return n;
 		}
 	}
@@ -113,10 +122,11 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 	bool walk_ok = false, add_ok = false;
 
 	fs_node_t *n = (fs_node_t*)malloc(sizeof(fs_node_t));
-	if (n == 0) return 0;
+	if (n == 0) goto error;
 
 	n->fs = from->fs;
 	n->refs = 1;
+	n->lock = MUTEX_UNLOCKED;
 	n->parent = from;
 	n->children = 0;
 	n->name = strdup(file);
@@ -133,6 +143,8 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 	add_ok = hashtbl_add(from->children, n->name, n);
 	if (!add_ok) goto error;
 
+	mutex_unlock(&from->lock);
+
 	ref_fs_node(n->parent);
 	ref_fs(n->fs);
 
@@ -140,8 +152,9 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 
 error:
 	if (walk_ok) n->ops->dispose(n->data);
-	if (n->name != 0) free(n->name);
-	free(n);
+	if (n != 0 && n->name != 0) free(n->name);
+	if (n != 0) free(n);
+	mutex_unlock(&from->lock);
 	return 0;
 }
 
@@ -241,7 +254,10 @@ bool fs_create(fs_t *fs, const char* file, int type) {
 	fs_node_t *n = fs_walk_path_except_last(&fs->root, file, name);
 	if (n == 0) return false;
 
+	mutex_lock(&n->lock);
 	bool ret = n->ops->create && n->ops->create(n->data, name, type);
+	mutex_unlock(&n->lock);
+
 	unref_fs_node(n);
 	return ret;
 }
@@ -257,7 +273,10 @@ bool fs_delete(fs_t *fs, const char* file) {
 		if (x != 0) return false;
 	}
 
+	mutex_lock(&n->lock);
 	bool ret = n->ops->delete && n->ops->delete(n->data, name);
+	mutex_unlock(&n->lock);
+
 	unref_fs_node(n);
 	return ret;
 }
@@ -274,8 +293,50 @@ bool fs_move(fs_t *fs, const char* from, const char* to) {
 		return false;
 	}
 
-	bool ret = old_parent->ops->move && old_parent->ops->move(old_parent->data, old_name, new_parent, new_name);
+	bool ret = false;
+	if (!old_parent->ops->move) goto end;
 
+	mutex_lock(&old_parent->lock);
+	mutex_lock(&new_parent->lock);
+
+	fs_node_t *the_node = (old_parent->children != 0 ?
+		(fs_node_t*)hashtbl_find(old_parent->children, old_name) : 0);
+
+	if (the_node) {
+		mutex_lock(&the_node->lock);
+
+		char* new_name_dup = strdup(new_name);
+		if (new_name_dup == 0) goto unlock_end;	// we failed
+
+		bool add_ok = hashtbl_add(new_parent->children, new_name_dup, the_node);
+		if (!add_ok) {
+			free(new_name_dup);
+			goto unlock_end;
+		}
+			
+		ret = old_parent->ops->move(old_parent->data, old_name, new_parent, new_name);
+
+		if (ret) {
+			// adjust node parameters
+			hashtbl_remove(old_parent->children, old_name);
+			free(the_node->name);
+			the_node->name = new_name_dup;
+			the_node->parent = new_parent;
+		} else {
+			hashtbl_remove(new_parent->children, new_name_dup);
+			free(new_name_dup);
+		}
+
+	unlock_end:
+		mutex_unlock(&the_node->lock);
+	} else {
+		ret = old_parent->ops->move(old_parent->data, old_name, new_parent, new_name);
+	}
+
+	mutex_unlock(&old_parent->lock);
+	mutex_unlock(&new_parent->lock);
+
+end:
 	unref_fs_node(old_parent);
 	unref_fs_node(new_parent);
 	return ret;
@@ -285,7 +346,10 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
 	fs_node_t* n = fs_walk_path(&fs->root, file);
 	if (n == 0) return false;
 
+	mutex_lock(&n->lock);
 	bool ret = n->ops->stat && n->ops->stat(n->data, st);
+	mutex_unlock(&n->lock);
+
 	unref_fs_node(n);
 	return ret;
 }
@@ -294,7 +358,10 @@ int fs_ioctl(fs_t *fs, const char* file, int command, void* data) {
 	fs_node_t* n = fs_walk_path(&fs->root, file);
 	if (n == 0) return false;
 
+	mutex_lock(&n->lock);
 	int ret = (n->ops->ioctl ? n->ops->ioctl(n->data, command, data) : -1);
+	mutex_unlock(&n->lock);
+
 	unref_fs_node(n);
 	return ret;
 }
@@ -310,42 +377,51 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 			n = fs_walk_path(&fs->root, file);
 		}
 	}
-	if (n == 0) return false;
+	if (n == 0) return 0;
+
+	mutex_lock(&n->lock);
 
 	mode &= ~FM_CREATE;
 
 	fs_handle_t *h = (fs_handle_t*)malloc(sizeof(fs_handle_t));
-	if (h == 0) {
-		unref_fs_node(n);
-		return 0;
-	}
+	if (h == 0) goto error;
 
 	h->refs = 1;
+	h->lock = MUTEX_UNLOCKED;
 	h->fs = fs;
 	h->node = n;
 
-	if (n->ops->open(n->data, mode, h)) {
-		// our reference to node n is transferred to the file handle
-		ref_fs(fs);
-		return h;
-	} else {
-		unref_fs_node(n);
-		free(h);
-		return 0;
-	}
+	bool open_ok = n->ops->open(n->data, mode, h);
+	if (!open_ok) goto error;
+
+	// our reference to node n is transferred to the file handle
+	mutex_unlock(&n->lock);
+	ref_fs(fs);
+	return h;
+
+error:
+	mutex_unlock(&n->lock);
+	unref_fs_node(n);
+	if (h != 0) free(h);
+	return 0;
 }
 
 void ref_file(fs_handle_t *file) {
+	mutex_lock(&file->lock);
 	file->refs++;
+	mutex_unlock(&file->lock);
 }
 
 void unref_file(fs_handle_t *file) {
+	mutex_lock(&file->lock);
 	file->refs--;
 	if (file->refs == 0) {
 		file->ops->close(file->data);
 		unref_fs_node(file->node);
 		unref_fs(file->fs);
 		free(file);
+	} else {
+		mutex_unlock(&file->lock);
 	}
 }
 
@@ -357,24 +433,42 @@ size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 	if (!(f->mode & FM_READ)) return 0;
 
 	if (f->ops->read == 0) return 0;
-	return f->ops->read(f->data, offset, len, buf);
+
+	mutex_lock(&f->lock);
+	size_t ret = f->ops->read(f->data, offset, len, buf);
+	mutex_unlock(&f->lock);
+
+	return ret;
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 	if (!(f->mode & FM_WRITE)) return 0;
 
 	if (f->ops->write == 0) return 0;
-	return f->ops->write(f->data, offset, len, buf);
+
+	mutex_lock(&f->lock);
+	size_t ret = f->ops->write(f->data, offset, len, buf);
+	mutex_unlock(&f->lock);
+
+	return ret;
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
-	return f->node->ops->stat && f->node->ops->stat(f->node->data, st);
+	mutex_lock(&f->node->lock);
+	bool ret = f->node->ops->stat && f->node->ops->stat(f->node->data, st);
+	mutex_unlock(&f->node->lock);
+
+	return ret;
 }
 
 bool file_readdir(fs_handle_t *f, dirent_t *d) {
 	if (!(f->mode & FM_READDIR)) return 0;
 
-	return f->ops->readdir && f->ops->readdir(f->data, d);
+	mutex_lock(&f->lock);
+	bool ret = f->ops->readdir && f->ops->readdir(f->data, d);
+	mutex_unlock(&f->lock);
+
+	return ret;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

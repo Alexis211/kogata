@@ -6,7 +6,7 @@
 #include <nullfs.h>
 
 // nullfs driver
-static bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *d);
+static bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *d);
 
 // nullfs fs_t
 static void nullfs_fs_shutdown(fs_ptr fs);
@@ -132,7 +132,7 @@ void register_nullfs_driver() {
 	register_fs_driver("nullfs", &nullfs_driver_ops);
 }
 
-bool nullfs_fs_make(fs_handle_t *source, char* opts, fs_t *fs_s) {
+bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *fs_s) {
 	nullfs_t *fs = (nullfs_t*)malloc(sizeof(nullfs_t));
 	if (fs == 0) return false;
 

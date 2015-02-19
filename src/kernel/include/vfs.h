@@ -2,7 +2,9 @@
 
 #include <stdbool.h>
 #include <malloc.h>
+
 #include <hashtbl.h>
+#include <mutex.h>
 
 #include <fs.h> 		// common header
 
@@ -15,6 +17,15 @@
 // - The three types defined below (filesystem, fs node, file handle) are reference-counters to
 //		some data managed by the underlying filesystem. The following types are aliases to void*,
 //		but are used to disambiguate the different types of void* : fs_handle_ptr, fs_node_ptr, fs_ptr
+
+// About thread safety :
+// - The VFS implements a locking mechanism on handles so that only one operation is executed
+//		at the same time on a given handle
+// - Same for FS nodes
+// - The VFS does not lock nodes that have a handle open to them : it is the FS code's responsibility
+//		to refuse some commands if neccessary on a node that is open.
+// - The VFS does not implement any locking mechanism on filesystems themselves (e.g. the add_source
+//		implementation must have its own locking system)
 
 typedef void* fs_handle_ptr;
 typedef void* fs_node_ptr;
@@ -36,10 +47,12 @@ typedef struct {
 } fs_handle_ops_t;
 
 typedef struct fs_handle {
-	// These two field are filled by the VFS's generic open() code
+	// These field are filled by the VFS's generic open() code
 	struct fs *fs;
 	struct fs_node *node;
+
 	int refs;
+	mutex_t lock;
 
 	// These fields are filled by the FS's specific open() code
 	fs_handle_ops_t *ops;
@@ -59,6 +72,7 @@ typedef struct fs_handle {
 //  - delete() is expected to unlink the node from its parent (make it inaccessible) and delete
 //		the corresponding data. It is guaranteed that delete() is never called on a node that
 //		is currently in use. (different from posix semantics !)
+//	- move() may be called on a node that is currently in use
 //  - the root node of a filesystem is created when the filesystem is created
 //	- dispose() is not called on the root node when a filesystem is shutdown
 //	- delete() is not expected to delete recursively : it should fail on a non-empty directory
@@ -76,12 +90,13 @@ typedef struct {
 
 typedef struct fs_node {
 	// These fields are filled by the VFS's generic walk() code
-	struct fs *fs;
 	int refs;
-	hashtbl_t *children;	// not all children, only those in memory
-
-	struct fs_node *parent;
+	mutex_t lock;
+	
 	char* name;				// name in parent
+	struct fs *fs;
+	hashtbl_t *children;	// not all children, only those in memory
+	struct fs_node *parent;
 
 	// These fields are filled by the FS's specific walk() code
 	fs_node_ops_t *ops;
@@ -92,7 +107,7 @@ typedef struct fs_node {
 // Structure defining a filesystem
 
 typedef struct {
-	bool (*add_source)(fs_ptr fs, fs_handle_t* source);
+	bool (*add_source)(fs_ptr fs, fs_handle_t* source, const char* opts);
 	void (*shutdown)(fs_ptr fs);
 } fs_ops_t;
 
@@ -110,7 +125,7 @@ typedef struct fs {
 // Structure defining a filesystem driver
 
 typedef struct {
-	bool (*make)(fs_handle_t *source, char* opts, fs_t *d);
+	bool (*make)(fs_handle_t *source, const char* opts, fs_t *d);
 	bool (*detect)(fs_handle_t *source);
 } fs_driver_ops_t;
 
@@ -133,8 +148,8 @@ fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char *p, char* last_f
 
 void register_fs_driver(const char* name, fs_driver_ops_t *ops);
 
-fs_t* make_fs(const char* driver, fs_handle_t *source, char* opts);
-bool fs_add_source(fs_t *fs, fs_handle_t *source);
+fs_t* make_fs(const char* driver, fs_handle_t *source, const char* opts);
+bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts);
 void ref_fs(fs_t *fs);
 void unref_fs(fs_t *fs);
 
