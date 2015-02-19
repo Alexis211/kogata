@@ -298,25 +298,29 @@ bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d) {
 bool nullfs_d_delete(fs_node_ptr n, const char* file) {
 	nullfs_dir_t* d = (nullfs_dir_t*)n;
 
-	if (!d->fs->can_delete) return false;
+	mutex_lock(&d->lock);
+
+	if (!d->fs->can_delete) goto error;
 
 	nullfs_item_t *i = hashtbl_find(d->items_idx, file);
-	if (i == 0) return false;
+	if (i == 0) goto error;
 
 	if (i->ops == &nullfs_d_ops) {
 		// if it is a subdirectory, check it is empty
 		nullfs_dir_t* sd = (nullfs_dir_t*)i->data;
-		if (sd->items_list != 0) return false;
+		if (!mutex_try_lock(&sd->lock)) goto error;	// in use
+		if (sd->items_list != 0) goto error;		// cannot delete non-empty directory
 
 		delete_hashtbl(sd->items_idx);
 		free(sd);
 	} else if (i->ops == &nullfs_f_ops) {
 		nullfs_file_t* f = (nullfs_file_t*)i->data;
+		if (!mutex_try_lock(&f->lock)) goto error;	// in use
 
 		if (f->own_data) free(f->data);
 		free(f);
 	} else {
-		return false;		// special nodes (devices, ...) may not be deleted
+		goto error;		// special nodes (devices, ...) may not be deleted
 	}
 
 	hashtbl_remove(d->items_idx, i->name);
@@ -334,8 +338,12 @@ bool nullfs_d_delete(fs_node_ptr n, const char* file) {
 
 	free(i->name);
 	free(i);
-
+	mutex_unlock(&d->lock);
 	return true;
+
+error:
+	mutex_unlock(&d->lock);
+	return false;
 }
 
 bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name) {
@@ -349,8 +357,10 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 	nullfs_item_t *i = 0;
 
 	if (type == FT_REGULAR) {
+		mutex_lock(&d->lock);
+
 		nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
-		if (f == 0) return false;
+		if (f == 0) goto f_error;
 
 		f->ok_modes = FM_READ | FM_WRITE | FM_TRUNC | FM_APPEND;
 		f->data = 0;
@@ -373,16 +383,20 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 		i->next = d->items_list;
 		d->items_list = i;
 
+		mutex_unlock(&d->lock);
 		return true;
 
 	f_error:
 		if (i != 0 && i->name != 0) free(i->name);
 		if (i != 0) free(i);
-		free(f);
+		if (f != 0) free(f);
+		mutex_unlock(&d->lock);
 		return false;
 	} else if (type == FT_DIR) {
+		mutex_lock(&d->lock);
+
 		nullfs_dir_t *x = (nullfs_dir_t*)malloc(sizeof(nullfs_dir_t));
-		if (x == 0) return false;
+		if (x == 0) goto d_error;
 
 		x->items_idx = create_hashtbl(str_key_eq_fun, str_hash_fun, 0);
 		if (x->items_idx == 0) goto d_error;
@@ -406,13 +420,15 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 		i->next = d->items_list;
 		d->items_list = i;
 
+		mutex_unlock(&d->lock);
 		return true;
 
 	d_error:
 		if (i != 0 && i->name != 0) free(i->name);
 		if (i != 0) free(i);
-		if (x->items_idx != 0) delete_hashtbl(x->items_idx);
-		free(x);
+		if (x != 0 && x->items_idx != 0) delete_hashtbl(x->items_idx);
+		if (x != 0) free(x);
+		mutex_unlock(&d->lock);
 		return false;
 	} else {
 		return false;
