@@ -356,7 +356,7 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
 
 int fs_ioctl(fs_t *fs, const char* file, int command, void* data) {
 	fs_node_t* n = fs_walk_path(&fs->root, file);
-	if (n == 0) return false;
+	if (n == 0) return -1;
 
 	mutex_lock(&n->lock);
 	int ret = (n->ops->ioctl ? n->ops->ioctl(n->data, command, data) : -1);
@@ -456,6 +456,17 @@ size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 bool file_stat(fs_handle_t *f, stat_t *st) {
 	mutex_lock(&f->node->lock);
 	bool ret = f->node->ops->stat && f->node->ops->stat(f->node->data, st);
+	mutex_unlock(&f->node->lock);
+
+	return ret;
+}
+
+int file_ioctl(fs_handle_t *f, int command, void* data) {
+	if (!(f->mode & FM_IOCTL)) return -1;
+
+	mutex_lock(&f->node->lock);
+	int ret = -1;
+	if (f->node->ops->ioctl) ret = f->node->ops->ioctl(f->node->data, command, data);
 	mutex_unlock(&f->node->lock);
 
 	return ret;

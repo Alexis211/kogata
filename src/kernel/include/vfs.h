@@ -18,10 +18,15 @@
 //		some data managed by the underlying filesystem. The following types are aliases to void*,
 //		but are used to disambiguate the different types of void* : fs_handle_ptr, fs_node_ptr, fs_ptr
 
+// Conventions :
+// - ioctl returns negative values on error. null or positives are valid return values from underlying
+//		driver
+
 // About thread safety :
-// - The VFS implements a locking mechanism on handles so that only one operation is executed
-//		at the same time on a given handle
-// - Same for FS nodes
+// - The VFS implements a locking mechanism on FS nodes so that only one operation is executed
+//		at the same time on a given node (including: open, stat, walk, delete, move, create, ioctl)
+// - The VFS does not implement locks on handles : several simultaneous read/writes are possible, and
+//		it is the driver's responsiblity to prevent that if necessary
 // - The VFS does not lock nodes that have a handle open to them : it is the FS code's responsibility
 //		to refuse some commands if neccessary on a node that is open.
 // - The VFS does not implement any locking mechanism on filesystems themselves (e.g. the add_source
@@ -166,6 +171,7 @@ int file_get_mode(fs_handle_t *f);
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 bool file_stat(fs_handle_t *f, stat_t *st);
+int file_ioctl(fs_handle_t *f, int command, void* data);
 bool file_readdir(fs_handle_t *f, dirent_t *d);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

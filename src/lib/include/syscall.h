@@ -33,6 +33,7 @@ size_t read(fd_t file, size_t offset, size_t len, char *buf);
 size_t write(fd_t file, size_t offset, size_t len, const char* buf);
 bool readdir(fd_t file, dirent_t *d);
 bool stat_open(fd_t file, stat_t *s);
+int ioctl_open(fd_t file, int command, void* data);
 int get_mode(fd_t file);
 
 // more todo

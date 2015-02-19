@@ -82,6 +82,9 @@ bool readdir(fd_t file, dirent_t *d) {
 bool stat_open(fd_t file, stat_t *s) {
 	return call(SC_STAT_OPEN, file, (uint32_t)s, 0, 0, 0);
 }
+int ioctl_open(fd_t file, int command, void* data) {
+	return call(SC_IOCTL_OPEN, file, command, (uint32_t)data, 0, 0);
+}
 int get_mode(fd_t file) {
 	return call(SC_GET_MODE, file, 0, 0, 0, 0);
 }

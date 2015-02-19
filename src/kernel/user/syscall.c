@@ -263,6 +263,15 @@ static uint32_t stat_open_sc(sc_args_t args) {
 	return file_stat(h, o);
 }
 
+static uint32_t ioctl_open_sc(sc_args_t args) {
+	fs_handle_t *h = proc_read_fd(current_process(), args.a);
+	if (h == 0) return -1;
+
+	void* data = (void*)args.c;
+	if (data >= (void*)K_HIGHHALF_ADDR) return -1;
+	return file_ioctl(h, args.b, data);
+}
+
 static uint32_t get_mode_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return 0;
@@ -296,6 +305,7 @@ void setup_syscall_table() {
 	sc_handlers[SC_WRITE] = write_sc;
 	sc_handlers[SC_READDIR] = readdir_sc;
 	sc_handlers[SC_STAT_OPEN] = stat_open_sc;
+	sc_handlers[SC_IOCTL_OPEN] = ioctl_open_sc;
 	sc_handlers[SC_GET_MODE] = get_mode_sc;
 }
 
