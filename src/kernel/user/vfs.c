@@ -387,7 +387,6 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	if (h == 0) goto error;
 
 	h->refs = 1;
-	h->lock = MUTEX_UNLOCKED;
 	h->fs = fs;
 	h->node = n;
 
@@ -407,21 +406,16 @@ error:
 }
 
 void ref_file(fs_handle_t *file) {
-	mutex_lock(&file->lock);
 	file->refs++;
-	mutex_unlock(&file->lock);
 }
 
 void unref_file(fs_handle_t *file) {
-	mutex_lock(&file->lock);
 	file->refs--;
 	if (file->refs == 0) {
 		file->ops->close(file->data);
 		unref_fs_node(file->node);
 		unref_fs(file->fs);
 		free(file);
-	} else {
-		mutex_unlock(&file->lock);
 	}
 }
 
@@ -434,11 +428,7 @@ size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 
 	if (f->ops->read == 0) return 0;
 
-	mutex_lock(&f->lock);
-	size_t ret = f->ops->read(f->data, offset, len, buf);
-	mutex_unlock(&f->lock);
-
-	return ret;
+	return f->ops->read(f->data, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
@@ -446,28 +436,18 @@ size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 
 	if (f->ops->write == 0) return 0;
 
-	mutex_lock(&f->lock);
-	size_t ret = f->ops->write(f->data, offset, len, buf);
-	mutex_unlock(&f->lock);
-
-	return ret;
+	return f->ops->write(f->data, offset, len, buf);
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
-	mutex_lock(&f->node->lock);
-	bool ret = f->node->ops->stat && f->node->ops->stat(f->node->data, st);
-	mutex_unlock(&f->node->lock);
-
-	return ret;
+	return f->node->ops->stat && f->node->ops->stat(f->node->data, st);
 }
 
 int file_ioctl(fs_handle_t *f, int command, void* data) {
 	if (!(f->mode & FM_IOCTL)) return -1;
 
-	mutex_lock(&f->node->lock);
 	int ret = -1;
 	if (f->node->ops->ioctl) ret = f->node->ops->ioctl(f->node->data, command, data);
-	mutex_unlock(&f->node->lock);
 
 	return ret;
 }
@@ -475,11 +455,7 @@ int file_ioctl(fs_handle_t *f, int command, void* data) {
 bool file_readdir(fs_handle_t *f, dirent_t *d) {
 	if (!(f->mode & FM_READDIR)) return 0;
 
-	mutex_lock(&f->lock);
-	bool ret = f->ops->readdir && f->ops->readdir(f->data, d);
-	mutex_unlock(&f->lock);
-
-	return ret;
+	return f->ops->readdir && f->ops->readdir(f->data, d);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

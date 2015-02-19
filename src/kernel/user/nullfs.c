@@ -472,10 +472,11 @@ void nullfs_d_dispose(fs_node_ptr n) {
 bool nullfs_dh_readdir(fs_handle_ptr f, dirent_t *d) {
 	nullfs_dh_t *h = (nullfs_dh_t*)f;
 
-	if (h->i >= h->nitems) {
+	int i = h->i;
+	if (i >= h->nitems) {
 		return false;
 	} else {
-		memcpy(d, &h->items[h->i], sizeof(dirent_t));
+		memcpy(d, &h->items[i], sizeof(dirent_t));
 		h->i++;
 		return true;
 	}
@@ -495,14 +496,16 @@ bool nullfs_f_open(fs_node_ptr n, int mode, fs_handle_t *s) {
 
 	if (mode & ~f->ok_modes) return false;
 
-	mutex_lock(&f->lock);
-	
 	if (mode & FM_TRUNC) {
 		// truncate file
+		mutex_lock(&f->lock);
+
 		if (f->own_data) free(f->data);
 		f->size = 0;
 		f->own_data = false;
 		f->data = 0;
+
+		mutex_unlock(&f->lock);
 	}
 
 	s->mode = mode;
@@ -514,11 +517,13 @@ bool nullfs_f_open(fs_node_ptr n, int mode, fs_handle_t *s) {
 
 bool nullfs_f_stat(fs_node_ptr n, stat_t *st) {
 	nullfs_file_t *f = (nullfs_file_t*)n;
+	mutex_lock(&f->lock);
 
 	st->type = FT_REGULAR;
 	st->access = f->ok_modes;
 	st->size = f->size;
 
+	mutex_unlock(&f->lock);
 	return true;
 }
 
@@ -530,21 +535,31 @@ void nullfs_f_dispose(fs_node_ptr n) {
 
 static size_t nullfs_fh_read(fs_handle_ptr h, size_t offset, size_t len, char* buf) {
 	nullfs_file_t *f = (nullfs_file_t*)h;
+	mutex_lock(&f->lock);
+
+	size_t ret = 0;
 	
-	if (offset >= f->size) return 0;
+	if (offset >= f->size) goto end_read;
 	if (offset + len > f->size) len = f->size - offset;
 
 	memcpy(buf, f->data + offset, len);
-	return len;
+	ret = len;
+
+end_read:
+	mutex_unlock(&f->lock);
+	return ret;
 }
 
 static size_t nullfs_fh_write(fs_handle_ptr h, size_t offset, size_t len, const char* buf) {
 	nullfs_file_t *f = (nullfs_file_t*)h;
+	mutex_lock(&f->lock);
+
+	size_t ret = 0;
 
 	if (offset + len > f->size) {
 		// resize buffer (zero out new portion)
 		void* new_buffer = malloc(offset + len);
-		if (new_buffer == 0) return 0;
+		if (new_buffer == 0) goto end_write;
 
 		memcpy(new_buffer, f->data, f->size);
 		if (offset > f->size)
@@ -557,13 +572,15 @@ static size_t nullfs_fh_write(fs_handle_ptr h, size_t offset, size_t len, const 
 	}
 
 	memcpy(f->data + offset, buf, len);
-	return len;
+	ret = len;
+
+end_write:
+	mutex_unlock(&f->lock);
+	return ret;
 }
 
 static void nullfs_fh_close(fs_handle_ptr h) {
-	nullfs_file_t *f = (nullfs_file_t*)h;
-
-	mutex_unlock(&f->lock);
+	// nothing to do
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

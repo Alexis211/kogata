@@ -57,7 +57,6 @@ typedef struct fs_handle {
 	struct fs_node *node;
 
 	int refs;
-	mutex_t lock;
 
 	// These fields are filled by the FS's specific open() code
 	fs_handle_ops_t *ops;
