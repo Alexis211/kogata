@@ -88,17 +88,19 @@ running the tests):
 
 ### Plans for soon
 
-* Implement syscalls
+* Implement missing syscalls
 * Write device drivers : VGA, keyboard, ATA, FAT, VESA
 
 ### Things to design
 
+* Cache architecture
+* IPC
 * How does a process exit, what does it do, how do processes synchronize ?
-* Timers, workers, sleeping
 * Have several threads in a single process
 * Better handling of errors (rather than panicing) ; userspace apps should not
   have the possibility of crashing the system
-* How does a process transmit information (such as environment or arguments) to its children ?
+* How does a process transmit information (such as environment, arguments, file
+  descriptors) to its children ?
 
 ### Things not sure
 

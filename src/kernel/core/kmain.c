@@ -165,14 +165,6 @@ void kernel_init_stage2(void* data) {
 
 		dbg_printf("Adding module to VFS: '%s' (size %d)\n", name, len);
 
-		/*
-		// This would be the "good" way of doing it :
-		fs_handle_t* mod_f = fs_open(devfs, name, FM_WRITE | FM_CREATE);
-		ASSERT(mod_f != 0);
-		ASSERT(file_write(mod_f, 0, len, (char*)mods[i].mod_start) == len);
-		unref_file(mod_f);
-		*/
-		// But since we have a nullfs, we can do it that way to prevent useless data copies :
 		ASSERT(nullfs_add_ram_file(devfs, name,
 					(char*)mods[i].mod_start,
 					len, false, FM_READ | FM_MMAP));
@@ -180,6 +172,7 @@ void kernel_init_stage2(void* data) {
 
 	TEST_PLACEHOLDER_AFTER_DEVFS;
 
+	// Launch INIT
 	fs_handle_t *init_bin = fs_open(devfs, "/mod/init.bin", FM_READ | FM_MMAP);
 	if (init_bin == 0) PANIC("No init.bin module provided!");
 	if (!is_elf(init_bin)) PANIC("init.bin is not valid ELF32 binary");
@@ -197,13 +190,7 @@ void kernel_init_stage2(void* data) {
 
 	start_process(init_p, e);
 
-	//TODO :
-	// - (OK) populate devfs with information regarding kernel command line & modules
-	// - create user process with init module provided on command line
-	// - give it rights to devfs
-	// - launch it
-	// - just return, this thread is done
-
+	// We are done here
 	dbg_printf("Reached kmain end! I'll just stop here and do nothing.\n");
 }
 

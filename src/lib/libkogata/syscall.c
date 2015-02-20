@@ -64,9 +64,6 @@ bool move(const char* oldname, const char* newname) {
 bool stat(const char* name, stat_t *s) {
 	return call(SC_STAT, (uint32_t)name, strlen(name), (uint32_t)s, 0, 0);
 }
-int ioctl(const char* filename, int command, void* data) {
-	return call(SC_IOCTL, (uint32_t)filename, strlen(filename), command, (uint32_t)data, 0);
-}
 
 fd_t open(const char* name, int mode) {
 	return call(SC_OPEN, (uint32_t)name, strlen(name), mode, 0, 0);
@@ -86,8 +83,8 @@ bool readdir(fd_t file, dirent_t *d) {
 bool stat_open(fd_t file, stat_t *s) {
 	return call(SC_STAT_OPEN, file, (uint32_t)s, 0, 0, 0);
 }
-int ioctl_open(fd_t file, int command, void* data) {
-	return call(SC_IOCTL_OPEN, file, command, (uint32_t)data, 0, 0);
+int ioctl(fd_t file, int command, void* data) {
+	return call(SC_IOCTL, file, command, (uint32_t)data, 0, 0);
 }
 int get_mode(fd_t file) {
 	return call(SC_GET_MODE, file, 0, 0, 0, 0);

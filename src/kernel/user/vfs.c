@@ -354,18 +354,6 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
 	return ret;
 }
 
-int fs_ioctl(fs_t *fs, const char* file, int command, void* data) {
-	fs_node_t* n = fs_walk_path(&fs->root, file);
-	if (n == 0) return -1;
-
-	mutex_lock(&n->lock);
-	int ret = (n->ops->ioctl ? n->ops->ioctl(n->data, command, data) : -1);
-	mutex_unlock(&n->lock);
-
-	unref_fs_node(n);
-	return ret;
-}
-
 // =================== //
 // OPERATIONS ON FILES //
 // =================== //
@@ -446,10 +434,9 @@ bool file_stat(fs_handle_t *f, stat_t *st) {
 int file_ioctl(fs_handle_t *f, int command, void* data) {
 	if (!(f->mode & FM_IOCTL)) return -1;
 
-	int ret = -1;
-	if (f->node->ops->ioctl) ret = f->node->ops->ioctl(f->node->data, command, data);
+	if (f->ops->ioctl == 0) return -1;
 
-	return ret;
+	return f->ops->ioctl(f->data, command, data);
 }
 
 bool file_readdir(fs_handle_t *f, dirent_t *d) {

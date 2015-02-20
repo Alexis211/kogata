@@ -53,7 +53,6 @@ static fs_node_ops_t nullfs_d_ops = {
 	.move = nullfs_d_move,
 	.create = nullfs_d_create,
 	.dispose = nullfs_d_dispose,
-	.ioctl = 0,
 };
 
 static fs_handle_ops_t nullfs_dh_ops = {
@@ -61,6 +60,7 @@ static fs_handle_ops_t nullfs_dh_ops = {
 	.close = nullfs_dh_close,
 	.read = 0,
 	.write = 0,
+	.ioctl = 0,
 };
 
 static fs_node_ops_t nullfs_f_ops = {
@@ -71,7 +71,6 @@ static fs_node_ops_t nullfs_f_ops = {
 	.create = 0,
 	.delete = 0,
 	.move = 0,
-	.ioctl =0,
 };
 
 static fs_handle_ops_t nullfs_fh_ops = {
@@ -79,6 +78,7 @@ static fs_handle_ops_t nullfs_fh_ops = {
 	.write = nullfs_fh_write,
 	.close = nullfs_fh_close,
 	.readdir = 0,
+	.ioctl =0,
 };
 
 

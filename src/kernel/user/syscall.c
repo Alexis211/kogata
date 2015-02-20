@@ -175,30 +175,6 @@ end_stat:
 	return ret;
 }
 
-static uint32_t ioctl_sc(sc_args_t args) {
-	int ret = -1;
-
-	char* fn = sc_copy_string(args.a, args.b);
-	if (fn == 0) goto end_ioctl;
-
-	char* sep = strchr(fn, ':');
-	if (sep == 0) goto end_ioctl;
-
-	*sep = 0;
-	char* file = sep + 1;
-
-	fs_t *fs = proc_find_fs(current_process(), fn);
-	if (fs == 0) goto end_ioctl;
-
-	void* data = (void*)args.d;
-	if (data >= (void*)K_HIGHHALF_ADDR) goto end_ioctl;
-	ret = fs_ioctl(fs, file, args.c, data);
-	
-end_ioctl:
-	if (fn) free(fn);
-	return ret;
-}
-
 static uint32_t open_sc(sc_args_t args) {
 	int ret = 0;
 
@@ -268,7 +244,7 @@ static uint32_t stat_open_sc(sc_args_t args) {
 	return file_stat(h, o);
 }
 
-static uint32_t ioctl_open_sc(sc_args_t args) {
+static uint32_t ioctl_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return -1;
 
@@ -303,7 +279,6 @@ void setup_syscall_table() {
 	sc_handlers[SC_DELETE] = delete_sc;
 	sc_handlers[SC_MOVE] = move_sc;
 	sc_handlers[SC_STAT] = stat_sc;
-	sc_handlers[SC_IOCTL] = ioctl_sc;
 
 	sc_handlers[SC_OPEN] = open_sc;
 	sc_handlers[SC_CLOSE] = close_sc;
@@ -311,7 +286,7 @@ void setup_syscall_table() {
 	sc_handlers[SC_WRITE] = write_sc;
 	sc_handlers[SC_READDIR] = readdir_sc;
 	sc_handlers[SC_STAT_OPEN] = stat_open_sc;
-	sc_handlers[SC_IOCTL_OPEN] = ioctl_open_sc;
+	sc_handlers[SC_IOCTL] = ioctl_sc;
 	sc_handlers[SC_GET_MODE] = get_mode_sc;
 }
 

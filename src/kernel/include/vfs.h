@@ -48,6 +48,7 @@ typedef struct {
 	size_t (*read)(fs_handle_ptr f, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
 	bool (*readdir)(fs_handle_ptr f, dirent_t *d);
+	int (*ioctl)(fs_handle_ptr f, int command, void* data);
 	void (*close)(fs_handle_ptr f);
 } fs_handle_ops_t;
 
@@ -88,7 +89,6 @@ typedef struct {
 	bool (*delete)(fs_node_ptr n, const char* file);
 	bool (*move)(fs_node_ptr dir, const char* old_name, struct fs_node *new_parent, const char *new_name);
 	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
-	int (*ioctl)(fs_node_ptr n, int command, void* data);
 	void (*dispose)(fs_node_ptr n);
 } fs_node_ops_t;
 
@@ -161,7 +161,6 @@ bool fs_create(fs_t *fs, const char* file, int type);
 bool fs_delete(fs_t *fs, const char* file);
 bool fs_move(fs_t *fs, const char* from, const char* to);
 bool fs_stat(fs_t *fs, const char* file, stat_t *st);
-int fs_ioctl(fs_t *fs, const char* file, int command, void* data);
 
 fs_handle_t* fs_open(fs_t *fs, const char* file, int mode);
 void ref_file(fs_handle_t *file);
