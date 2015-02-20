@@ -21,7 +21,22 @@
 #define USERSTACK_ADDR	0xB8000000
 #define USERSTACK_SIZE	0x00020000		// 32 KB
 
-struct user_region;
+typedef struct process process_t;
+
+typedef struct user_region {
+	process_t *proc;
+
+	void* addr;
+	size_t size;
+
+	int mode;
+
+	fs_handle_t *file;		// null if not mmaped-file
+	size_t file_offset;
+
+	struct user_region *next;
+} user_region_t;
+
 typedef struct process {
 	pagedir_t *pd;
 	struct user_region *regions;
@@ -32,6 +47,7 @@ typedef struct process {
 	int next_fd;
 
 	thread_t *thread;
+	uint64_t last_ran;
 
 	int pid;
 	struct process *parent;

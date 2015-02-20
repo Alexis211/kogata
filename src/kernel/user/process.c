@@ -5,17 +5,6 @@
 #include <frame.h>
 #include <process.h>
 
-typedef struct user_region {
-	void* addr;
-	size_t size;
-
-	int mode;
-
-	fs_handle_t *file;		// null if not mmaped-file
-	size_t file_offset;
-
-	struct user_region *next;
-} user_region_t;
 
 static int next_pid = 1;
 
@@ -47,6 +36,7 @@ process_t *new_process(process_t *parent) {
 	proc->pd = create_pagedir(proc_usermem_pf, proc);
 	if (proc->pd == 0) goto error;
 
+	proc->last_ran = 0;
 	proc->regions = 0;
 	proc->thread = 0;
 	proc->pid = (next_pid++);
@@ -207,6 +197,7 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 	if (find_user_region(proc, addr) != 0) return false;
 
 	if ((uint32_t)addr & (~PAGE_MASK)) return false;
+	if ((uint32_t)offset & (~PAGE_MASK)) return false;
 
 	int fmode = file_get_mode(h);
 	if (!(fmode & FM_MMAP) || !(fmode & FM_READ)) return false;
@@ -247,6 +238,9 @@ bool mchmap(process_t *proc, void* addr, int mode) {
 
 	if (r == 0) return false;
 	
+	if (r->file != 0) {
+		if ((mode & MM_WRITE) && !(file_get_mode(r->file) & FM_WRITE)) return false;
+	}
 	r->mode = mode;
 
 	// change mode on already mapped pages
@@ -295,10 +289,13 @@ bool munmap(process_t *proc, void* addr) {
 
 		if (ent & PTE_PRESENT) {
 			if ((ent & PTE_DIRTY) && (r->mode & MM_WRITE) && r->file != 0) {
-				file_write(r->file, it - r->addr + r->file_offset, PAGE_SIZE, it);
+				file_commit_page(r->file, it - r->addr + r->file_offset, proc->last_ran);
 			}
 			pd_unmap_page(it);
-			frame_free(frame, 1);
+			if (r->file != 0) {
+				// frame is owned by process
+				frame_free(frame, 1);
+			}
 		}
 	}
 	switch_pagedir(save_pd);
@@ -342,7 +339,11 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 
 	uint32_t frame;
 	do {
-		frame = frame_alloc(1);
+		if (r->file == 0) {
+			frame = frame_alloc(1);
+		} else {
+			frame = file_get_page(r->file, addr - r->addr + r->file_offset);
+		}
 		if (frame == 0) {
 			dbg_printf("OOM for process %d ; yielding and waiting for someone to free some RAM.\n", proc->pid);
 			yield();
@@ -354,11 +355,7 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 		yield();
 	}
 
-	memset(addr, 0, PAGE_SIZE);		// zero out
-
-	if (r->file != 0) {
-		file_read(r->file, addr - r->addr + r->file_offset, PAGE_SIZE, addr);
-	}
+	if (r->file == 0) memset(addr, 0, PAGE_SIZE);		// zero out
 }
 
 void probe_for_read(const void* addr, size_t len) {

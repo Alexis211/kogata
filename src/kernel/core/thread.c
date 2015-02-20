@@ -7,6 +7,7 @@
 #include <frame.h>
 #include <paging.h>
 #include <worker.h>
+#include <process.h>
 
 void save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
@@ -84,6 +85,8 @@ void run_scheduler() {
 	// This function is expected NEVER TO RETURN
 
 	if (current_thread != 0 && current_thread->state == T_STATE_RUNNING) {
+		current_thread->last_ran = worker_get_time();
+		if (current_thread->proc) current_thread->proc->last_ran = current_thread->last_ran;
 		enqueue_thread(current_thread, true);
 	}
 
@@ -141,6 +144,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 
 	t->ctx.eip = (void(*)())run_thread;
 	t->state = T_STATE_PAUSED;
+	t->last_ran = 0;
 
 	t->current_pd_d = get_kernel_pagedir();
 

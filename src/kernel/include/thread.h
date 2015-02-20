@@ -18,16 +18,17 @@ typedef struct saved_context {
 	void (*eip)();
 } saved_context_t;
 
-struct process;
+typedef struct process process_t;
 typedef struct thread {
 	saved_context_t ctx;
 	pagedir_t *current_pd_d;
 
 	uint32_t state;
+	uint64_t last_ran;
 
 	region_info_t *stack_region;
 
-	struct process *proc;
+	process_t *proc;
 	isr_handler_t user_ex_handler;	// page fault in kernel memory accessed by user code (violation)
 
 	struct thread *next_in_queue;

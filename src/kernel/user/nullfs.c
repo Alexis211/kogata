@@ -218,7 +218,8 @@ bool nullfs_add_ram_file(fs_t *fs, const char* name, char* data, size_t init_sz,
 		f->data = data;
 		f->own_data = false;
 	}
-	f->ok_modes = ok_modes;
+	f->ok_modes = ok_modes &
+		(FM_TRUNC | FM_READ | FM_WRITE);	// no MMAP support
 	f->lock = MUTEX_UNLOCKED;
 
 	bool add_ok = nullfs_add_node(fs, name, f, &nullfs_f_ops);

@@ -41,15 +41,21 @@ struct fs;
 struct fs_node;
 struct fs_handle;
 
+typedef struct user_region user_region_t;
+
 // -------------------------------------------
 // Structure defining a handle to an open file
 
 typedef struct {
+	// Standard read-write architecture
 	size_t (*read)(fs_handle_ptr f, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
 	bool (*readdir)(fs_handle_ptr f, dirent_t *d);
 	int (*ioctl)(fs_handle_ptr f, int command, void* data);
 	void (*close)(fs_handle_ptr f);
+	// Page cache architecture, must be implemented by all files opened with FM_MMAP
+	uint32_t (*get_page)(fs_handle_ptr f, size_t offset);
+	void (*commit_page)(fs_handle_ptr f, size_t offset, uint64_t time);	// notifies change
 } fs_handle_ops_t;
 
 typedef struct fs_handle {
@@ -165,11 +171,16 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st);
 fs_handle_t* fs_open(fs_t *fs, const char* file, int mode);
 void ref_file(fs_handle_t *file);
 void unref_file(fs_handle_t *file);
+
 int file_get_mode(fs_handle_t *f);
+bool file_stat(fs_handle_t *f, stat_t *st);
+
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
-bool file_stat(fs_handle_t *f, stat_t *st);
 int file_ioctl(fs_handle_t *f, int command, void* data);
 bool file_readdir(fs_handle_t *f, dirent_t *d);
+
+uint32_t file_get_page(fs_handle_t *f, size_t offset);
+void file_commit_page(fs_handle_t *f, size_t offset, uint64_t time);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

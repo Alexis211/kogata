@@ -124,14 +124,6 @@ void kernel_init_stage2(void* data) {
 	// Launch some worker threads
 	start_workers(2);
 
-	// test sleep()
-	dbg_printf("Testing sleep() : ");
-	for (int i = 0; i < 20; i++) {
-		usleep(50000);
-		dbg_printf(".");
-	}
-	dbg_printf("\n");
-
 	TEST_PLACEHOLDER_AFTER_TASKING;
 
 	// Create devfs
@@ -167,13 +159,13 @@ void kernel_init_stage2(void* data) {
 
 		ASSERT(nullfs_add_ram_file(devfs, name,
 					(char*)mods[i].mod_start,
-					len, false, FM_READ | FM_MMAP));
+					len, false, FM_READ));
 	}
 
 	TEST_PLACEHOLDER_AFTER_DEVFS;
 
 	// Launch INIT
-	fs_handle_t *init_bin = fs_open(devfs, "/mod/init.bin", FM_READ | FM_MMAP);
+	fs_handle_t *init_bin = fs_open(devfs, "/mod/init.bin", FM_READ);
 	if (init_bin == 0) PANIC("No init.bin module provided!");
 	if (!is_elf(init_bin)) PANIC("init.bin is not valid ELF32 binary");
 

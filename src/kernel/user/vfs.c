@@ -445,4 +445,16 @@ bool file_readdir(fs_handle_t *f, dirent_t *d) {
 	return f->ops->readdir && f->ops->readdir(f->data, d);
 }
 
+uint32_t file_get_page(fs_handle_t *f, size_t offset) {
+	if (!(f->mode & FM_MMAP)) return 0;
+	ASSERT(f->ops->get_page != 0);
+	return f->ops->get_page(f->data, offset);
+}
+
+void file_commit_page(fs_handle_t *f, size_t offset, uint64_t time) {
+	if (!(f->mode & FM_MMAP)) return;
+	ASSERT(f->ops->commit_page != 0);
+	f->ops->commit_page(f->data, offset, time);
+}
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/
