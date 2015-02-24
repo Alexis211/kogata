@@ -152,7 +152,8 @@ void kernel_init_stage2(void* data) {
 	// Parse command line
 	btree_t *cmdline = parse_cmdline((const char*)mbd->cmdline);
 
-	fs_t *rootfs = setup_rootfs(cmdline, iofs);
+	fs_t *rootfs = 0;
+	if (btree_find(cmdline, "root") != 0) rootfs = setup_rootfs(cmdline, iofs);
 
 	launch_init(cmdline, iofs, rootfs);
 
@@ -264,7 +265,7 @@ fs_t *setup_rootfs(btree_t *cmdline, fs_t *iofs) {
 void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs)  {
 	fs_t *init_fs = rootfs;
 	char* init_file = btree_find(cmdline, "init");
-	if (init_file != 0) PANIC("No init specified on kernel command line.");
+	if (init_file == 0) PANIC("No init specified on kernel command line.");
 
 	dbg_printf("Launching init %s...\n", init_file);
 
@@ -276,10 +277,9 @@ void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs)  {
 		} else if (strncmp(init_file, "root:", 5) == 0) {
 			init_fs = rootfs;
 			init_file = init_file + 5;
-		} else {
-			PANIC("Invalid init file specification.");
 		}
 	}
+	if (init_fs == 0) PANIC("Invalid file system specification for init file.");
 
 	// Launch INIT
 	fs_handle_t *init_bin = fs_open(init_fs, init_file, FM_READ);

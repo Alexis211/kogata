@@ -8,8 +8,9 @@
 int main(int argc, char **argv) {
 	dbg_print("Hello, world! from user process.\n");
 
-	fd_t f = open("dev:/", FM_READDIR);
+	fd_t f = open("io:/", FM_READDIR);
 	dbg_printf("openned /: %d\n", f);
+	ASSERT(f != 0);
 	dirent_t x;
 	while (readdir(f, &x)) {
 		dbg_printf("- '%s' %p %d\n", x.name, x.st.type, x.st.size);

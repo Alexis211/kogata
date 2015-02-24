@@ -37,7 +37,6 @@ static void nullfs_fh_close(fs_handle_ptr f);
 // VTables that go with it
 static fs_driver_ops_t nullfs_driver_ops = {
 	.make = nullfs_fs_make,
-	.detect = 0,
 };
 
 static fs_ops_t nullfs_ops = {
@@ -134,6 +133,8 @@ void register_nullfs_driver() {
 }
 
 bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *fs_s) {
+	if (source != 0) return false;
+
 	nullfs_t *fs = (nullfs_t*)malloc(sizeof(nullfs_t));
 	if (fs == 0) return false;
 
@@ -159,8 +160,8 @@ bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *fs_s) {
 
 	fs_s->ops = &nullfs_ops;
 	fs_s->data = fs;
-	fs_s->root.ops = &nullfs_d_ops;
-	fs_s->root.data = root;
+	fs_s->root->ops = &nullfs_d_ops;
+	fs_s->root->data = root;
 
 	return true;
 }
@@ -173,7 +174,7 @@ void nullfs_fs_shutdown(fs_ptr fs) {
 bool nullfs_add_node(fs_t *fs, const char* name, fs_node_ptr data, fs_node_ops_t *ops) {
 	char file_name[DIR_MAX];
 
-	fs_node_t *n = fs_walk_path_except_last(&fs->root, name, file_name);
+	fs_node_t *n = fs_walk_path_except_last(fs->root, name, file_name);
 	if (n == 0) return false;
 	if (n->ops != &nullfs_d_ops) return false;
 

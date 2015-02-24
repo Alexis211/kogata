@@ -128,7 +128,7 @@ typedef struct fs {
 	fs_ops_t *ops;
 	fs_ptr data;
 	// Filled by both according to what is specified for fs_node_t
-	fs_node_t root;
+	fs_node_t *root;
 } fs_t;
 
 // -------------------------------------------
@@ -136,7 +136,6 @@ typedef struct fs {
 
 typedef struct {
 	bool (*make)(fs_handle_t *source, const char* opts, fs_t *d);
-	bool (*detect)(fs_handle_t *source);
 } fs_driver_ops_t;
 
 // -------------------------------------------

@@ -1,5 +1,11 @@
 timeout	10
+default 1
 
-title	Macroscope
+
+title   kogata OS
 kernel	/kernel.bin root=io:/atapi0 init=root:/init.bin
+
+title	kogata OS without root
+kernel	/kernel.bin init=io:/mod/init.bin
+module /init.bin
 

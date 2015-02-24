@@ -29,31 +29,35 @@ void register_fs_driver(const char* name, fs_driver_ops_t *ops) {
 // ================================== //
 
 fs_t *make_fs(const char* drv_name, fs_handle_t *source, const char* opts) {
-	// Look for driver
-	fs_driver_t *d = 0;
-	for(fs_driver_t *i = drivers; i != 0; i = i->next) {
-		if (drv_name != 0 && strcmp(i->name, drv_name) == 0) d = i;
-		if (drv_name == 0 && source != 0 && i->ops->detect && i->ops->detect(source)) d = i;
-		if (d != 0) break;
-	}
-	if (d == 0) return 0;		// driver not found
-
 	// Open file system
 	fs_t *fs = (fs_t*)malloc(sizeof(fs_t));
-	if (fs == 0) return 0;
+	if (fs == 0) goto fail;
+
+	fs->root = (fs_node_t*)malloc(sizeof(fs_node_t));
+	if (fs->root == 0) goto fail;
 
 	fs->refs = 1;
-	fs->root.refs = 1;		// root node is never disposed of (done by fs->shutdown)
-	fs->root.fs = fs;
-	fs->root.parent = 0;
-	fs->root.children = 0;
+	fs->root->refs = 1;
+	fs->root->fs = fs;
+	fs->root->parent = 0;
+	fs->root->children = 0;
 
-	if (d->ops->make(source, opts, fs)) {
-		return fs;
-	} else {
-		free(fs);
-		return 0;
+	// Look for driver
+	for(fs_driver_t *i = drivers; i != 0; i = i->next) {
+		if ((drv_name != 0 && strcmp(i->name, drv_name) == 0) || (drv_name == 0 && source != 0)) {
+			if (i->ops->make(source, opts, fs)) {
+				return fs;
+			} else {
+				goto fail;
+			}
+		}
 	}
+
+
+fail:
+	if (fs && fs->root) free(fs->root);
+	if (fs) free(fs);
+	return 0;
 }
 
 bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts) {
@@ -67,8 +71,7 @@ void ref_fs(fs_t *fs) {
 void unref_fs(fs_t *fs) {
 	fs->refs--;
 	if (fs->refs == 0) {
-		// don't unref root node, don't call dispose on it
-		// (done by fs->shutdown)
+		unref_fs_node(fs->root);
 		fs->ops->shutdown(fs->data);
 		free(fs);
 	}
@@ -87,19 +90,26 @@ void unref_fs_node(fs_node_t *n) {
 	mutex_lock(&n->lock);
 	n->refs--;
 	if (n->refs == 0) {
-		ASSERT(n != &n->fs->root);
-		ASSERT(n->parent != 0);
-		ASSERT(n->name != 0);
+		if (n != n->fs->root) {
+			ASSERT(n->parent != 0);
+			ASSERT(n->name != 0);
 
-		mutex_lock(&n->parent->lock);
-		hashtbl_remove(n->parent->children, n->name);
-		if (n->ops->dispose) n->ops->dispose(n->data);
-		mutex_unlock(&n->parent->lock);
+			mutex_lock(&n->parent->lock);
+			hashtbl_remove(n->parent->children, n->name);
+			if (n->ops->dispose) n->ops->dispose(n->data);
+			mutex_unlock(&n->parent->lock);
 
-		unref_fs_node(n->parent);
-		unref_fs(n->fs);
+			unref_fs_node(n->parent);
+			unref_fs(n->fs);
+		} else {
+			ASSERT(n->fs->refs == 0);
+			if (n->ops->dispose) n->ops->dispose(n->data);
+		}
 
-		if (n->children != 0) delete_hashtbl(n->children);
+		if (n->children != 0) {
+			ASSERT(hashtbl_count(n->children) == 0);
+			delete_hashtbl(n->children);
+		}
 		free(n->name);
 		free(n);
 	} else {
@@ -251,7 +261,7 @@ fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char* path, char* las
 
 bool fs_create(fs_t *fs, const char* file, int type) {
 	char name[DIR_MAX];
-	fs_node_t *n = fs_walk_path_except_last(&fs->root, file, name);
+	fs_node_t *n = fs_walk_path_except_last(fs->root, file, name);
 	if (n == 0) return false;
 
 	mutex_lock(&n->lock);
@@ -265,7 +275,7 @@ bool fs_create(fs_t *fs, const char* file, int type) {
 bool fs_delete(fs_t *fs, const char* file) {
 	char name[DIR_MAX];
 
-	fs_node_t* n = fs_walk_path_except_last(&fs->root, file, name);
+	fs_node_t* n = fs_walk_path_except_last(fs->root, file, name);
 	if (n == 0) return false;
 
 	if (n->children != 0) {
@@ -283,11 +293,11 @@ bool fs_delete(fs_t *fs, const char* file) {
 
 bool fs_move(fs_t *fs, const char* from, const char* to) {
 	char old_name[DIR_MAX];
-	fs_node_t *old_parent = fs_walk_path_except_last(&fs->root, from, old_name);
+	fs_node_t *old_parent = fs_walk_path_except_last(fs->root, from, old_name);
 	if (old_parent == 0) return false;
 
 	char new_name[DIR_MAX];
-	fs_node_t *new_parent = fs_walk_path_except_last(&fs->root, to, new_name);
+	fs_node_t *new_parent = fs_walk_path_except_last(fs->root, to, new_name);
 	if (new_parent == 0) {
 		unref_fs_node(old_parent);
 		return false;
@@ -343,7 +353,7 @@ end:
 }
 
 bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
-	fs_node_t* n = fs_walk_path(&fs->root, file);
+	fs_node_t* n = fs_walk_path(fs->root, file);
 	if (n == 0) return false;
 
 	mutex_lock(&n->lock);
@@ -359,10 +369,10 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
 // =================== //
 
 fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
-	fs_node_t *n = fs_walk_path(&fs->root, file);
+	fs_node_t *n = fs_walk_path(fs->root, file);
 	if (n == 0 && (mode & FM_CREATE)) {
 		if (fs_create(fs, file, FT_REGULAR)) {
-			n = fs_walk_path(&fs->root, file);
+			n = fs_walk_path(fs->root, file);
 		}
 	}
 	if (n == 0) return 0;
