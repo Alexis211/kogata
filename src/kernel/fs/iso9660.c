@@ -131,6 +131,8 @@ void iso9660_fs_shutdown(fs_ptr f) {
 // READING STUFF THAT IS ON THE FILESYSTEM //
 // ======================================= //
 
+//  ---- Helper functions 
+
 static void convert_dr_to_lowercase(iso9660_dr_t *dr) {
 	for (int i = 0; i < dr->name_len; i++) {
 		if (dr->name[i] >= 'A' && dr->name[i] <= 'Z')
@@ -149,6 +151,8 @@ static void dr_stat(iso9660_dr_t *dr, stat_t *st) {
 		st->size = dr->size.lsb;
 	}
 }
+
+//  ---- The actual code
 
 bool iso9660_node_stat(fs_node_ptr n, stat_t *st) {
 	iso9660_node_t *node = (iso9660_node_t*)n;
@@ -179,6 +183,7 @@ bool iso9660_dir_open(fs_node_ptr n, int mode, fs_handle_t *s) {
 
 	return true;
 }
+
 bool iso9660_dir_walk(fs_node_ptr n, const char* search_for, struct fs_node *node_d) {
 	iso9660_node_t *node = (iso9660_node_t*)n;
 
@@ -242,9 +247,12 @@ size_t iso9660_fh_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
 
 	size_t ret = 0;
 
-	size_t off0 = offset % 2048;
+	const size_t off0 = offset % 2048;
+	const size_t first_block = offset - off0;
+
 	char buffer[2048];
-	for (size_t i = offset - off0; i < offset + len; i += 2048) {
+
+	for (size_t i = first_block; i < offset + len; i += 2048) {
 		if (file_read(node->fs->disk, node->dr.lba_loc.lsb * 2048 + i, 2048, buffer) != 2048) {
 			dbg_printf("Could not read data at %d\n", i);
 			break;
@@ -256,10 +264,11 @@ size_t iso9660_fh_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
 			block_pos = 0;
 			block_buf_ofs = off0;
 		} else {
-			block_pos = i - off0;
+			block_pos = i - offset - off0;
 			block_buf_ofs = 0;
 		}
-		size_t block_len = (i + 2048 > offset + len ? offset + len - i : 2048);
+		size_t block_buf_end = (i + 2048 > offset + len ? offset + len - i : 2048);
+		size_t block_len = block_buf_end - block_buf_ofs;
 
 		memcpy(buf + block_pos, buffer + block_buf_ofs, block_len);
 		ret += block_len;
@@ -267,9 +276,11 @@ size_t iso9660_fh_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
 
 	return ret;
 }
+
 void iso9660_fh_close(fs_handle_ptr f) {
 	// nothing to do
 }
+
 bool iso9660_dh_readdir(fs_handle_ptr f, dirent_t *d) {
 	iso9660_dh_t *handle = (iso9660_dh_t*)f;
 	iso9660_node_t *node = handle->n;
@@ -299,6 +310,7 @@ bool iso9660_dh_readdir(fs_handle_ptr f, dirent_t *d) {
 		// else skip this record
 	}
 }
+
 void iso9660_dh_close(fs_handle_ptr f) {
 	iso9660_dh_t* handle = (iso9660_dh_t*)f;
 	free(handle);

@@ -155,22 +155,6 @@ void kernel_init_stage2(void* data) {
 	fs_t *rootfs = 0;
 	if (btree_find(cmdline, "root") != 0) rootfs = setup_rootfs(cmdline, iofs);
 
-	if (rootfs != 0) {
-		fs_handle_t *readme = fs_open(rootfs, "/readme.md", FM_READ);
-		if (readme != 0) {
-			char buf[100];
-			dbg_printf("Read %d.\n", file_read(readme, 0, 100, buf));
-			buf[99] = 0;
-			dbg_printf("%s\n", buf);
-			unref_file(readme);
-		}
-	}
-
-	void iter(void* a, void* b) {
-		dbg_printf("'%s': '%s' (0x%p, 0x%p)\n", a, b, a, b);
-	}
-	btree_iter(cmdline, iter);
-
 	launch_init(cmdline, iofs, rootfs);
 
 	// We are done here
