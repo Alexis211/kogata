@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include <dev/pci.h>
+#include <dev/pciide.h>
 
 // ===== FOR TESTS =====
 #define TEST_PLACEHOLDER_AFTER_IDT
@@ -135,6 +136,7 @@ void kernel_init_stage2(void* data) {
 
 	// Scan for devices
 	pci_setup();
+	pciide_detect(iofs);
 
 	// Add kernel command line to iofs
 	{

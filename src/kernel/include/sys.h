@@ -15,6 +15,22 @@ static inline void outl(uint16_t port, uint32_t value) {
 	asm volatile("outl %1, %0" : : "dN"(port), "a"(value));
 }
 
+static inline void outsb(uint16_t port, const void *addr, size_t cnt) {
+	// write cnt bytes to port
+	asm volatile ("rep outsb" : "+S" (addr), "+c" (cnt) : "d" (port));
+}
+
+static inline void outsw(uint16_t port, const void *addr, size_t cnt) {
+	// write cnt words to port
+	asm volatile ("rep outsw" : "+S" (addr), "+c" (cnt) : "d" (port));
+}
+
+static inline void outsl (uint16_t port, const void *addr, size_t cnt) {
+	// write cnt longwords to port
+	asm volatile ("rep outsl" : "+S" (addr), "+c" (cnt) : "d" (port));
+}
+
+
 static inline uint8_t inb(uint16_t port) {
 	uint8_t ret;
 	asm volatile("inb %1, %0" : "=a"(ret) : "dN"(port));
@@ -31,6 +47,21 @@ static inline uint32_t inl(uint16_t port) {
 	uint32_t ret;
 	asm volatile("inl %1, %0" : "=a"(ret) : "dN"(port));
 	return ret;
+}
+
+static inline void insb(uint16_t port, void *addr, size_t cnt) {
+	// read cnt bytes from port and put them at addr
+	asm volatile ("rep insb" : "+D" (addr), "+c" (cnt) : "d" (port) : "memory");
+}
+
+static inline void insw(uint16_t port, void *addr, size_t cnt) {
+	// read cnt words from port and put them at addr
+	asm volatile ("rep insw" : "+D" (addr), "+c" (cnt) : "d" (port) : "memory");
+}
+
+static inline void insl(uint16_t port, void *addr, size_t cnt) {
+	// read cnt longwords from port and put them at addr
+	asm volatile ("rep insl" : "+D" (addr), "+c" (cnt) : "d" (port) : "memory");
 }
 
 static inline void invlpg(void* addr) {

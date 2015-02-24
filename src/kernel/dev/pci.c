@@ -193,21 +193,21 @@ void pci_setup() {
 void pci_irq_storage(registers_t *r) {
 	for (int i = 0; i < PCI_MAX_DEVICES; i++) {
 		if (pci_devices[i].irq == PCI_IRQ_STORAGE && pci_devices[i].irq_handler != 0)
-			pci_devices[i].irq_handler();
+			pci_devices[i].irq_handler(i);
 	}
 }
 
 void pci_irq_network(registers_t *r) {
 	for (int i = 0; i < PCI_MAX_DEVICES; i++) {
 		if (pci_devices[i].irq == PCI_IRQ_NETWORK && pci_devices[i].irq_handler != 0)
-			pci_devices[i].irq_handler();
+			pci_devices[i].irq_handler(i);
 	}
 }
 
 void pci_irq_default(registers_t *r) {
 	for (int i = 0; i < PCI_MAX_DEVICES; i++) {
 		if (pci_devices[i].irq == PCI_IRQ_DEFAULT && pci_devices[i].irq_handler != 0)
-			pci_devices[i].irq_handler();
+			pci_devices[i].irq_handler(i);
 	}
 }
 
@@ -217,8 +217,8 @@ void pci_set_irq(int dev_id, uint8_t irq) {
 		&& irq != PCI_IRQ_STORAGE && irq != PCI_IRQ_NETWORK
 		&& irq != PCI_IRQ_DISABLE) return;
 
-	pci_devices[dev_id].irq = irq;
 	pci_write_config_byte(dev_id, PCI_CONFIG_INTERRUPT_LINE, irq);
+	pci_devices[dev_id].irq = pci_read_config_byte(dev_id, PCI_CONFIG_INTERRUPT_LINE);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

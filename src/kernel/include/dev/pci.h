@@ -12,11 +12,18 @@
 #define PCI_IRQ_NETWORK 11
 #define PCI_IRQ_DISABLE 0xFF
 
-#define PCI_CONFIG_DEVICE_ID 0x02
 #define PCI_CONFIG_VENDOR_ID 0x00
+#define PCI_CONFIG_DEVICE_ID 0x02
+#define PCI_CONFIG_PROG_IF 0x09
 #define PCI_CONFIG_CLASS 0x0B
 #define PCI_CONFIG_SUBCLASS 0x0A
 #define PCI_CONFIG_HEADER_TYPE 0x0E
+#define PCI_CONFIG_BAR0 0x10
+#define PCI_CONFIG_BAR1 0x14
+#define PCI_CONFIG_BAR2 0x18
+#define PCI_CONFIG_BAR3 0x1C
+#define PCI_CONFIG_BAR4 0x20
+#define PCI_CONFIG_BAR5 0x24
 #define PCI_CONFIG_SECONDARY_BUS 0x19
 #define PCI_CONFIG_INTERRUPT_LINE 0x3C
 
@@ -28,7 +35,7 @@
 #define PCI_SC_IDE 0x01
 #define PCI_SC_PCI_TO_PCI 0x04
 
-typedef void (*pci_irq_handler_t)();
+typedef void (*pci_irq_handler_t)(int dev_id);
 
 typedef struct {
 	uint8_t bus;
@@ -43,6 +50,7 @@ typedef struct {
 
 	uint8_t irq;
 	pci_irq_handler_t irq_handler;
+	void* data;		// data block for use by specific driver
 } pci_device_t;
 
 extern pci_device_t pci_devices[PCI_MAX_DEVICES];
