@@ -208,7 +208,7 @@ bool iso9660_dir_walk(fs_node_ptr n, const char* search_for, struct fs_node *nod
 		
 		if (strncmp(name, search_for, len) == 0) {
 			// Found it !
-			iso9660_node_t *n = (iso9660_node_t*)malloc(sizeof(iso9660_node_t*));
+			iso9660_node_t *n = (iso9660_node_t*)malloc(sizeof(iso9660_node_t));
 			if (n == 0) return false;
 
 			memcpy(&n->dr, dr, sizeof(iso9660_dr_t));
