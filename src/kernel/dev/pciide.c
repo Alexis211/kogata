@@ -642,7 +642,6 @@ typedef struct {
 
 static bool ide_vfs_open(fs_node_ptr n, int mode, fs_handle_t *s);
 static bool ide_vfs_stat(fs_node_ptr n, stat_t *st);
-static void ide_vfs_dispose(fs_node_ptr n);
 
 static size_t ide_vfs_read(fs_handle_ptr f, size_t offset, size_t len, char* buf);
 static size_t ide_vfs_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
@@ -656,7 +655,7 @@ static fs_node_ops_t ide_vfs_node_ops = {
 	.delete = 0,
 	.move = 0,
 	.create = 0,
-	.dispose = ide_vfs_dispose
+	.dispose = 0
 };
 
 static fs_handle_ops_t ide_vfs_handle_ops = {
@@ -721,10 +720,6 @@ bool ide_vfs_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
-void ide_vfs_dispose(fs_node_ptr n) {
-	free(n);
-}
-
 size_t ide_vfs_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
 
@@ -752,12 +747,15 @@ uint8_t err = ide_write_sectors(d->c, d->device,
 int ide_vfs_ioctl(fs_handle_ptr f, int command, void* data) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
 
+	int ret = 0;
+
 	if (command == IOCTL_BLOCKDEV_GET_BLOCK_SIZE)
-		return d->block_size;
+		ret = d->block_size;
 	if (command == IOCTL_BLOCKDEV_GET_BLOCK_COUNT) 
-		return d->c->devices[d->device].size;
+		ret = d->c->devices[d->device].size;
 	
-	return 0;
+	dbg_printf("ioctl (0x%p) %d -> %d\n", f, command, ret);
+	return ret;
 }
 
 void ide_vfs_close(fs_handle_ptr f) {

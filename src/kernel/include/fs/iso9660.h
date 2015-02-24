@@ -37,8 +37,8 @@ typedef struct {		// Directory record
 	uint8_t interleave_gap_size;
 	uint16_lsb_msb_t vol_seq_num;
 	uint8_t name_len;
-	char name[2];		// we want sizeof(iso9660_dr_t) == 34
-} iso9660_dr_t;
+	char name[1];		// we want sizeof(iso9660_dr_t) == 34
+} __attribute__((packed)) iso9660_dr_t;
 
 typedef struct {		// Boot record
 	uint8_t type;
@@ -47,7 +47,7 @@ typedef struct {		// Boot record
 	char sys_ident[32];
 	char boot_ident[32];
 	char reserved[1977];
-} iso9660_bootrecord_t;
+} __attribute__((packed)) iso9660_bootrecord_t;
 
 typedef struct {		// Primary volume descriptor
 	uint8_t type;
@@ -72,13 +72,13 @@ typedef struct {		// Primary volume descriptor
 	iso9660_dr_t root_directory;
 
 	// more fields (not interesting...)
-} iso9660_pvd_t;
+} __attribute__((packed)) iso9660_pvd_t;
 
 typedef struct {
 	uint8_t type;
 	char ident[5];
 	uint8_t version;	// always 1
-} iso9660_vdt_terminator_t;		// volume descriptor table terminator
+} __attribute__((packed)) iso9660_vdt_terminator_t;		// volume descriptor table terminator
 
 typedef union {
 	iso9660_bootrecord_t boot;

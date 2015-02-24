@@ -251,7 +251,7 @@ fs_t *setup_rootfs(btree_t *cmdline, fs_t *iofs) {
 	fs_handle_t *root_dev = fs_open(iofs, root, FM_READ | FM_WRITE | FM_IOCTL);
 	if (root_dev == 0) {
 		dbg_printf("read-only... ");
-		root_dev = fs_open(iofs, root, FM_READ | FM_WRITE | FM_IOCTL);
+		root_dev = fs_open(iofs, root, FM_READ | FM_IOCTL);
 	}
 	dbg_printf("\n");
 	if (root_dev == 0) PANIC("Could not open root device.");
