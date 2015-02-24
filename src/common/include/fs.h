@@ -41,4 +41,7 @@ typedef struct {
 } dirent_t;
 
 
+#define IOCTL_BLOCKDEV_GET_BLOCK_SIZE   40
+#define IOCTL_BLOCKDEV_GET_BLOCK_COUNT  41
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -742,8 +742,7 @@ size_t ide_vfs_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf
 
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;
-
-	uint8_t err = ide_write_sectors(d->c, d->device,
+uint8_t err = ide_write_sectors(d->c, d->device,
 		offset / d->block_size, len / d->block_size, (char*)buf);
 	if (err != 0) return 0;
 
@@ -751,7 +750,13 @@ size_t ide_vfs_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf
 }
 
 int ide_vfs_ioctl(fs_handle_ptr f, int command, void* data) {
-	// TODO
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
+
+	if (command == IOCTL_BLOCKDEV_GET_BLOCK_SIZE)
+		return d->block_size;
+	if (command == IOCTL_BLOCKDEV_GET_BLOCK_COUNT) 
+		return d->c->devices[d->device].size;
+	
 	return 0;
 }
 
