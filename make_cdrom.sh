@@ -10,6 +10,7 @@ fi
 cp menu_cdrom.lst cdrom/boot/grub/menu.lst
 cp src/kernel/kernel.bin cdrom; strip cdrom/kernel.bin
 cp src/apps/init/init.bin cdrom; strip cdrom/init.bin
+cp README.md cdrom
 
 genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot \
 	-boot-load-size 4 -boot-info-table -input-charset ascii \

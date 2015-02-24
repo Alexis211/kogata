@@ -8,6 +8,8 @@
 #define ISO9660_VDT_PARTITION 3
 #define ISO9660_VDT_TERMINATOR 255
 
+#define ISO9660_DR_FLAG_DIR (1 << 1)
+
 typedef struct {
 	uint32_t lsb, msb;
 } uint32_lsb_msb_t;
@@ -86,6 +88,23 @@ typedef union {
 	iso9660_vdt_terminator_t term;
 	char buf[2048];
 } iso9660_vdt_entry_t;
+
+typedef struct {
+	iso9660_pvd_t vol_descr;
+	fs_handle_t *disk;
+	bool use_lowercase;	// lowercase all names
+} iso9660_fs_t;
+
+typedef struct {
+	iso9660_dr_t dr;
+	iso9660_fs_t *fs;
+} iso9660_node_t;
+
+typedef struct {
+	iso9660_node_t *n;
+	size_t pos;
+	char buffer[2048];
+} iso9660_dh_t;		// handle to an open directory
 
 void register_iso9660_driver();
 

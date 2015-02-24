@@ -754,7 +754,6 @@ int ide_vfs_ioctl(fs_handle_ptr f, int command, void* data) {
 	if (command == IOCTL_BLOCKDEV_GET_BLOCK_COUNT) 
 		ret = d->c->devices[d->device].size;
 	
-	dbg_printf("ioctl (0x%p) %d -> %d\n", f, command, ret);
 	return ret;
 }
 
