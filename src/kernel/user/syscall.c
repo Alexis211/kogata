@@ -29,6 +29,7 @@ static char* sc_copy_string(uint32_t s, uint32_t slen) {
 // THE SYSCALLS CODE !! //
 // ==================== //
 
+//  ---- Related to the current process's execution
 
 static uint32_t exit_sc(sc_args_t args) {
 	dbg_printf("Proc %d exit with code %d\n", current_process()->pid, args.a);
@@ -58,6 +59,8 @@ static uint32_t dbg_print_sc(sc_args_t args) {
 	return 0;
 }
 
+//  ---- Memory management related
+
 static uint32_t mmap_sc(sc_args_t args) {
 	return mmap(current_process(), (void*)args.a, args.b, args.c);
 }
@@ -77,6 +80,8 @@ static uint32_t mchmap_sc(sc_args_t args) {
 static uint32_t munmap_sc(sc_args_t args) {
 	return munmap(current_process(), (void*)args.a);
 }
+
+//  ---- Accessing the VFS - filesystems
 
 static uint32_t create_sc(sc_args_t args) {
 	bool ret = false;
@@ -175,6 +180,8 @@ end_stat:
 	return ret;
 }
 
+//  ---- Accessing the VFS - files
+
 static uint32_t open_sc(sc_args_t args) {
 	int ret = 0;
 
@@ -260,6 +267,62 @@ static uint32_t get_mode_sc(sc_args_t args) {
 	return file_get_mode(h);
 }
 
+//  ---- Managing file systems
+
+static uint32_t make_fs_sc(sc_args_t args) {
+	return -1; // TODO
+}
+
+static uint32_t fs_add_src_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t fs_subfs_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t rm_fs_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+//  ---- Spawning new processes & giving them ressources
+
+static uint32_t new_proc_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t bind_fs_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t bind_subfs_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t bind_fd_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t proc_exec_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t proc_status_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t proc_kill_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t proc_wait_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
+static uint32_t proc_wait_any_sc(sc_args_t args) {
+	return -1; //TODO
+}
+
 // ====================== //
 // SYSCALLS SETUP ROUTINE //
 // ====================== //
@@ -288,6 +351,21 @@ void setup_syscall_table() {
 	sc_handlers[SC_STAT_OPEN] = stat_open_sc;
 	sc_handlers[SC_IOCTL] = ioctl_sc;
 	sc_handlers[SC_GET_MODE] = get_mode_sc;
+
+	sc_handlers[SC_MAKE_FS] = make_fs_sc;
+	sc_handlers[SC_FS_ADD_SRC] = fs_add_src_sc;
+	sc_handlers[SC_SUBFS] = fs_subfs_sc;
+	sc_handlers[SC_RM_FS] = rm_fs_sc;
+
+	sc_handlers[SC_NEW_PROC] = new_proc_sc;
+	sc_handlers[SC_BIND_FS] = bind_fs_sc;
+	sc_handlers[SC_BIND_SUBFS] = bind_subfs_sc;
+	sc_handlers[SC_BIND_FD] = bind_fd_sc;
+	sc_handlers[SC_PROC_EXEC] = proc_exec_sc;
+	sc_handlers[SC_PROC_STATUS] = proc_status_sc;
+	sc_handlers[SC_PROC_KILL] = proc_kill_sc;
+	sc_handlers[SC_PROC_WAIT] = proc_wait_sc;
+	sc_handlers[SC_PROC_WAIT_ANY] = proc_wait_any_sc;
 }
 
 void syscall_handler(registers_t *regs) {
@@ -304,6 +382,7 @@ void syscall_handler(registers_t *regs) {
 				.e = regs->edi};
 			regs->eax = h(args);
 		} else {
+			dbg_printf("Unimplemented syscall %d\n", regs->eax);
 			regs->eax = -1;
 		}
 	}

@@ -1,6 +1,5 @@
 timeout	10
-default 1
-
+default 0
 
 title   kogata OS
 kernel	/kernel.bin root=io:/atapi0 root_opts=l init=root:/init.bin

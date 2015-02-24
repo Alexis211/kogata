@@ -294,7 +294,7 @@ bool nullfs_d_stat(fs_node_ptr n, stat_t *st) {
 	st->access = FM_READDIR
 		| (d->fs->can_create ? FM_DCREATE : 0)
 		| (d->fs->can_move ? FM_DMOVE : 0)
-		| (d->fs->can_delete ? FM_DUNLINK : 0);
+		| (d->fs->can_delete ? FM_DDELETE : 0);
 
 	st->size = 0;
 	for (nullfs_item_t *i = d->items_list; i != 0; i = i->next)

@@ -11,6 +11,7 @@
 #include <debug.h>
 
 typedef int fd_t;
+typedef int pid_t;
 
 void dbg_print(const char* str);
 void yield();
@@ -36,6 +37,19 @@ bool stat_open(fd_t file, stat_t *s);
 int ioctl(fd_t file, int command, void* data);
 int get_mode(fd_t file);
 
-// more todo
+bool make_fs(const char* name, const char* driver, fd_t source, const char* options);
+bool fs_add_source(const char* fs, fd_t source, const char* options);
+bool fs_subfs(const char* name, const char* orig_fs, const char* root, int ok_modes);
+void fs_remove(const char* name);
+
+pid_t new_proc();
+bool bind_fs(pid_t pid, const char* new_name, const char* fs);
+bool bind_subfs(pid_t pid, const char* new_name, const char* fs, const char* root, int ok_modes);
+bool bind_fd(pid_t pid, fd_t new_fd, fd_t fd);
+bool proc_exec(pid_t pid, const char* file);
+bool proc_status(pid_t pid, proc_status_t *s);
+bool proc_kill(pid_t pid, proc_status_t *s);
+void proc_wait(pid_t pid, proc_status_t *s);
+void proc_wait_any(proc_status_t *s);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

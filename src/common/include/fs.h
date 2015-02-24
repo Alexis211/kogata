@@ -24,7 +24,9 @@
 #define FM_BLOCKING	(0x200)
 #define FM_DCREATE	(0x1000)		// create file in directory
 #define FM_DMOVE	(0x2000)		// move file from directory
-#define FM_DUNLINK	(0x4000)		// delete file from directory
+#define FM_DDELETE	(0x4000)		// delete file from directory
+
+#define FM_ALL_MODES (0xFFFF)
 
 typedef struct {
 	int type;

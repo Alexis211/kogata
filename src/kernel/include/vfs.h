@@ -124,7 +124,9 @@ typedef struct {
 typedef struct fs {
 	// Filled by VFS's make_fs()
 	int refs;
-	// Filled by FS's specific make()
+	struct fs *from_fs;
+	int ok_modes;
+	// Filled by FS's specific make() - all zero in the case of a subfs
 	fs_ops_t *ops;
 	fs_ptr data;
 	// Filled by both according to what is specified for fs_node_t
@@ -158,6 +160,7 @@ fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char *p, char* last_f
 void register_fs_driver(const char* name, fs_driver_ops_t *ops);
 
 fs_t* make_fs(const char* driver, fs_handle_t *source, const char* opts);
+fs_t* fs_subfs(fs_t *fs, const char *root, int ok_modes);
 bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts);
 void ref_fs(fs_t *fs);
 void unref_fs(fs_t *fs);

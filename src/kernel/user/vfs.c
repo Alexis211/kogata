@@ -6,6 +6,11 @@
 // FILESYSTEM DRIVER REGISTERING //
 // ============================= //
 
+static fs_ops_t no_fs_ops = {
+	.shutdown = 0,
+	.add_source = 0,
+};
+
 typedef struct fs_driver {
 	const char* name;
 	fs_driver_ops_t *ops;
@@ -37,6 +42,8 @@ fs_t *make_fs(const char* drv_name, fs_handle_t *source, const char* opts) {
 	if (fs->root == 0) goto fail;
 
 	fs->refs = 1;
+	fs->from_fs = 0;
+	fs->ok_modes = FM_ALL_MODES;
 	fs->root->refs = 1;
 	fs->root->fs = fs;
 	fs->root->parent = 0;
@@ -60,6 +67,27 @@ fail:
 	return 0;
 }
 
+fs_t *fs_subfs(fs_t *fs, const char* root, int ok_modes) {
+	fs_node_t* new_root = fs_walk_path(fs->root, root);
+	if (new_root == 0) return 0;
+
+	fs_t *subfs = (fs_t*)malloc(sizeof(fs_t));
+	if (subfs == 0) return 0;
+
+	subfs->refs = 1;
+	subfs->from_fs = fs;
+	subfs->ok_modes = ok_modes & fs->ok_modes;
+
+	subfs->ops = &no_fs_ops;
+	subfs->data = 0;
+
+	subfs->root = new_root;
+
+	ref_fs(fs);
+
+	return subfs;
+}
+
 bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts) {
 	return fs->ops->add_source && fs->ops->add_source(fs->data, source, opts);
 }
@@ -72,7 +100,8 @@ void unref_fs(fs_t *fs) {
 	fs->refs--;
 	if (fs->refs == 0) {
 		unref_fs_node(fs->root);
-		fs->ops->shutdown(fs->data);
+		if (fs->ops->shutdown) fs->ops->shutdown(fs->data);
+		if (fs->from_fs) unref_fs(fs->from_fs);
 		free(fs);
 	}
 }
@@ -260,6 +289,8 @@ fs_node_t* fs_walk_path_except_last(fs_node_t* from, const char* path, char* las
 // DOING THINGS IN FILESYSTEMS //
 
 bool fs_create(fs_t *fs, const char* file, int type) {
+	if (!(fs->ok_modes & FM_DCREATE)) return false;
+
 	char name[DIR_MAX];
 	fs_node_t *n = fs_walk_path_except_last(fs->root, file, name);
 	if (n == 0) return false;
@@ -273,6 +304,8 @@ bool fs_create(fs_t *fs, const char* file, int type) {
 }
 
 bool fs_delete(fs_t *fs, const char* file) {
+	if (!(fs->ok_modes & FM_DDELETE)) return false;
+
 	char name[DIR_MAX];
 
 	fs_node_t* n = fs_walk_path_except_last(fs->root, file, name);
@@ -292,6 +325,8 @@ bool fs_delete(fs_t *fs, const char* file) {
 }
 
 bool fs_move(fs_t *fs, const char* from, const char* to) {
+	if (!(fs->ok_modes & FM_DMOVE)) return false;
+
 	char old_name[DIR_MAX];
 	fs_node_t *old_parent = fs_walk_path_except_last(fs->root, from, old_name);
 	if (old_parent == 0) return false;
@@ -369,6 +404,8 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
 // =================== //
 
 fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
+	if (mode & ~fs->ok_modes) return 0;
+
 	fs_node_t *n = fs_walk_path(fs->root, file);
 	if (n == 0 && (mode & FM_CREATE)) {
 		if (fs_create(fs, file, FT_REGULAR)) {

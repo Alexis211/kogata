@@ -27,16 +27,60 @@
 #define SC_IOCTL		36		// args: fd, command, out void* data
 #define SC_GET_MODE		37		// args: fd -- get mode for open file handle
 
-#define SC_MAKE_FS		40
-#define SC_FS_ADD_SRC	41
-#define SC_RM_FS		42
+#define SC_MAKE_FS		40		// args: sc_make_fs_args_t
+#define SC_FS_ADD_SRC	41		// args: fs_name, fs_name_strlen, fd, opts, opts_strlen
+#define SC_SUBFS		42		// args: sc_subfs_args_t
+#define SC_RM_FS		43		// args: fs_name, fs_name_strlen
+// TODO : how do we enumerate filesystems ?
 
-#define SC_NEW_PROC		50
-#define SC_BIND_FS		51		// bind FS to child process
-#define SC_BIND_FD		52		// copy a file descriptor to child process
-#define SC_PROC_EXEC	53		// execute binary in process
+#define SC_NEW_PROC		50		// args: nothing ?
+#define SC_BIND_FS		51		// args: pid, new_name, new_name_strlen, fs_name, fs_name_strlen -- bind FS to child process
+#define SC_BIND_SUBFS	52		// args: sc_subfs_args_t -- subfs & bind to child process
+#define SC_BIND_FD		53		// args: pid, new_fd, local_fd -- copy a file descriptor to child process
+#define SC_PROC_EXEC	55		// args: pid, exec_name, exec_name_strlen -- execute binary in process
+#define SC_PROC_STATUS	56		// args: pid, proc_status_t*
+#define SC_PROC_KILL	57		// args: pid, proc_status_t* -- inconditionnally kill child process
+#define SC_PROC_WAIT	58		// args: pid, proc_status_t*
+#define SC_PROC_WAIT_ANY 59		// args: proc_status_t*
 
-// much more to do
+typedef struct {
+	const char* driver;
+	size_t driver_strlen;
+
+	const char* fs_name;
+	size_t fs_name_strlen;
+
+	int source_fd;
+
+	const char* opts;
+	size_t opts_strlen;
+} sc_make_fs_args_t;
+
+typedef struct {
+	const char* new_name;
+	size_t new_name_strlen;
+
+	const char* from_fs;
+	size_t from_fs_strlen;
+
+	const char* root;
+	size_t root_strlen;
+
+	int ok_modes;
+
+	int bind_to_pid;		// used only for SC_BIND_SUBFS
+} sc_subfs_args_t;
+
+#define PS_LOADING	1
+#define PS_RUNNING  2
+#define PS_DONE		3
+#define PS_FAILURE	4	// exception or segfault or stuff
+#define PS_KILLED	5
+typedef struct {
+	int pid;
+	int state;				// one of PS_*
+	int return_code;		// an error code if state == PS_FAILURE
+} proc_status_t;
 
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

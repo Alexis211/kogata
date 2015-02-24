@@ -90,4 +90,77 @@ int get_mode(fd_t file) {
 	return call(SC_GET_MODE, file, 0, 0, 0, 0);
 }
 
+bool make_fs(const char* name, const char* driver, fd_t source, const char* options) {
+	sc_make_fs_args_t args = {
+		.driver = driver,
+		.driver_strlen = strlen(driver),
+		.fs_name = name,
+		.fs_name_strlen = strlen(name),
+		.source_fd = source,
+		.opts = options,
+		.opts_strlen = strlen(options),
+	};
+	return call(SC_MAKE_FS, (uint32_t)&args, 0, 0, 0, 0);
+}
+bool fs_add_source(const char* fs, fd_t source, const char* options) {
+	return call(SC_FS_ADD_SRC, (uint32_t)fs, strlen(fs), source, (uint32_t)options, strlen(options));
+}
+bool fs_subfs(const char* name, const char* orig_fs, const char* root, int ok_modes) {
+	sc_subfs_args_t args = {
+		.new_name = name,
+		.new_name_strlen = strlen(name),
+		.from_fs = orig_fs,
+		.from_fs_strlen = strlen(orig_fs),
+		.root = root,
+		.root_strlen = strlen(root),
+		.ok_modes = ok_modes,
+		.bind_to_pid = 0
+	};
+	return call(SC_SUBFS, (uint32_t)&args, 0, 0, 0, 0);
+}
+void fs_remove(const char* name) {
+	call(SC_RM_FS, (uint32_t)name, strlen(name), 0, 0, 0);
+}
+
+pid_t new_proc() {
+	return call(SC_NEW_PROC, 0, 0, 0, 0, 0);
+}
+bool bind_fs(pid_t pid, const char* new_name, const char* fs) {
+	return call(SC_BIND_FS, pid, (uint32_t)new_name, strlen(new_name), (uint32_t)fs, strlen(fs));
+}
+bool bind_subfs(pid_t pid, const char* new_name, const char* orig_fs, const char* root, int ok_modes) {
+	sc_subfs_args_t args = {
+		.new_name = new_name,
+		.new_name_strlen = strlen(new_name),
+		.from_fs = orig_fs,
+		.from_fs_strlen = strlen(orig_fs),
+		.root = root,
+		.root_strlen = strlen(root),
+		.ok_modes = ok_modes,
+		.bind_to_pid = pid
+	};
+	return call(SC_BIND_SUBFS, (uint32_t)&args, 0, 0, 0, 0);
+}
+bool bind_fd(pid_t pid, fd_t new_fd, fd_t fd) {
+	return call(SC_BIND_FD, new_fd, fd, 0, 0, 0);
+}
+bool proc_exec(pid_t pid, const char* file) {
+	return call(SC_PROC_EXEC, pid, (uint32_t)file, strlen(file), 0, 0);
+}
+bool proc_status(pid_t pid, proc_status_t *s) {
+	return call(SC_PROC_STATUS, pid, (uint32_t)s, 0, 0, 0);
+}
+bool proc_kill(pid_t pid, proc_status_t *s) {
+	return call(SC_PROC_KILL, pid, (uint32_t)s, 0, 0, 0);
+}
+void proc_wait(pid_t pid, proc_status_t *s) {
+	call(SC_PROC_WAIT, pid, (uint32_t)s, 0, 0, 0);
+}
+void proc_wait_any(proc_status_t *s) {
+	call(SC_PROC_WAIT_ANY, (uint32_t)s, 0, 0, 0, 0);
+}
+
+
+
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/
