@@ -114,12 +114,24 @@ void *memset(void *dest, int val, size_t count) {
 }
 
 char *strdup(const char* str) {
-	int len = strlen(str) + 1;
+	size_t len = strlen(str) + 1;
 
 	char* ret = (char*)malloc(len);
 	if (ret == 0) return 0;
 
 	memcpy(ret, str, len);
+	return ret;
+}
+
+char *strndup(const char* str, size_t count) {
+	size_t len = strlen(str);
+	if (count < len) len = count;
+
+	char* ret = (char*)malloc(len + 1);
+	if (ret == 0) return 0;
+
+	memcpy(ret, str, len);
+	ret[len] = 0;
 	return ret;
 }
 

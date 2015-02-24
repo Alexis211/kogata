@@ -1,5 +1,5 @@
 timeout	10
 
 title	Macroscope
-kernel	/kernel.bin
-module	/init.bin
+kernel	/kernel.bin root=io:/atapi0 init=root:/init.bin
+

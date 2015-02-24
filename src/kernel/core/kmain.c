@@ -25,6 +25,7 @@
 
 #include <dev/pci.h>
 #include <dev/pciide.h>
+#include <fs/iso9660.h>
 
 // ===== FOR TESTS =====
 #define TEST_PLACEHOLDER_AFTER_IDT
@@ -48,6 +49,12 @@ void breakpoint_handler(registers_t *regs) {
 }
 
 void kernel_init_stage2(void* data);
+
+btree_t *parse_cmdline(const char* x);
+fs_t *setup_iofs(multiboot_info_t *mbd);
+fs_t *setup_rootfs(btree_t *cmdline, fs_t *iofs);
+void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs);
+
 void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	// used for allocation of data structures before malloc is set up
 	// a pointer to this pointer is passed to the functions that might have
@@ -131,12 +138,68 @@ void kernel_init_stage2(void* data) {
 
 	// Create iofs
 	register_nullfs_driver();
-	fs_t *iofs = make_fs("nullfs", 0, "");
-	ASSERT(iofs != 0);
+	fs_t *iofs = setup_iofs(mbd);
+
+	TEST_PLACEHOLDER_AFTER_DEVFS;
 
 	// Scan for devices
 	pci_setup();
 	pciide_detect(iofs);
+
+	// Register FS drivers
+	register_iso9660_driver();
+
+	// Parse command line
+	btree_t *cmdline = parse_cmdline((const char*)mbd->cmdline);
+
+	fs_t *rootfs = setup_rootfs(cmdline, iofs);
+
+	launch_init(cmdline, iofs, rootfs);
+
+	// We are done here
+	dbg_printf("Reached kmain end! I'll just stop here and do nothing.\n");
+}
+
+btree_t *parse_cmdline(const char* x) {
+	btree_t *ret = create_btree(str_key_cmp_fun, free_key_val);
+	ASSERT(ret != 0);
+
+	x = strchr(x, ' ');
+	if (x == 0) return ret;
+
+	while ((*x) != 0) {
+		while (*x == ' ') x++;
+
+		char* eq = strchr(x, '=');
+		char* sep = strchr(x, ' ');
+		if (sep == 0) {
+			if (eq == 0) {
+				btree_add(ret, strdup(x), strdup(x));
+			} else {
+				btree_add(ret, strndup(x, eq - x), strdup(eq + 1));
+			}
+			break;
+		} else {
+			if (eq == 0 || eq > sep) {
+				btree_add(ret, strndup(x, sep - x), strndup(x, sep - x));
+			} else {
+				btree_add(ret, strndup(x, eq - x), strndup(eq + 1, sep - eq - 1));
+			}
+			x = sep + 1;
+		}
+	}
+
+	void iter(void* a, void* b) {
+		dbg_printf("  '%s'  ->  '%s'\n", a, b);
+	}
+	btree_iter(ret, iter);
+	
+	return ret;
+}
+
+fs_t *setup_iofs(multiboot_info_t *mbd) {
+	fs_t *iofs = make_fs("nullfs", 0, "");
+	ASSERT(iofs != 0);
 
 	// Add kernel command line to iofs
 	{
@@ -169,11 +232,58 @@ void kernel_init_stage2(void* data) {
 					len, false, FM_READ));
 	}
 
-	TEST_PLACEHOLDER_AFTER_DEVFS;
+	return iofs;
+}
+
+fs_t *setup_rootfs(btree_t *cmdline, fs_t *iofs) {
+	char* root = (char*)btree_find(cmdline, "root");
+	char* root_opts = (char*)btree_find(cmdline, "root_opts");
+	if (root == 0) PANIC("No root device specified on kernel command line.");
+
+	char* sep = strchr(root, ':');
+	if (sep != 0) {
+		ASSERT(root[0] == 'i' && root[1] == 'o' && root[2] == ':');
+		root = root + 3;		// ignore prefix, we are always on iofs
+	}
+
+	dbg_printf("Trying to open root device %s... ", root);
+	fs_handle_t *root_dev = fs_open(iofs, root, FM_READ | FM_WRITE | FM_IOCTL);
+	if (root_dev == 0) {
+		dbg_printf("read-only... ");
+		root_dev = fs_open(iofs, root, FM_READ | FM_WRITE | FM_IOCTL);
+	}
+	dbg_printf("\n");
+	if (root_dev == 0) PANIC("Could not open root device.");
+
+	fs_t *rootfs = make_fs(0, root_dev, (root_opts ? root_opts : ""));
+	if (rootfs == 0) PANIC("Could not mount root device.");
+
+	return rootfs;
+}
+
+void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs)  {
+	fs_t *init_fs = rootfs;
+	char* init_file = btree_find(cmdline, "init");
+	if (init_file != 0) PANIC("No init specified on kernel command line.");
+
+	dbg_printf("Launching init %s...\n", init_file);
+
+	char* sep = strchr(init_file, ':');
+	if (sep != 0) {
+		if (strncmp(init_file, "io:", 3) == 0) {
+			init_fs = iofs;
+			init_file = init_file + 3;
+		} else if (strncmp(init_file, "root:", 5) == 0) {
+			init_fs = rootfs;
+			init_file = init_file + 5;
+		} else {
+			PANIC("Invalid init file specification.");
+		}
+	}
 
 	// Launch INIT
-	fs_handle_t *init_bin = fs_open(iofs, "/mod/init.bin", FM_READ);
-	if (init_bin == 0) PANIC("No init.bin module provided!");
+	fs_handle_t *init_bin = fs_open(init_fs, init_file, FM_READ);
+	if (init_bin == 0) PANIC("Could not open init file.");
 	if (!is_elf(init_bin)) PANIC("init.bin is not valid ELF32 binary");
 
 	process_t *init_p = new_process(0);
@@ -181,16 +291,15 @@ void kernel_init_stage2(void* data) {
 
 	bool add_iofs_ok = proc_add_fs(init_p, iofs, "io");
 	ASSERT(add_iofs_ok);
+	bool add_rootfs_ok = proc_add_fs(init_p, rootfs, "root");
+	ASSERT(add_rootfs_ok);
 
 	proc_entry_t *e = elf_load(init_bin, init_p);
-	if (e == 0) PANIC("Could not load ELF file init.bin");
+	if (e == 0) PANIC("Could not load init ELF file");
 
 	unref_file(init_bin);
 
 	start_process(init_p, e);
-
-	// We are done here
-	dbg_printf("Reached kmain end! I'll just stop here and do nothing.\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -18,5 +18,6 @@ int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, size_t n);
 
 char *strdup(const char* str);
+char *strndup(const char* str, size_t count);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
