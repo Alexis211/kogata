@@ -23,6 +23,8 @@
 #include <slab_alloc.h>
 #include <string.h>
 
+#include <dev/pci.h>
+
 // ===== FOR TESTS =====
 #define TEST_PLACEHOLDER_AFTER_IDT
 #define TEST_PLACEHOLDER_AFTER_REGION
@@ -126,20 +128,23 @@ void kernel_init_stage2(void* data) {
 
 	TEST_PLACEHOLDER_AFTER_TASKING;
 
-	// Create devfs
+	// Create iofs
 	register_nullfs_driver();
-	fs_t *devfs = make_fs("nullfs", 0, "");
-	ASSERT(devfs != 0);
+	fs_t *iofs = make_fs("nullfs", 0, "");
+	ASSERT(iofs != 0);
 
-	// Add kernel command line to devfs
+	// Scan for devices
+	pci_setup();
+
+	// Add kernel command line to iofs
 	{
 		dbg_printf("Kernel command line: '%s'\n", (char*)mbd->cmdline);
 		size_t len = strlen((char*)mbd->cmdline);
-		ASSERT(nullfs_add_ram_file(devfs, "/cmdline", (char*)mbd->cmdline, len, false, FM_READ));
+		ASSERT(nullfs_add_ram_file(iofs, "/cmdline", (char*)mbd->cmdline, len, false, FM_READ));
 	}
 
-	// Populate devfs with files for kernel modules
-	ASSERT(fs_create(devfs, "/mod", FT_DIR));
+	// Populate iofs with files for kernel modules
+	ASSERT(fs_create(iofs, "/mod", FT_DIR));
 	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
 	for (unsigned i = 0; i < mbd->mods_count; i++) {
 		char* modname = (char*)mods[i].string;
@@ -157,7 +162,7 @@ void kernel_init_stage2(void* data) {
 
 		dbg_printf("Adding module to VFS: '%s' (size %d)\n", name, len);
 
-		ASSERT(nullfs_add_ram_file(devfs, name,
+		ASSERT(nullfs_add_ram_file(iofs, name,
 					(char*)mods[i].mod_start,
 					len, false, FM_READ));
 	}
@@ -165,15 +170,15 @@ void kernel_init_stage2(void* data) {
 	TEST_PLACEHOLDER_AFTER_DEVFS;
 
 	// Launch INIT
-	fs_handle_t *init_bin = fs_open(devfs, "/mod/init.bin", FM_READ);
+	fs_handle_t *init_bin = fs_open(iofs, "/mod/init.bin", FM_READ);
 	if (init_bin == 0) PANIC("No init.bin module provided!");
 	if (!is_elf(init_bin)) PANIC("init.bin is not valid ELF32 binary");
 
 	process_t *init_p = new_process(0);
 	ASSERT(init_p != 0);
 
-	bool add_devfs_ok = proc_add_fs(init_p, devfs, "dev");
-	ASSERT(add_devfs_ok);
+	bool add_iofs_ok = proc_add_fs(init_p, iofs, "io");
+	ASSERT(add_iofs_ok);
 
 	proc_entry_t *e = elf_load(init_bin, init_p);
 	if (e == 0) PANIC("Could not load ELF file init.bin");

@@ -9,15 +9,15 @@
 int main(int argc, char **argv) {
 	dbg_print("Hello, world! from user process.\n");
 
-	fd_t f = open("dev:/", FM_READDIR);
+	fd_t f = open("io:/", FM_READDIR);
 	dbg_printf("openned /: %d\n", f);
 	dirent_t x;
 	while (readdir(f, &x)) {
 		dbg_printf("- '%s' %p %d\n", x.name, x.st.type, x.st.size);
 		if (x.st.type == FT_REGULAR) {
 			char buf[256];
-			strcpy(buf, "dev:/");
-			strcpy(buf+5, x.name);
+			strcpy(buf, "io:/");
+			strcpy(buf+4, x.name);
 			dbg_printf("trying to open %s...\n", buf);
 			fd_t ff = open(buf, FM_READ);
 			if (ff != 0) {

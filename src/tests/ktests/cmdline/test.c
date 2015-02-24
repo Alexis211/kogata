@@ -1,8 +1,8 @@
 
-void test_cmdline(multiboot_info_t *mbd, fs_t *devfs) {
+void test_cmdline(multiboot_info_t *mbd, fs_t *iofs) {
 	BEGIN_TEST("test-cmdline");
 
-	fs_handle_t *f = fs_open(devfs, "/cmdline", FM_READ);
+	fs_handle_t *f = fs_open(iofs, "/cmdline", FM_READ);
 	ASSERT(f != 0);
 
 	char buf[256];
@@ -19,6 +19,6 @@ void test_cmdline(multiboot_info_t *mbd, fs_t *devfs) {
 }
 
 #undef TEST_PLACEHOLDER_AFTER_DEVFS
-#define TEST_PLACEHOLDER_AFTER_DEVFS { test_cmdline(mbd, devfs); }
+#define TEST_PLACEHOLDER_AFTER_DEVFS { test_cmdline(mbd, iofs); }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -23,14 +23,16 @@ mrproper:
 run_tests: rebuild
 	src/tests/run_tests.sh
 
-run_qemu: all
-	qemu-system-i386 -kernel src/kernel/kernel.bin -serial stdio -m 16 -initrd src/apps/init/init.bin
+cdrom.iso: all
+	./make_cdrom.sh
 
-run_qemu_debug: all
-	qemu-system-i386 -kernel src/kernel/kernel.bin -serial stdio -s -S &	\
+run_qemu: cdrom.iso
+	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 16
+
+run_qemu_debug: cdrom.iso
+	qemu-system-i386 -cdrom cdrom.iso -serial stdio -s -S &	\
 	(sleep 0.1; gdb src/kernel/kernel.bin -x gdb_cmd)
 
-run_bochs_debug: all
-	./make_cdrom.sh
+run_bochs_debug: cdrom.iso
 	bochs -f bochs_debug.cfg -q
 

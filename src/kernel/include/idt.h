@@ -8,22 +8,22 @@
 
 #include <config.h>
 
-#define IRQ0  0
-#define IRQ1  1
-#define IRQ2  2
-#define IRQ3  3
-#define IRQ4  4
-#define IRQ5  5
-#define IRQ6  6
-#define IRQ7  7
-#define IRQ8  8
-#define IRQ9  9
-#define IRQ10 10
-#define IRQ11 11
-#define IRQ12 12
-#define IRQ13 13
-#define IRQ14 14
-#define IRQ15 15
+#define IRQ0  0			// PIT
+#define IRQ1  1			// PCKBD
+#define IRQ2  2			// not used
+#define IRQ3  3			// COM2
+#define IRQ4  4			// COM1
+#define IRQ5  5			// LPT2
+#define IRQ6  6			// Floppy
+#define IRQ7  7			// LPT1
+#define IRQ8  8			// CMOS RTC
+#define IRQ9  9			// free -> PCI IRQ
+#define IRQ10 10		// free -> PCI IRQ
+#define IRQ11 11		// free -> PCI IRQ
+#define IRQ12 12		// PS2 mouse
+#define IRQ13 13		// FPU
+#define IRQ14 14		// Primary ATA HD
+#define IRQ15 15		// Secondary ATA HD
 
 #define EX_DIVIDE_ERROR                  0         // No error code
 #define EX_DEBUG                         1         // No error code

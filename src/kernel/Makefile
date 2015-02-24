@@ -2,7 +2,8 @@
 OBJ = core/loader.o core/dbglog.o \
 	core/gdt.o core/idt.o core/interrupt.o core/context_switch.o core/thread.o \
 	core/frame.o core/paging.o core/region.o core/kmalloc.o core/worker.o \
-	user/vfs.o user/nullfs.o user/process.o user/elf.o user/syscall.o
+	user/vfs.o user/nullfs.o user/process.o user/elf.o user/syscall.o \
+	dev/pci.o
 
 LIB = ../common/libc/libc.lib ../common/libkogata/libkogata.lib ../common/libalgo/libalgo.lib
 
