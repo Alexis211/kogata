@@ -24,6 +24,22 @@ The code for the project must make sense, be simple and straightforward, and be
 easily understandable in complete detail so that we can track bugs and extend
 the system more easily.
 
+### Capability-like security system
+
+A normal ring-3 application managed by a ring-0 kernel is a bit like a virtual
+machine in wich the process runs : it has a full memory space and doesn't see it
+when it is interrupted by other things happening on the system. We take this a
+bit further by saying that a process that creates a child process creates a
+"box" in which some of the ressources of the parent can be made accessible,
+possibly with some restrictions. In particular this is true of filesystems :
+each process has its own filesystem namespace. Basically it means that the login
+manager has full access to all disk devices and system hardware, the session
+manager for a user session only has access to the user's data and read-only
+access to system files, and an untrusted user application can be sandboxed in an
+environment where it will only see its own data and necessary libraries, with
+"bridges" enabling access to user-approved data (for instance a file chooser, or
+taking a picture with a webcam or such).
+
 ### Goal : small and cool
 
 I would love to have kogata fit on a 1.44MB floppy and run with a full GUI and
