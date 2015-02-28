@@ -74,6 +74,16 @@ void idt_init();
 void idt_set_ex_handler(int number, isr_handler_t func);	//Set exception handler
 void idt_set_irq_handler(int number, isr_handler_t func);	//Set IRQ handler
 
+// Warning about IRQ handlers :
+// IRQ handlers must not call yield(), because that may not return ! Therefore they cannot
+// use mutexes, memory allocation and most usefull things. Basically the only thing they
+// can do is wake up another thread, so it is a good idea to have a thread that waits for
+// the IRQ and does something when it happens, and the IRQ handler only wakes up that thread
+// when the IRQ happens.
+// Remark on resume_thread : if the second argument is set to true, yield() is called in the
+// function, so it may never return in some circumstances
+// IRQ handlers are never preemptible
+
 void dbg_dump_registers(registers_t*);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

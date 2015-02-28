@@ -165,22 +165,25 @@ static thread_t *wait_irq14 = 0, *wait_irq15 = 0, *wait_pciirq = 0;
 
 void irq14_handler(registers_t *regs) {
 	if (wait_irq14) {
-		resume_thread(wait_irq14, true);
+		thread_t *t = wait_irq14;
 		wait_irq14 = 0;
+		resume_thread(t, true);	// may not return depending on conditions
 	}
 }
 
 void irq15_handler(registers_t *regs) {
 	if (wait_irq15) {
-		resume_thread(wait_irq15, true);
+		thread_t *t = wait_irq15;
 		wait_irq15 = 0;
+		resume_thread(t, true);
 	}
 }
 
 void pciirq_handler(int pci_id) {
 	if (wait_pciirq) {
-		resume_thread(wait_pciirq, true);
+		thread_t *t = wait_pciirq;
 		wait_pciirq = 0;
+		resume_thread(t, true);
 	}
 }
 
