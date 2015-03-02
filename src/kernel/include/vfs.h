@@ -52,6 +52,9 @@ typedef struct fs_handle {
 	int refs;
 
 	int mode;
+
+	// TODO : keep a position in the file for sequential-append access and such
+	// (as it is this structure is quite useless)
 } fs_handle_t;
 
 // -------------------------------------------
