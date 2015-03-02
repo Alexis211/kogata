@@ -153,11 +153,8 @@ bool proc_status(pid_t pid, proc_status_t *s) {
 bool proc_kill(pid_t pid, proc_status_t *s) {
 	return call(SC_PROC_KILL, pid, (uint32_t)s, 0, 0, 0);
 }
-void proc_wait(pid_t pid, proc_status_t *s) {
-	call(SC_PROC_WAIT, pid, (uint32_t)s, 0, 0, 0);
-}
-void proc_wait_any(proc_status_t *s) {
-	call(SC_PROC_WAIT_ANY, (uint32_t)s, 0, 0, 0, 0);
+void proc_wait(pid_t pid, bool block, proc_status_t *s) {
+	call(SC_PROC_WAIT, pid, block, (uint32_t)s, 0, 0);
 }
 
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <proc.h>
 
 #define SC_MAX		128		// maximum number of syscalls
 
@@ -40,8 +41,9 @@
 #define SC_PROC_EXEC	55		// args: pid, exec_name, exec_name_strlen -- execute binary in process
 #define SC_PROC_STATUS	56		// args: pid, proc_status_t*
 #define SC_PROC_KILL	57		// args: pid, proc_status_t* -- inconditionnally kill child process
-#define SC_PROC_WAIT	58		// args: pid, proc_status_t*
-#define SC_PROC_WAIT_ANY 59		// args: proc_status_t*
+#define SC_PROC_WAIT	58		// args: pid?, block?, proc_status_t*
+
+#define INVALID_PID 0		// do a wait with this PID to wayt for any child
 
 typedef struct {
 	const char* driver;
@@ -70,17 +72,5 @@ typedef struct {
 
 	int bind_to_pid;		// used only for SC_BIND_SUBFS
 } sc_subfs_args_t;
-
-#define PS_LOADING	1
-#define PS_RUNNING  2
-#define PS_DONE		3
-#define PS_FAILURE	4	// exception or segfault or stuff
-#define PS_KILLED	5
-typedef struct {
-	int pid;
-	int state;				// one of PS_*
-	int return_code;		// an error code if state == PS_FAILURE
-} proc_status_t;
-
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

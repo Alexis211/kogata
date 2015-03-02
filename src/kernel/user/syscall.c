@@ -319,10 +319,6 @@ static uint32_t proc_wait_sc(sc_args_t args) {
 	return -1; //TODO
 }
 
-static uint32_t proc_wait_any_sc(sc_args_t args) {
-	return -1; //TODO
-}
-
 // ====================== //
 // SYSCALLS SETUP ROUTINE //
 // ====================== //
@@ -365,7 +361,6 @@ void setup_syscall_table() {
 	sc_handlers[SC_PROC_STATUS] = proc_status_sc;
 	sc_handlers[SC_PROC_KILL] = proc_kill_sc;
 	sc_handlers[SC_PROC_WAIT] = proc_wait_sc;
-	sc_handlers[SC_PROC_WAIT_ANY] = proc_wait_any_sc;
 }
 
 void syscall_handler(registers_t *regs) {

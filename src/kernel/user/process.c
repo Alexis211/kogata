@@ -17,6 +17,11 @@ process_t *current_process() {
 	return 0;
 }
 
+typedef struct {
+	proc_entry_t entry;
+	void *sp;
+} setup_data_t;
+
 // ============================== //
 // CREATING AND RUNNING PROCESSES //
 // ============================== //
@@ -39,7 +44,7 @@ process_t *new_process(process_t *parent) {
 
 	proc->last_ran = 0;
 	proc->regions = 0;
-	proc->thread = 0;
+	proc->threads = 0;
 	proc->pid = (next_pid++);
 	proc->parent = parent;
 	proc->next_fd = 1;
@@ -54,13 +59,17 @@ error:
 	return 0;
 }
 
-static void run_user_code(void* entry) {
+static void run_user_code(void* param) {
+	setup_data_t *d = (setup_data_t*)param;
+
 	process_t *proc = current_thread->proc;
 	ASSERT(proc != 0);
 
 	switch_pagedir(proc->pd);
 
-	void* esp = (void*)USERSTACK_ADDR + USERSTACK_SIZE;
+	void* esp = d->sp;
+	proc_entry_t entry = d->entry;
+	free(d);
 
 	asm volatile("				\
 			cli;				\
@@ -86,14 +95,34 @@ bool start_process(process_t *p, void* entry) {
 	bool stack_ok = mmap(p, (void*)USERSTACK_ADDR, USERSTACK_SIZE, MM_READ | MM_WRITE);
 	if (!stack_ok) return false;
 
-	thread_t *th = new_thread(run_user_code, entry);
-	if (th == 0) {
+	bool ok = process_new_thread(p, entry, (void*)USERSTACK_ADDR + USERSTACK_SIZE);
+	if (!ok) {
 		munmap(p, (void*)USERSTACK_ADDR);
+		return false;
+	}
+
+	return true;
+}
+
+bool process_new_thread(process_t *p, proc_entry_t entry, void* sp) {
+	setup_data_t *d = (setup_data_t*)malloc(sizeof(setup_data_t));
+	d->entry = entry;
+	d->sp = sp;
+
+	thread_t *th = new_thread(run_user_code, d);
+	if (th == 0) {
 		return false;
 	}
 
 	th->proc = p;
 	th->user_ex_handler = proc_user_exception;
+
+	{	int st = enter_critical(CL_NOINT);	// it's a bit complicated to use mutexes on process_t (TODO: think)
+
+		th->next_in_proc = p->threads;
+		p->threads = th;
+
+		exit_critical(st);	}
 	
 	resume_thread(th);
 

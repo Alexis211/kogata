@@ -104,8 +104,13 @@ running the tests):
 
 ### Plans for soon
 
+* Complete process management (implement process exiting, process deletion, waiting, ...)
 * Implement missing syscalls
-* Write device drivers : VGA, keyboard, ATA, FAT, VESA
+* Write device drivers : VGA, keyboard, FAT (or EXT2 ?), VESA
+* Work on userland
+* Define a format for "packages", ie readonly filesystem images used for adding system
+  components or apps to the OS ; make sure to implement it in a way that does not waste
+  memory
 
 ### Things to design
 
@@ -121,7 +126,6 @@ running the tests):
     we can always reload them from the disk.
   - An on-disk file with a page cache must be aware of all the places where the page is mapped,
     so that it can unmap it when reclaiming pages.
-  - Simpler model : cached pages cannot be freed while the file is open with `FM_MMAP`
 * Reclaiming physical memory :
   - Freeing some cached stuff, ie swapping pages from mmap regions
   - Swapping pages from processes non-mmap regions (ie real data regions)
@@ -132,6 +136,8 @@ running the tests):
   have the possibility of crashing the system
 * How does a process transmit information (such as environment, arguments, file
   descriptors) to its children ?
+* How do we do stream-like IO on files ? (ie how do we implement the append acces mode
+  and non-position-dependant read/write calls & seek call)
 
 ### Things not sure
 
@@ -147,5 +153,6 @@ running the tests):
 
 None of the source files have a licence header because it's cumbersome. All the
 code and associated documentation found in this repository is released under
-the ISC licence as detailed in the `COPYING` file.
+the ISC licence as detailed in the `COPYING` file. Some parts of the code are very
+directly inspired from examples found on the OSDev wiki, thank you all!
 

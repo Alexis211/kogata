@@ -49,7 +49,6 @@ bool bind_fd(pid_t pid, fd_t new_fd, fd_t fd);
 bool proc_exec(pid_t pid, const char* file);
 bool proc_status(pid_t pid, proc_status_t *s);
 bool proc_kill(pid_t pid, proc_status_t *s);
-void proc_wait(pid_t pid, proc_status_t *s);
-void proc_wait_any(proc_status_t *s);
+void proc_wait(pid_t pid, bool wait, proc_status_t *s);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -18,8 +18,10 @@
 
 #include <mmap.h>
 
+#include <proc.h> 	// common header defining process statuses
+
 #define USERSTACK_ADDR	0xB8000000
-#define USERSTACK_SIZE	0x00020000		// 32 KB
+#define USERSTACK_SIZE	0x00020000		// 32 KB - it is allocated on demand so no worries
 
 typedef struct process process_t;
 
@@ -46,21 +48,40 @@ typedef struct process {
 	hashtbl_t *files;
 	int next_fd;
 
-	thread_t *thread;
+	thread_t *threads;
 	uint64_t last_ran;
 
 	int pid;
 	struct process *parent;
+	struct process *next_child;
+	struct process *children;
 } process_t;
 
 typedef void* proc_entry_t;
 
+//  ---- Process creation, deletion, waiting, etc.
+// Simple semantics : when a process exits, all its ressources are freed immediately
+// except for the process_t that remains attached to the parent process until it does
+// a wait() and acknowleges the process' ending
+// When a process exits, all the children are orphaned and nobody can wait on them anymore,
+// which is a bad thing : a user process must always wait for all its children !
+
 process_t *current_process();
 
 process_t *new_process(process_t *parent);
-// void delete_process(process_t *p);	// TODO define semantics for freeing stuff
 
 bool start_process(process_t *p, proc_entry_t entry);	// maps a region for user stack
+void process_exit(process_t *p, int status, int exit_code);		// exit current process
+
+bool process_new_thread(process_t *p, proc_entry_t entry, void* sp);
+void process_thread_exited(thread_t *t);		// called by threading code when a thread exits
+
+process_t *process_find_child(process_t *p, int pid);
+void process_get_status(process_t *p, proc_status_t *st);
+void process_wait(process_t *p, proc_status_t *st, bool block);	// waits for exit and frees process_t structure 
+void process_wait_any_child(process_t *p, bool block);
+
+//  ---- Process FS namespace & FD set
 
 bool proc_add_fs(process_t *p, fs_t *fs, const char* name);
 fs_t *proc_find_fs(process_t *p, const char* name);
@@ -69,12 +90,14 @@ int proc_add_fd(process_t *p, fs_handle_t *f);		// on error returns 0, nonzero o
 fs_handle_t *proc_read_fd(process_t *p, int fd);
 void proc_close_fd(process_t *p, int fd);
 
+//  ---- Process virtual memory space
+
 bool mmap(process_t *proc, void* addr, size_t size, int mode);		// create empty zone
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode);
 bool mchmap(process_t *proc, void* addr, int mode);
 bool munmap(process_t *proc, void* addr);
 
-// for syscalls : check that process is authorized to do that
+// for syscalls : check that process is authorized to read/write given addresses
 // (if not, process exits with a segfault)
 void probe_for_read(const void* addr, size_t len);
 void probe_for_write(const void* addr, size_t len);

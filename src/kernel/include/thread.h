@@ -30,9 +30,10 @@ typedef struct thread {
 	region_info_t *stack_region;
 
 	process_t *proc;
-	isr_handler_t user_ex_handler;	// page fault in kernel memory accessed by user code (violation)
+	isr_handler_t user_ex_handler;	// exception in user code
 
 	struct thread *next_in_queue;
+	struct thread *next_in_proc;
 } thread_t;
 
 typedef void (*entry_t)(void*);
@@ -48,7 +49,7 @@ void exit();
 void usleep(int usecs);
 
 bool resume_thread(thread_t *thread);
-void kill_thread(thread_t *thread);
+void kill_thread(thread_t *thread);		// cannot be called for current thread
 
 // Kernel critical sections
 #define CL_EXCL			3	// No interruptions accepted, context switching not allowed
