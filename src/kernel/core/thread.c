@@ -128,13 +128,15 @@ thread_t *new_thread(entry_t entry, void* data) {
 	thread_t *t = (thread_t*)malloc(sizeof(thread_t));
 	if (t == 0) return 0;
 
-	void* stack = region_alloc(KPROC_STACK_SIZE, "Stack", 0);
+	void* stack = region_alloc(KPROC_STACK_SIZE + PAGE_SIZE, "Stack", pf_handler_stackoverflow);
 	if (stack == 0) {
 		free(t);
 		return 0;
 	}
+	void* stack_low = stack + PAGE_SIZE;
+	void* stack_high = stack_low + KPROC_STACK_SIZE;
 
-	for (void* i = stack + PAGE_SIZE; i < stack + KPROC_STACK_SIZE; i += PAGE_SIZE) {
+	for (void* i = stack_low; i < stack_high; i += PAGE_SIZE) {
 		uint32_t f = frame_alloc(1);
 		if (f == 0) {
 			PANIC("TODO (OOM could not create kernel stack for new thread)");
@@ -146,8 +148,9 @@ thread_t *new_thread(entry_t entry, void* data) {
 	}
 
 	t->stack_region = find_region(stack);
+	ASSERT(stack_high == t->stack_region->addr + t->stack_region->size);
 
-	t->ctx.esp = (uint32_t*)(t->stack_region->addr + t->stack_region->size);
+	t->ctx.esp = (uint32_t*)stack_high;
 	*(--t->ctx.esp) = (uint32_t)data;	// push second argument : data
 	*(--t->ctx.esp) = (uint32_t)entry;	// push first argument : entry point
 	*(--t->ctx.esp) = 0;		// push invalid return address (the run_thread function never returns)

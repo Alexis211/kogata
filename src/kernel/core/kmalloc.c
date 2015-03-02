@@ -6,10 +6,30 @@
 #include <frame.h>
 #include <paging.h>
 #include <region.h>
+#include <freemem.h>
 
 static void* page_alloc_fun_for_kmalloc(size_t bytes) {
-	void* addr = region_alloc(bytes, "Core kernel heap", default_allocator_pf_handler);
+	void* addr = region_alloc(bytes, "Core kernel heap", pf_handler_unexpected);
+	if (addr == 0) return 0;
+
+	// Map physical memory
+	for (void* i = addr; i < addr + bytes; i += PAGE_SIZE) {
+		int f = frame_alloc(1);
+		if (f == 0) goto failure;
+		if (!pd_map_page(i, f, true)) goto failure;
+	}
+
 	return addr;
+
+failure:
+	for (void* i = addr; i < addr + bytes; i += PAGE_SIZE) {
+		int f = pd_get_frame(i);
+		if (f != 0) {
+			pd_unmap_page(i);
+			frame_free(f, 1);
+		}
+	}
+	return 0;
 }
 
 static slab_type_t slab_sizes[] = {
@@ -35,12 +55,23 @@ void kmalloc_setup() {
 										region_free_unmap_free);
 }
 
-void* malloc(size_t sz) {
+static void* malloc0(size_t sz) {
 	void* res = 0;
 
 	mutex_lock(&malloc_mutex);
 	res = slab_alloc(kernel_allocator, sz);
 	mutex_unlock(&malloc_mutex);
+
+	return res;
+}
+
+void* malloc(size_t sz) {
+	void* res;
+	int tries = 0;
+
+	while ((res = malloc0(sz)) == 0 && (tries++) < 3) {
+		free_some_memory();
+	}
 
 	return res;
 }

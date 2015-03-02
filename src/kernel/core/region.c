@@ -333,14 +333,14 @@ region_info_t *find_region(void* addr) {
 // HELPER FUNCTIONS : SIMPLE PF HANDLERS ; FREEING FUNCTIONS //
 // ========================================================= //
 
-void default_allocator_pf_handler(pagedir_t *pd, struct region_info *r, void* addr) {
-	ASSERT(pd_get_frame(addr) == 0);	// if error is of another type (RO, protected), we don't do anyting
+void pf_handler_unexpected(pagedir_t *pd, struct region_info *r, void* addr) {
+	dbg_printf("Unexpected page fault at 0x%p\n", addr);
+	PANIC("Unexpected page fault");
+}
 
-	uint32_t f = frame_alloc(1);
-	if (f == 0) PANIC("Out Of Memory");
-
-	bool map_ok = pd_map_page(addr, f, 1);
-	if (!map_ok) PANIC("Could not map frame (OOM)");
+void pf_handler_stackoverflow(pagedir_t *pd, struct region_info *r, void* addr) {
+	dbg_printf("Kernel stack overflow at 0x%p\n", addr);
+	PANIC("Kernel stack overflow");
 }
 
 void region_free_unmap_free(void* ptr) {
