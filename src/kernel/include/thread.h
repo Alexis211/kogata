@@ -9,7 +9,7 @@
 #define T_STATE_PAUSED	 	2
 #define T_STATE_FINISHED	3
 
-#define KPROC_STACK_SIZE 0x8000	// 8Kb
+#define KPROC_STACK_SIZE 0x2000	// 8Kb
 
 #define TASK_SWITCH_FREQUENCY	100		// in herz
 
@@ -25,6 +25,7 @@ typedef struct thread {
 
 	uint32_t state;
 	uint64_t last_ran;
+	int critical_level;
 
 	region_info_t *stack_region;
 
@@ -46,7 +47,16 @@ void pause();
 void exit();
 void usleep(int usecs);
 
-bool resume_thread(thread_t *thread, bool run_at_once); // true if thrad was paused, false if was running
+bool resume_thread(thread_t *thread);
 void kill_thread(thread_t *thread);
+
+// Kernel critical sections
+#define CL_EXCL			3	// No interruptions accepted, context switching not allowed
+#define CL_NOINT 		2	// No interruptions accepted, timer context switching disabled (manual switch allowed)
+#define CL_NOSWITCH 	1	// Interruptions accepted, timer context switching disabled (manual switch allowed)
+#define CL_USER  		0	// Anything can happen
+
+int enter_critical(int level);
+void exit_critical(int prev_level);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

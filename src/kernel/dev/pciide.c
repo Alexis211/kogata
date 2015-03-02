@@ -167,7 +167,7 @@ void irq14_handler(registers_t *regs) {
 	if (wait_irq14) {
 		thread_t *t = wait_irq14;
 		wait_irq14 = 0;
-		resume_thread(t, true);	// may not return depending on conditions
+		resume_thread(t);
 	}
 }
 
@@ -175,7 +175,7 @@ void irq15_handler(registers_t *regs) {
 	if (wait_irq15) {
 		thread_t *t = wait_irq15;
 		wait_irq15 = 0;
-		resume_thread(t, true);
+		resume_thread(t);
 	}
 }
 
@@ -183,7 +183,7 @@ void pciirq_handler(int pci_id) {
 	if (wait_pciirq) {
 		thread_t *t = wait_pciirq;
 		wait_pciirq = 0;
-		resume_thread(t, true);
+		resume_thread(t);
 	}
 }
 
@@ -202,7 +202,8 @@ static void ide_prewait_irq(ide_controller_t *c, int channel) {
 }
 
 static void ide_wait_irq(ide_controller_t *c, int channel) {
-	asm volatile("cli");
+	int st = enter_critical(CL_NOINT);
+
 	int irq = c->channels[channel].irq;
 	if (irq == 14) {
 		if (wait_irq14) pause();
@@ -214,7 +215,8 @@ static void ide_wait_irq(ide_controller_t *c, int channel) {
 		if (wait_pciirq) pause();
 		mutex_unlock(&on_pciirq);
 	}
-	asm volatile("sti");
+
+	exit_critical(st);
 }
 
 // ===================================== //

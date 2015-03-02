@@ -88,7 +88,7 @@ void worker_notify_time(int usecs) {
 	time += usecs;
 	if (next_task_time <= time) {
 		for (int i = 0; i < nworkers; i++) {
-			if (resume_thread(workers[i], false)) break;
+			if (resume_thread(workers[i])) break;
 		}
 	}
 }

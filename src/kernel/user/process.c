@@ -94,7 +94,7 @@ bool start_process(process_t *p, void* entry) {
 	th->proc = p;
 	th->user_ex_handler = proc_user_exception;
 	
-	resume_thread(th, false);
+	resume_thread(th);
 
 	return true;
 }

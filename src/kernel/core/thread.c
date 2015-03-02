@@ -30,19 +30,30 @@ void set_pit_frequency(uint32_t freq) {
    outb(0x40, h);
 }
 
-// ============================= //
-// HELPER : IF FLAG MANIPULATION //
-// ============================= //
+// =========================== //
+// CRITICAL SECTION MANAGEMENT //
+// =========================== //
 
-static inline bool disable_interrupts() {
-	uint32_t eflags;
-	asm volatile("pushf; pop %0" : "=r"(eflags));
+int enter_critical(int level) {
 	asm volatile("cli");
-	return (eflags & EFLAGS_IF) != 0;
+
+	if (current_thread == 0) return CL_EXCL;
+
+	int prev_level = current_thread->critical_level;
+	if (level > prev_level) current_thread->critical_level = level;
+	
+	if (current_thread->critical_level < CL_NOINT) asm volatile("sti");
+
+	return prev_level;
 }
 
-static inline void resume_interrupts(bool st) {
-	if (st) asm volatile("sti");
+void exit_critical(int prev_level) {
+	asm volatile("cli");
+
+	if (current_thread == 0) return;
+
+	if (prev_level < current_thread->critical_level) current_thread->critical_level = prev_level;
+	if (current_thread->critical_level < CL_NOINT) asm volatile("sti");
 }
 
 // ================== //
@@ -89,8 +100,8 @@ void run_scheduler() {
 		if (current_thread->proc) current_thread->proc->last_ran = current_thread->last_ran;
 		enqueue_thread(current_thread, true);
 	}
-
 	current_thread = dequeue_thread();
+
 	if (current_thread != 0) {
 		set_kernel_stack(current_thread->stack_region->addr + current_thread->stack_region->size);
 		resume_context(&current_thread->ctx);
@@ -100,7 +111,6 @@ void run_scheduler() {
 		// At this point an IRQ has happenned
 		// and has been processed. Loop around. 
 		run_scheduler();
-		ASSERT(false);
 	}
 }
 
@@ -151,6 +161,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 	// used by user processes
 	t->proc = 0;
 	t->user_ex_handler = 0;
+	t->critical_level = CL_USER;
 
 	return t;
 }
@@ -161,7 +172,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 
 static void irq0_handler(registers_t *regs) {
 	worker_notify_time(1000000 / TASK_SWITCH_FREQUENCY);
-	if (current_thread != 0) {
+	if (current_thread != 0 && current_thread->critical_level == CL_USER) {
 		save_context_and_enter_scheduler(&current_thread->ctx);
 	}
 }
@@ -172,7 +183,8 @@ void threading_setup(entry_t cont, void* arg) {
 	thread_t *t = new_thread(cont, arg);
 	ASSERT(t != 0);
 
-	resume_thread(t, false);
+	resume_thread(t);
+	exit_critical(CL_USER);
 
 	run_scheduler();	// never returns
 	ASSERT(false);
@@ -183,28 +195,22 @@ void threading_setup(entry_t cont, void* arg) {
 // ======================= //
 
 void yield() {
-	if (current_thread == 0) {
-		// might happen before threading is initialized
-		// (but should not...)
-		dbg_printf("Warning: probable deadlock.\n");
-	} else {
-		save_context_and_enter_scheduler(&current_thread->ctx);
-	}
+	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
+
+	save_context_and_enter_scheduler(&current_thread->ctx);
 }
 
 void pause() {
-	bool st = disable_interrupts();
+	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
 
 	current_thread->state = T_STATE_PAUSED;
 	save_context_and_enter_scheduler(&current_thread->ctx);
-
-	resume_interrupts(st);
 }
 
 void usleep(int usecs) {
 	void sleeper_resume(void* t) {
 		thread_t *thread = (thread_t*)t;
-		resume_thread(thread, true);
+		resume_thread(thread);
 	}
 	if (current_thread == 0) return;
 	bool ok = worker_push_in(usecs, sleeper_resume, current_thread);
@@ -218,19 +224,18 @@ void exit() {
 	ASSERT(false);
 }
 
-bool resume_thread(thread_t *thread, bool run_at_once) {
+bool resume_thread(thread_t *thread) {
 	bool ret = false;
 
-	bool st = disable_interrupts();
+	int st = enter_critical(CL_NOINT);
 
 	if (thread->state == T_STATE_PAUSED) {
 		ret = true;
 		thread->state = T_STATE_RUNNING;
 		enqueue_thread(thread, false);
 	}
-	if (run_at_once) yield();
 
-	resume_interrupts(st);
+	exit_critical(st);
 
 	return ret;
 }

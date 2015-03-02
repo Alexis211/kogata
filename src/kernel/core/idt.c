@@ -107,6 +107,8 @@ void idt_ex_handler(registers_t *regs) {
 
 /*	Called in interrupt.s when an IRQ fires (interrupt 32 to 47) */
 void idt_irq_handler(registers_t *regs) {
+	int st = enter_critical(CL_EXCL);	// if someone tries to yield(), an assert will fail
+
 	if (regs->err_code > 7) {
 		outb(0xA0, 0x20);
 	}
@@ -116,6 +118,8 @@ void idt_irq_handler(registers_t *regs) {
 	if (irq_handlers[regs->err_code] != 0) {
 		irq_handlers[regs->err_code](regs);
 	}
+
+	exit_critical(st);
 }
 
 /* Caled in interrupt.s when a syscall is called */
