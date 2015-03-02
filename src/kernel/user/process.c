@@ -4,6 +4,7 @@
 
 #include <frame.h>
 #include <process.h>
+#include <freemem.h>
 
 
 static int next_pid = 1;
@@ -345,14 +346,12 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 			frame = file_get_page(r->file, addr - r->addr + r->file_offset);
 		}
 		if (frame == 0) {
-			dbg_printf("OOM for process %d ; yielding and waiting for someone to free some RAM.\n", proc->pid);
-			yield();
+			free_some_memory();
 		}
 	} while (frame == 0);
 
 	while(!pd_map_page(addr, frame, (r->mode & MM_WRITE) != 0)) {
-		dbg_printf("OOM(2) for process %d ; yielding and waiting for someone to free some RAM.\n", proc->pid);
-		yield();
+		free_some_memory();
 	}
 
 	if (r->file == 0) memset(addr, 0, PAGE_SIZE);		// zero out

@@ -6,6 +6,7 @@
 #include <mutex.h>
 #include <thread.h>
 #include <malloc.h>
+#include <freemem.h>
 
 #define PAGE_OF_ADDR(x)		(((size_t)(x) >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)(x) >> (PAGE_SHIFT + PT_SHIFT))
@@ -210,10 +211,17 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	mutex_lock(&pdd->mutex);
 
 	if (!(pd->page[pt] & PTE_PRESENT)) {
-		uint32_t new_pt_frame = frame_alloc(1);
+
+		uint32_t new_pt_frame;
+		int tries = 0;
+		while ((new_pt_frame = frame_alloc(1)) == 0 && (tries++) < 3) {
+			mutex_unlock(&pdd->mutex);
+			free_some_memory();
+			mutex_lock(&pdd->mutex);
+		}
 		if (new_pt_frame == 0) {
 			mutex_unlock(&pdd->mutex);
-			return false;	// OOM
+			return false;
 		}
 
 		current_pd->page[pt] = pd->page[pt] =

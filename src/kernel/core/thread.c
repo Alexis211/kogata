@@ -8,6 +8,7 @@
 #include <paging.h>
 #include <worker.h>
 #include <process.h>
+#include <freemem.h>
 
 void save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
@@ -137,10 +138,15 @@ thread_t *new_thread(entry_t entry, void* data) {
 	void* stack_high = stack_low + KPROC_STACK_SIZE;
 
 	for (void* i = stack_low; i < stack_high; i += PAGE_SIZE) {
-		uint32_t f = frame_alloc(1);
+		uint32_t f;
+		int tries = 0;
+		while ((f = frame_alloc(1)) == 0 && (tries++) < 3) {
+			free_some_memory();
+		}
 		if (f == 0) {
 			PANIC("TODO (OOM could not create kernel stack for new thread)");
 		}
+
 		bool map_ok = pd_map_page(i, f, true);
 		if (!map_ok) {
 			PANIC("TODO (OOM(2) could not create kernel stack for new thread)");
