@@ -1,10 +1,19 @@
 
+void pf_allocate_on_demand(pagedir_t *pd, struct region_info *r, void* addr) {
+	ASSERT(pd_get_frame(addr) == 0); // if error is of another type (RO, protected), we don't do anyting
+
+	uint32_t f = frame_alloc(1);
+	if (f == 0) PANIC("Out Of Memory");
+	bool map_ok = pd_map_page(addr, f, 1);
+	if (!map_ok) PANIC("Could not map frame (OOM)");
+}
+
 void test_region_2() {
 	BEGIN_TEST("region-test-2");
 
 	// allocate a big region and try to write into it
 	const size_t n = 200;
-	void* p0 = region_alloc(n * PAGE_SIZE, "Test big region", default_allocator_pf_handler);
+	void* p0 = region_alloc(n * PAGE_SIZE, "Test big region", pf_allocate_on_demand);
 	for (size_t i = 0; i < n; i++) {
 		uint32_t *x = (uint32_t*)(p0 + i * PAGE_SIZE);
 		x[0] = 12;

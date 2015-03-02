@@ -12,7 +12,8 @@ int main(int argc, char **argv) {
 	dbg_printf("openned /: %d\n", f);
 	ASSERT(f != 0);
 	dirent_t x;
-	while (readdir(f, &x)) {
+	size_t ent_no = 0;
+	while (readdir(f, ent_no++, &x)) {
 		dbg_printf("- '%s' %p %d\n", x.name, x.st.type, x.st.size);
 		if (x.st.type == FT_REGULAR) {
 			char buf[256];
