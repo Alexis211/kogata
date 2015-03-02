@@ -290,7 +290,7 @@ bool munmap(process_t *proc, void* addr) {
 
 		if (ent & PTE_PRESENT) {
 			if ((ent & PTE_DIRTY) && (r->mode & MM_WRITE) && r->file != 0) {
-				file_commit_page(r->file, it - r->addr + r->file_offset, proc->last_ran);
+				// TODO COMMIT PAGE!!
 			}
 			pd_unmap_page(it);
 			if (r->file != 0) {
@@ -343,7 +343,8 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 		if (r->file == 0) {
 			frame = frame_alloc(1);
 		} else {
-			frame = file_get_page(r->file, addr - r->addr + r->file_offset);
+			PANIC("Not implemented mmap (AWFUL TODO)");
+			// Here we must get the page from the cache
 		}
 		if (frame == 0) {
 			free_some_memory();

@@ -77,8 +77,8 @@ size_t read(fd_t file, size_t offset, size_t len, char *buf) {
 size_t write(fd_t file, size_t offset, size_t len, const char* buf) {
 	return call(SC_WRITE, file, offset, len, (uint32_t)buf, 0);
 }
-bool readdir(fd_t file, dirent_t *d) {
-	return call(SC_READDIR, file, (uint32_t)d, 0, 0, 0);
+bool readdir(fd_t file, size_t ent_no, dirent_t *d) {
+	return call(SC_READDIR, file, ent_no, (uint32_t)d, 0, 0);
 }
 bool stat_open(fd_t file, stat_t *s) {
 	return call(SC_STAT_OPEN, file, (uint32_t)s, 0, 0, 0);

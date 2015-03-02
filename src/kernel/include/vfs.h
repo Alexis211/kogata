@@ -32,42 +32,25 @@
 // - The VFS does not implement any locking mechanism on filesystems themselves (e.g. the add_source
 //		implementation must have its own locking system)
 
-typedef void* fs_handle_ptr;
 typedef void* fs_node_ptr;
 typedef void* fs_ptr;
 
 // usefull forward declarations
 struct fs;
 struct fs_node;
-struct fs_handle;
 
 typedef struct user_region user_region_t;
 
 // -------------------------------------------
 // Structure defining a handle to an open file
-
-typedef struct {
-	// Standard read-write architecture
-	size_t (*read)(fs_handle_ptr f, size_t offset, size_t len, char* buf);
-	size_t (*write)(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
-	bool (*readdir)(fs_handle_ptr f, dirent_t *d);
-	int (*ioctl)(fs_handle_ptr f, int command, void* data);
-	void (*close)(fs_handle_ptr f);
-	// Page cache architecture, must be implemented by all files opened with FM_MMAP
-	uint32_t (*get_page)(fs_handle_ptr f, size_t offset);
-	void (*commit_page)(fs_handle_ptr f, size_t offset, uint64_t time);	// notifies change
-} fs_handle_ops_t;
+// This structure is entirely managed by the VFS, the underlying filesystem does not see it
 
 typedef struct fs_handle {
-	// These field are filled by the VFS's generic open() code
 	struct fs *fs;
 	struct fs_node *node;
 
 	int refs;
 
-	// These fields are filled by the FS's specific open() code
-	fs_handle_ops_t *ops;
-	fs_handle_ptr data;
 	int mode;
 } fs_handle_t;
 
@@ -89,8 +72,15 @@ typedef struct fs_handle {
 //	- delete() is not expected to delete recursively : it should fail on a non-empty directory
 
 typedef struct {
-	bool (*open)(fs_node_ptr n, int mode, fs_handle_t *s); 		// open current node
+	bool (*open)(fs_node_ptr n, int mode);
+	size_t (*read)(fs_node_ptr f, size_t offset, size_t len, char* buf);
+	size_t (*write)(fs_node_ptr f, size_t offset, size_t len, const char* buf);
+	bool (*readdir)(fs_node_ptr f, size_t ent_no, dirent_t *d);
+	void (*close)(fs_node_ptr f);
+
 	bool (*stat)(fs_node_ptr n, stat_t *st);
+	int (*ioctl)(fs_node_ptr f, int command, void* data);
+
 	bool (*walk)(fs_node_ptr n, const char* file, struct fs_node *node_d);
 	bool (*delete)(fs_node_ptr n, const char* file);
 	bool (*move)(fs_node_ptr dir, const char* old_name, struct fs_node *new_parent, const char *new_name);
@@ -180,9 +170,6 @@ bool file_stat(fs_handle_t *f, stat_t *st);
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 int file_ioctl(fs_handle_t *f, int command, void* data);
-bool file_readdir(fs_handle_t *f, dirent_t *d);
-
-uint32_t file_get_page(fs_handle_t *f, size_t offset);
-void file_commit_page(fs_handle_t *f, size_t offset, uint64_t time);
+bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -237,9 +237,9 @@ static uint32_t readdir_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return false;
 
-	dirent_t *o = (dirent_t*)args.b;
+	dirent_t *o = (dirent_t*)args.c;
 	probe_for_write(o, sizeof(dirent_t));
-	return file_readdir(h, o);
+	return file_readdir(h, args.b, o);
 }
 
 static uint32_t stat_open_sc(sc_args_t args) {

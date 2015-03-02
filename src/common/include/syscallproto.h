@@ -22,7 +22,7 @@
 #define SC_CLOSE		31		// args: fd
 #define SC_READ			32		// args: fd, offset, size, out char* data
 #define SC_WRITE		33		// args: fd, offset, size, data
-#define SC_READDIR		34		// args: fd, out dirent_t *data
+#define SC_READDIR		34		// args: fd, ent_no, out dirent_t *data
 #define SC_STAT_OPEN	35		// args: fd, out stat_t *data -- stat on open file handle
 #define SC_IOCTL		36		// args: fd, command, out void* data
 #define SC_GET_MODE		37		// args: fd -- get mode for open file handle

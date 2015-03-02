@@ -645,13 +645,13 @@ typedef struct {
 	uint8_t type;
 } ide_vfs_dev_t;
 
-static bool ide_vfs_open(fs_node_ptr n, int mode, fs_handle_t *s);
+static bool ide_vfs_open(fs_node_ptr n, int mode);
 static bool ide_vfs_stat(fs_node_ptr n, stat_t *st);
 
-static size_t ide_vfs_read(fs_handle_ptr f, size_t offset, size_t len, char* buf);
-static size_t ide_vfs_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf);
-static int ide_vfs_ioctl(fs_handle_ptr f, int command, void* data);
-static void ide_vfs_close(fs_handle_ptr f);
+static size_t ide_vfs_read(fs_node_ptr f, size_t offset, size_t len, char* buf);
+static size_t ide_vfs_write(fs_node_ptr f, size_t offset, size_t len, const char* buf);
+static int ide_vfs_ioctl(fs_node_ptr f, int command, void* data);
+static void ide_vfs_close(fs_node_ptr f);
 
 static fs_node_ops_t ide_vfs_node_ops = {
 	.open = ide_vfs_open,
@@ -660,17 +660,12 @@ static fs_node_ops_t ide_vfs_node_ops = {
 	.delete = 0,
 	.move = 0,
 	.create = 0,
-	.dispose = 0
-};
-
-static fs_handle_ops_t ide_vfs_handle_ops = {
+	.dispose = 0,
 	.read = ide_vfs_read,
 	.write = ide_vfs_write,
 	.ioctl = ide_vfs_ioctl,
 	.close = ide_vfs_close,
 	.readdir = 0,
-	.get_page = 0,
-	.commit_page = 0
 };
 
 void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {
@@ -700,17 +695,13 @@ void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {
 	}
 }
 
-bool ide_vfs_open(fs_node_ptr n, int mode, fs_handle_t *s) {
+bool ide_vfs_open(fs_node_ptr n, int mode) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)n;
 
 	int ok_modes = (FM_READ
 				| (d->type == IDE_ATA ? FM_WRITE : 0) 
 				| FM_IOCTL);
 	if (mode & ~ok_modes) return false;
-
-	s->ops = &ide_vfs_handle_ops;
-	s->data = d;
-	s->mode = mode;
 
 	return true;
 }
@@ -725,7 +716,7 @@ bool ide_vfs_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
-size_t ide_vfs_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
+size_t ide_vfs_read(fs_node_ptr f, size_t offset, size_t len, char* buf) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
 
 	if (offset % d->block_size != 0) return 0;
@@ -737,7 +728,7 @@ size_t ide_vfs_read(fs_handle_ptr f, size_t offset, size_t len, char* buf) {
 	return len;
 }
 
-size_t ide_vfs_write(fs_handle_ptr f, size_t offset, size_t len, const char* buf) {
+size_t ide_vfs_write(fs_node_ptr f, size_t offset, size_t len, const char* buf) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
 
 	if (offset % d->block_size != 0) return 0;
@@ -749,7 +740,7 @@ uint8_t err = ide_write_sectors(d->c, d->device,
 	return len;
 }
 
-int ide_vfs_ioctl(fs_handle_ptr f, int command, void* data) {
+int ide_vfs_ioctl(fs_node_ptr f, int command, void* data) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
 
 	int ret = 0;
@@ -762,7 +753,7 @@ int ide_vfs_ioctl(fs_handle_ptr f, int command, void* data) {
 	return ret;
 }
 
-void ide_vfs_close(fs_handle_ptr f) {
+void ide_vfs_close(fs_node_ptr f) {
 	// nothing to do
 }
 
