@@ -83,8 +83,6 @@ fs_t *fs_subfs(fs_t *fs, const char* root, int ok_modes) {
 
 	subfs->root = new_root;
 
-	ref_fs(fs);
-
 	return subfs;
 }
 
@@ -99,9 +97,13 @@ void ref_fs(fs_t *fs) {
 void unref_fs(fs_t *fs) {
 	fs->refs--;
 	if (fs->refs == 0) {
-		unref_fs_node(fs->root);
+		if (fs->from_fs != 0) {
+			unref_fs_node(fs->root);
+		} else {
+			ASSERT(fs->root->refs == 1);
+			if (fs->root->ops->dispose) fs->root->ops->dispose(fs->root->data);
+		}
 		if (fs->ops->shutdown) fs->ops->shutdown(fs->data);
-		if (fs->from_fs) unref_fs(fs->from_fs);
 		free(fs);
 	}
 }
@@ -119,21 +121,18 @@ void unref_fs_node(fs_node_t *n) {
 	mutex_lock(&n->lock);
 	n->refs--;
 	if (n->refs == 0) {
-		if (n != n->fs->root) {
-			ASSERT(n->parent != 0);
-			ASSERT(n->name != 0);
+		ASSERT (n != n->fs->root);
 
-			mutex_lock(&n->parent->lock);
-			hashtbl_remove(n->parent->children, n->name);
-			if (n->ops->dispose) n->ops->dispose(n->data);
-			mutex_unlock(&n->parent->lock);
+		ASSERT(n->parent != 0);
+		ASSERT(n->name != 0);
 
-			unref_fs_node(n->parent);
-			unref_fs(n->fs);
-		} else {
-			ASSERT(n->fs->refs == 0);
-			if (n->ops->dispose) n->ops->dispose(n->data);
-		}
+		mutex_lock(&n->parent->lock);
+		hashtbl_remove(n->parent->children, n->name);
+		if (n->ops->dispose) n->ops->dispose(n->data);
+		mutex_unlock(&n->parent->lock);
+
+		unref_fs_node(n->parent);
+		unref_fs(n->fs);
 
 		if (n->children != 0) {
 			ASSERT(hashtbl_count(n->children) == 0);
