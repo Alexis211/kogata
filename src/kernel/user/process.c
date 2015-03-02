@@ -5,7 +5,7 @@
 #include <frame.h>
 #include <process.h>
 #include <freemem.h>
-
+#include <worker.h>
 
 static int next_pid = 1;
 
@@ -21,6 +21,11 @@ typedef struct {
 	proc_entry_t entry;
 	void *sp;
 } setup_data_t;
+
+typedef struct {
+	process_t *proc;
+	int status, exit_code;
+} exit_data_t;
 
 // ============================== //
 // CREATING AND RUNNING PROCESSES //
@@ -48,6 +53,7 @@ process_t *new_process(process_t *parent) {
 	proc->pid = (next_pid++);
 	proc->parent = parent;
 	proc->next_fd = 1;
+	proc->status = PS_LOADING;
 
 	return proc;
 
@@ -62,14 +68,14 @@ error:
 static void run_user_code(void* param) {
 	setup_data_t *d = (setup_data_t*)param;
 
+	void* esp = d->sp;
+	proc_entry_t entry = d->entry;
+	free(d);
+
 	process_t *proc = current_thread->proc;
 	ASSERT(proc != 0);
 
 	switch_pagedir(proc->pd);
-
-	void* esp = d->sp;
-	proc_entry_t entry = d->entry;
-	free(d);
 
 	asm volatile("				\
 			cli;				\
@@ -91,18 +97,6 @@ static void run_user_code(void* param) {
 			iret				\
 		"::"b"(esp),"c"(entry));
 }
-bool start_process(process_t *p, void* entry) {
-	bool stack_ok = mmap(p, (void*)USERSTACK_ADDR, USERSTACK_SIZE, MM_READ | MM_WRITE);
-	if (!stack_ok) return false;
-
-	bool ok = process_new_thread(p, entry, (void*)USERSTACK_ADDR + USERSTACK_SIZE);
-	if (!ok) {
-		munmap(p, (void*)USERSTACK_ADDR);
-		return false;
-	}
-
-	return true;
-}
 
 bool process_new_thread(process_t *p, proc_entry_t entry, void* sp) {
 	setup_data_t *d = (setup_data_t*)malloc(sizeof(setup_data_t));
@@ -117,7 +111,7 @@ bool process_new_thread(process_t *p, proc_entry_t entry, void* sp) {
 	th->proc = p;
 	th->user_ex_handler = proc_user_exception;
 
-	{	int st = enter_critical(CL_NOINT);	// it's a bit complicated to use mutexes on process_t (TODO: think)
+	{	int st = enter_critical(CL_NOSWITCH);	// it's a bit complicated to use mutexes on process_t
 
 		th->next_in_proc = p->threads;
 		p->threads = th;
@@ -127,6 +121,124 @@ bool process_new_thread(process_t *p, proc_entry_t entry, void* sp) {
 	resume_thread(th);
 
 	return true;
+}
+
+bool start_process(process_t *p, void* entry) {
+	bool stack_ok = mmap(p, (void*)USERSTACK_ADDR, USERSTACK_SIZE, MM_READ | MM_WRITE);
+	if (!stack_ok) return false;
+
+	bool ok = process_new_thread(p, entry, (void*)USERSTACK_ADDR + USERSTACK_SIZE);
+	if (!ok) {
+		munmap(p, (void*)USERSTACK_ADDR);
+		return false;
+	}
+
+	p->status = PS_RUNNING;
+
+	return true;
+}
+
+void process_exit(process_t *p, int status, int exit_code) {
+	// --- Make sure we are not running in a thread we are about to kill
+	
+	void process_exit_v(void* args) {
+		exit_data_t *d = (exit_data_t*)args;
+		process_exit(d->proc, d->status, d->exit_code);
+		free(d);
+	}
+
+	if (current_process() == p) {
+		exit_data_t *d = (exit_data_t*)malloc(sizeof(exit_data_t));
+
+		d->proc = p;
+		d->status = status;
+		d->exit_code = exit_code;
+
+		worker_push(process_exit_v, d);
+		pause();
+	}
+
+	// ---- Now we can do the actual cleanup
+
+	int st = enter_critical(CL_NOSWITCH);
+
+	p->status = status;
+	p->exit_code = exit_code;
+
+	while (p->threads != 0) {
+		thread_t *t = p->threads;
+		p->threads = p->threads->next_in_proc;
+
+		t->proc = 0;
+		kill_thread(t);
+	}
+
+	// release file descriptors
+	void release_fd(void* a, void* fd) {
+		unref_file((fs_handle_t*)fd);
+	}
+	hashtbl_iter(p->files, release_fd);
+	delete_hashtbl(p->files);
+	p->files = 0;
+
+	// unmap memory
+	while (p->regions != 0) {
+		munmap(p, p->regions->addr);
+	}
+	ASSERT(btree_count(p->regions_idx) == 0);
+	delete_btree(p->regions_idx);
+	p->regions_idx = 0;
+
+	// release filesystems
+	void release_fs(void* a, void* fs) {
+		unref_fs((fs_t*)fs);
+	}
+	hashtbl_iter(p->filesystems, release_fs);
+	delete_hashtbl(p->filesystems);
+	p->filesystems = 0;
+
+	// delete page directory
+	switch_pagedir(get_kernel_pagedir());
+	delete_pagedir(p->pd);
+	p->pd = 0;
+
+	// orphan children
+	while (p->children != 0) {
+		process_t *c = p->children;
+		p->children = c->next_child;
+
+		c->parent = 0;
+		c->next_child = 0;
+	}
+
+	if (p->parent == 0) {
+		free(p);
+	} else {
+		// TODO : notify parent
+	}
+
+	exit_critical(st);
+}
+
+void process_thread_deleted(thread_t *t) {
+	int st = enter_critical(CL_NOSWITCH);
+
+	process_t *p = t->proc;
+	if (p->threads == t) {
+		p->threads = t->next_in_proc;
+	} else {
+		for (thread_t *it = p->threads; it != 0; it = it->next_in_proc) {
+			if (it->next_in_proc == t) {
+				it->next_in_proc = t->next_in_proc;
+				break;
+			}
+		}
+	}
+
+	if (p->threads == 0 && p->status == PS_RUNNING)
+		process_exit(p, PS_FINISHED, 0);
+
+	exit_critical(st);
 }
 
 
@@ -344,7 +456,7 @@ bool munmap(process_t *proc, void* addr) {
 static void proc_user_exception(registers_t *regs) {
 	dbg_printf("Usermode exception in user process : exiting.\n");
 	dbg_dump_registers(regs);
-	exit();
+	process_exit(current_process(), PS_FAILURE, FAIL_EXCEPTION);
 }
 static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	process_t *proc = (process_t*)p;
@@ -353,13 +465,13 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	if (r == 0) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not mapped) : exiting.\n", proc->pid, addr);
 		dbg_dump_registers(regs);
-		exit();
+		process_exit(current_process(), PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
 	bool wr = ((regs->err_code & PF_WRITE_BIT) != 0);
 	if (wr && !(r->mode & MM_WRITE)) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not allowed to write) : exiting.\n", proc->pid, addr);
-		exit();
+		process_exit(current_process(), PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
 	bool pr = ((regs->err_code & PF_PRESENT_BIT) != 0);
@@ -393,7 +505,7 @@ void probe_for_read(const void* addr, size_t len) {
 	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_READ)) {
 		dbg_printf("Access violation on read at 0x%p len 0x%p in process %d : exiting.\n",
 			addr, len, proc->pid);
-		exit();
+		process_exit(current_process(), PS_FAILURE, FAIL_SC_SEGFAULT);
 	}
 }
 
@@ -403,7 +515,7 @@ void probe_for_write(const void* addr, size_t len) {
 	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_WRITE)) {
 		dbg_printf("Access violation on write at 0x%p len 0x%p in process %d : exiting.\n",
 			addr, len, proc->pid);
-		exit();
+		process_exit(current_process(), PS_FAILURE, FAIL_SC_SEGFAULT);
 	}
 }
 

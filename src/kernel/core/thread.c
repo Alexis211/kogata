@@ -88,6 +88,21 @@ thread_t* dequeue_thread() {
 	return t;
 }
 
+void remove_thread_from_queue(thread_t *t) {
+	if (queue_first_thread == t) {
+		queue_first_thread = t->next_in_queue;
+		if (queue_first_thread == 0) queue_last_thread = 0;
+	} else {
+		for (thread_t *it = queue_first_thread; it != 0; it = it->next_in_queue) {
+			if (it->next_in_queue == t) {
+				it->next_in_queue = t->next_in_queue;
+				if (it->next_in_queue == 0) queue_last_thread = t;
+				break;
+			}
+		}
+	}
+}
+
 // ================ //
 // THE TASKING CODE //
 // ================ //
@@ -117,6 +132,9 @@ void run_scheduler() {
 
 static void run_thread(void (*entry)(void*), void* data) {
 	ASSERT(current_thread->state == T_STATE_RUNNING);
+
+	dbg_printf("Begin thread 0x%p (in process %d)\n",
+		current_thread, (current_thread->proc ? current_thread->proc->pid : 0));
 
 	switch_pagedir(get_kernel_pagedir());
 
@@ -166,13 +184,22 @@ thread_t *new_thread(entry_t entry, void* data) {
 	t->last_ran = 0;
 
 	t->current_pd_d = get_kernel_pagedir();
+	t->critical_level = CL_USER;
 
 	// used by user processes
 	t->proc = 0;
+	t->next_in_proc = 0;
 	t->user_ex_handler = 0;
-	t->critical_level = CL_USER;
 
 	return t;
+}
+
+static void delete_thread(thread_t *t) {
+	if (t->proc != 0)
+		process_thread_deleted(t);
+
+	region_free_unmap_free(t->stack_region->addr);
+	free(t);
 }
 
 // ========== //
@@ -227,8 +254,20 @@ void usleep(int usecs) {
 }
 
 void exit() {
+	void delete_thread_v(void* v) {
+		delete_thread((thread_t*)v);
+	}
+
+	int st = enter_critical(CL_NOSWITCH);
+	// the critical section here does not guarantee that worker_push will return immediately
+	// (it may switch before adding the delete_thread task), but once the task is added
+	// no other switch may happen, therefore this thread will not get re-enqueued
+
+	worker_push(delete_thread_v, current_thread);
 	current_thread->state = T_STATE_FINISHED;
-	// TODO : add job for deleting the thread, or whatever
+
+	exit_critical(st);
+
 	yield();	// expected never to return!
 	ASSERT(false);
 }
@@ -247,6 +286,18 @@ bool resume_thread(thread_t *thread) {
 	exit_critical(st);
 
 	return ret;
+}
+
+void kill_thread(thread_t *thread) {
+	ASSERT(thread != current_thread);
+
+	int st = enter_critical(CL_NOSWITCH);
+
+	thread->state = T_STATE_FINISHED;
+	remove_thread_from_queue(thread);
+	delete_thread(thread);
+
+	exit_critical(st);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

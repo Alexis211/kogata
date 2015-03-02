@@ -36,6 +36,7 @@ void start_workers(int n) {
 	nworkers = n;
 	for (int i = 0; i < n; i++) {
 		workers[i] = new_thread(worker_thread, 0);
+		dbg_printf("New worker thread: 0x%p\n", workers[i]);
 	}
 }
 
