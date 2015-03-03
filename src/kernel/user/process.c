@@ -209,6 +209,7 @@ void process_exit(process_t *p, int status, int exit_code) {
 
 		c->parent = 0;
 		c->next_child = 0;
+		// TODO : if c was terminated, free it or what ?
 	}
 
 	if (p->parent == 0) {

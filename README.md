@@ -10,7 +10,7 @@ I have considered using higher-level languages but for lack of understanding of
 the associated compiler, I never have had the same impression of understanding
 exactly what was happening that I had with C. Also, the necessity of a runtime
 is bothering. I do regret not being able to exploit the magic of strongly typed
-functionnal languages, but what can I do...
+functional languages, but what can I do...
 
 ### Monolithic design
 
