@@ -290,7 +290,11 @@ fs_t *proc_find_fs(process_t *p, const char* name) {
 }
 
 void proc_remove_fs(process_t *p, const char* name) {
-	hashtbl_remove(p->filesystems, name);
+	fs_t *fs = proc_find_fs(p, name);
+	if (fs) {
+		unref_fs(fs);
+		hashtbl_remove(p->filesystems, name);
+	}
 }
 
 int proc_add_fd(process_t *p, fs_handle_t *f) {
