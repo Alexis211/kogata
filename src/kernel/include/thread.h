@@ -51,6 +51,14 @@ extern thread_t *current_thread;
 void yield();
 void exit();
 void usleep(int usecs);
+
+// Important notice about waiting, resuming and killing :
+//  Threads may now communicate via wait_on(void* ressource) and resume_on (void* ressource).
+//  Previous pause() is replaced by wait_on(current_thread) and resume(thread) by resume_on(thread).
+//  wait_on(x) may return false, indicating that the reason for returning is NOT that resume_on(x) was
+//  called but something else happenned. Typically false indicates that the curent thread is being
+//  killed and must terminate its kernel-land processing as soon as possible.
+
 bool wait_on(void* x);	// true : resumed normally, false : resumed because thread was killed, or someone else already waiting
 
 bool resume_on(void* x);
