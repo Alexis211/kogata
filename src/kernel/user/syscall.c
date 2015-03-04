@@ -34,7 +34,7 @@ static char* sc_copy_string(uint32_t s, uint32_t slen) {
 static uint32_t exit_sc(sc_args_t args) {
 	dbg_printf("Proc %d exit with code %d\n", current_process()->pid, args.a);
 
-	process_exit(current_process(), PS_FINISHED, args.a);
+	current_process_exit(PS_FINISHED, args.a);
 	ASSERT(false);
 	return 0;
 }

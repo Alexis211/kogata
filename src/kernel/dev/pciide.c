@@ -144,6 +144,8 @@ static uint8_t ide_print_error(ide_controller_t *c, int drive, uint8_t err) {
 	} else if (err == 4) {
 		dbg_printf("- Write Protected\n     ");
 		err = 8;
+	} else if (err == 5) {
+		dbg_printf("- Interrupted\n     ");
 	}
 	dbg_printf("- [%s %s] %s\n",
 			(const char *[]){"Primary", "Secondary"}[c->devices[drive].channel],
@@ -167,7 +169,7 @@ void irq14_handler(registers_t *regs) {
 	if (wait_irq14) {
 		thread_t *t = wait_irq14;
 		wait_irq14 = 0;
-		resume_thread(t);
+		resume_on(t);
 	}
 }
 
@@ -175,7 +177,7 @@ void irq15_handler(registers_t *regs) {
 	if (wait_irq15) {
 		thread_t *t = wait_irq15;
 		wait_irq15 = 0;
-		resume_thread(t);
+		resume_on(t);
 	}
 }
 
@@ -183,7 +185,7 @@ void pciirq_handler(int pci_id) {
 	if (wait_pciirq) {
 		thread_t *t = wait_pciirq;
 		wait_pciirq = 0;
-		resume_thread(t);
+		resume_on(t);
 	}
 }
 
@@ -201,22 +203,26 @@ static void ide_prewait_irq(ide_controller_t *c, int channel) {
 	}
 }
 
-static void ide_wait_irq(ide_controller_t *c, int channel) {
+static bool ide_wait_irq(ide_controller_t *c, int channel) {
+	bool ret = true;
+
 	int st = enter_critical(CL_NOINT);
 
 	int irq = c->channels[channel].irq;
 	if (irq == 14) {
-		if (wait_irq14) pause();
+		if (wait_irq14) ret = wait_on(current_thread);
 		mutex_unlock(&on_irq14);
 	} else if (irq == 15) {
-		if (wait_irq15) pause();
+		if (wait_irq15) ret = wait_on(current_thread);
 		mutex_unlock(&on_irq15);
 	} else {
-		if (wait_pciirq) pause();
+		if (wait_pciirq) ret = wait_on(current_thread);
 		mutex_unlock(&on_pciirq);
 	}
 
 	exit_critical(st);
+	
+	return ret;
 }
 
 // ===================================== //
@@ -352,7 +358,7 @@ static uint8_t ide_ata_access(ide_controller_t *c, int direction,
 		}
 	}
 
-	return 0; // Easy, isn't it?
+	return 0;
 }
 
 
@@ -413,7 +419,7 @@ static uint8_t ide_atapi_read(ide_controller_t *c, uint8_t drive, uint32_t lba,
 	// (IX): Receiving Data:
 	for (int i = 0; i < numsects; i++) {
 		
-		ide_wait_irq(c, channel);                  // Wait for an IRQ.
+		if (!ide_wait_irq(c, channel)) goto must_terminate;                  // Wait for an IRQ.
 		ide_prewait_irq(c, channel);
 		err = ide_polling(c, channel, 1);
 		if (err) return err;      // Polling and return if error.
@@ -423,12 +429,17 @@ static uint8_t ide_atapi_read(ide_controller_t *c, uint8_t drive, uint32_t lba,
 	}
 
 	// (X): Waiting for an IRQ:
-	ide_wait_irq(c, channel);
+	if (!ide_wait_irq(c, channel)) goto must_terminate;
 
 	// (XI): Waiting for BSY & DRQ to clear:
 	while (ide_read(c, channel, ATA_REG_STATUS) & (ATA_SR_BSY | ATA_SR_DRQ));
 
-	return 0; // Easy, ... Isn't it?
+	return 0;
+
+must_terminate:
+	// TODO : end communication with device...
+	dbg_printf("TODO (pciide may be stuck)\n");
+	return 5;
 }
 
 static uint8_t ide_read_sectors(ide_controller_t *c, uint8_t drive,

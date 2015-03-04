@@ -160,4 +160,17 @@ size_t hashtbl_count(hashtbl_t* ht) {
 	return ht->nitems;
 }
 
+bool hashtbl_change(hashtbl_t* ht, void* key, void* newval) {
+	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
+
+	for (hashtbl_item_t *i = ht->items[slot]; i != 0; i = i->next) {
+		if (ht->ef(i->key, key)) {
+			i->val = newval;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

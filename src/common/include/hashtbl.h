@@ -25,6 +25,11 @@ void hashtbl_remove(hashtbl_t* ht, const void* key);
 void* hashtbl_find(hashtbl_t* ht, const void* key);		// null when not found
 void hashtbl_iter(hashtbl_t* ht, kv_iter_fun_t f);
 
+// hashtbl_change is particular :
+// - it does NOT call malloc and uses the existing hashtbl cell
+// - it does NOT call the on_release fun on the previous element
+bool hashtbl_change(hashtbl_t*  ht, void* key, void* v);
+
 size_t hashtbl_count(hashtbl_t* ht);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

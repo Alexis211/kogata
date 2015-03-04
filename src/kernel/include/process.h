@@ -56,23 +56,29 @@ typedef struct process {
 	struct process *parent;
 	struct process *next_child;
 	struct process *children;
+
+	mutex_t lock;
 } process_t;
 
 typedef void* proc_entry_t;
 
 //  ---- Process creation, deletion, waiting, etc.
-// Simple semantics : when a process exits, all its ressources are freed immediately
-// except for the process_t that remains attached to the parent process until it does
-// a wait() and acknowleges the process' ending
-// When a process exits, all the children are orphaned and nobody can wait on them anymore,
-// which is a bad thing : a user process must always wait for all its children !
+// Simple semantics :
+//  - When a process exits, all its ressources are freed immediately
+//    except for the process_t that remains attached to the parent process until it does
+//    a wait() and acknowleges the process' ending
+//  - When a process exits, if it has living children then they are terminated too. (a process
+//    is seen as a "virtual machine", and spawning sub-process is seen as "sharing some ressources
+//    it was allocated to create a new VM", therefore removing the ressource allocated to the
+//    parent implies removing the ressource from its children too)
 
 process_t *current_process();
 
 process_t *new_process(process_t *parent);
 
 bool start_process(process_t *p, proc_entry_t entry);	// maps a region for user stack
-void process_exit(process_t *p, int status, int exit_code);		// exit current process
+void process_exit(process_t *p, int status, int exit_code);		// exit specified process (must not be current process)
+void current_process_exit(int status, int exit_code);
 
 bool process_new_thread(process_t *p, proc_entry_t entry, void* sp);
 void process_thread_deleted(thread_t *t);		// called by threading code when a thread exits

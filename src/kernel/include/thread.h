@@ -5,6 +5,7 @@
 #include <region.h>
 #include <idt.h>
 
+#define T_STATE_LOADING		0
 #define T_STATE_RUNNING		1
 #define T_STATE_PAUSED	 	2
 #define T_STATE_FINISHED	3
@@ -34,21 +35,25 @@ typedef struct thread {
 
 	struct thread *next_in_queue;
 	struct thread *next_in_proc;
+
+	void* waiting_on;
+	bool must_exit;
 } thread_t;
 
 typedef void (*entry_t)(void*);
 
 void threading_setup(entry_t cont, void* data);		// never returns
-thread_t *new_thread(entry_t entry, void* data);	// thread is PAUSED, and must be resume_thread'ed
+thread_t *new_thread(entry_t entry, void* data);	// thread is PAUSED, and must be started with start_thread
+void start_thread(thread_t *t);
 
 extern thread_t *current_thread;
 
 void yield();
-void pause();
 void exit();
 void usleep(int usecs);
+bool wait_on(void* x);	// true : resumed normally, false : resumed because thread was killed, or someone else already waiting
 
-bool resume_thread(thread_t *thread);
+bool resume_on(void* x);
 void kill_thread(thread_t *thread);		// cannot be called for current thread
 
 // Kernel critical sections

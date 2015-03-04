@@ -103,6 +103,11 @@ void idt_ex_handler(registers_t *regs) {
 			current_thread->user_ex_handler(regs);
 		}
 	}
+
+	// maybe exit
+	if (current_thread != 0 && regs->eip < K_HIGHHALF_ADDR && current_thread->must_exit) {
+		exit();
+	}
 } 
 
 /*	Called in interrupt.s when an IRQ fires (interrupt 32 to 47) */
@@ -120,11 +125,21 @@ void idt_irq_handler(registers_t *regs) {
 	}
 
 	exit_critical(st);
+
+	// maybe exit
+	if (current_thread != 0 && regs->eip < K_HIGHHALF_ADDR && current_thread->must_exit) {
+		exit();
+	}
 }
 
 /* Caled in interrupt.s when a syscall is called */
 void idt_syscall_handler(registers_t *regs) {
 	syscall_handler(regs);
+
+	// maybe exit
+	if (current_thread != 0 && regs->eip < K_HIGHHALF_ADDR && current_thread->must_exit) {
+		exit();
+	}
 }
 
 /*	For internal use only. Sets up an entry of the IDT with given parameters. */

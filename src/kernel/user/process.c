@@ -50,10 +50,26 @@ process_t *new_process(process_t *parent) {
 	proc->last_ran = 0;
 	proc->regions = 0;
 	proc->threads = 0;
-	proc->pid = (next_pid++);
+
 	proc->parent = parent;
+	proc->children = 0;
+	proc->next_child = 0;
+
 	proc->next_fd = 1;
+	proc->pid = (next_pid++);
 	proc->status = PS_LOADING;
+	proc->exit_code = 0;
+
+	proc->lock = MUTEX_UNLOCKED;
+
+	if (parent != 0) {
+		mutex_lock(&parent->lock);
+
+		proc->next_child = parent->children;
+		parent->children = proc;
+
+		mutex_unlock(&parent->lock);
+	}
 
 	return proc;
 
@@ -111,14 +127,14 @@ bool process_new_thread(process_t *p, proc_entry_t entry, void* sp) {
 	th->proc = p;
 	th->user_ex_handler = proc_user_exception;
 
-	{	int st = enter_critical(CL_NOSWITCH);	// it's a bit complicated to use mutexes on process_t
+	{	mutex_lock(&p->lock);
 
 		th->next_in_proc = p->threads;
 		p->threads = th;
 
-		exit_critical(st);	}
+		mutex_unlock(&p->lock);	}
 	
-	resume_thread(th);
+	start_thread(th);
 
 	return true;
 }
@@ -138,39 +154,57 @@ bool start_process(process_t *p, void* entry) {
 	return true;
 }
 
-void process_exit(process_t *p, int status, int exit_code) {
-	// --- Make sure we are not running in a thread we are about to kill
-	
+void current_process_exit(int status, int exit_code) {
 	void process_exit_v(void* args) {
 		exit_data_t *d = (exit_data_t*)args;
 		process_exit(d->proc, d->status, d->exit_code);
 		free(d);
 	}
 
-	if (current_process() == p) {
-		exit_data_t *d = (exit_data_t*)malloc(sizeof(exit_data_t));
+	exit_data_t *d = (exit_data_t*)malloc(sizeof(exit_data_t));
 
-		d->proc = p;
-		d->status = status;
-		d->exit_code = exit_code;
+	d->proc = current_process();;
+	d->status = status;
+	d->exit_code = exit_code;
 
-		worker_push(process_exit_v, d);
-		pause();
+	worker_push(process_exit_v, d);
+	exit();
+}
+
+void process_exit(process_t *p, int status, int exit_code) {
+	// --- Make sure we are not running in a thread we are about to kill
+	ASSERT(current_process() != p);
+
+	// ---- Check we are not killing init process
+	if (p->parent == 0) {
+		PANIC("Attempted to exit init process!");
 	}
 
 	// ---- Now we can do the actual cleanup
 
-	int st = enter_critical(CL_NOSWITCH);
+	mutex_lock(&p->lock);
 
+	ASSERT(p->status == PS_RUNNING || p->status == PS_LOADING);
 	p->status = status;
 	p->exit_code = exit_code;
 
+	// neutralize the process
 	while (p->threads != 0) {
 		thread_t *t = p->threads;
 		p->threads = p->threads->next_in_proc;
 
-		t->proc = 0;
+		t->proc = 0;		// we don't want process_thread_deleted to be called
 		kill_thread(t);
+	}
+
+	// terminate all the children as well and free associated process_t structures
+	while (p->children != 0) {
+		process_t *ch = p->children;
+		p->children = ch->next_child;
+
+		if (ch->status == PS_RUNNING || ch->status == PS_LOADING)
+			process_exit(ch, PS_KILLED, 0);
+		free(ch);
 	}
 
 	// release file descriptors
@@ -202,29 +236,20 @@ void process_exit(process_t *p, int status, int exit_code) {
 	delete_pagedir(p->pd);
 	p->pd = 0;
 
-	// orphan children
-	while (p->children != 0) {
-		process_t *c = p->children;
-		p->children = c->next_child;
-
-		c->parent = 0;
-		c->next_child = 0;
-		// TODO : if c was terminated, free it or what ?
+	// notify parent
+	process_t *par = p->parent;
+	if (par->status == PS_RUNNING) {
+		// TODO: notify that child is exited
 	}
 
-	if (p->parent == 0) {
-		free(p);
-	} else {
-		// TODO : notify parent
-	}
-
-	exit_critical(st);
+	mutex_unlock(&p->lock);
 }
 
 void process_thread_deleted(thread_t *t) {
-	int st = enter_critical(CL_NOSWITCH);
-
 	process_t *p = t->proc;
+
+	mutex_lock(&p->lock);
+
 	if (p->threads == t) {
 		p->threads = t->next_in_proc;
 	} else {
@@ -236,10 +261,10 @@ void process_thread_deleted(thread_t *t) {
 		}
 	}
 
+	mutex_unlock(&p->lock);
+
 	if (p->threads == 0 && p->status == PS_RUNNING)
 		process_exit(p, PS_FINISHED, 0);
-
-	exit_critical(st);
 }
 
 
@@ -457,7 +482,7 @@ bool munmap(process_t *proc, void* addr) {
 static void proc_user_exception(registers_t *regs) {
 	dbg_printf("Usermode exception in user process : exiting.\n");
 	dbg_dump_registers(regs);
-	process_exit(current_process(), PS_FAILURE, FAIL_EXCEPTION);
+	current_process_exit(PS_FAILURE, FAIL_EXCEPTION);
 }
 static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	process_t *proc = (process_t*)p;
@@ -466,13 +491,13 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	if (r == 0) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not mapped) : exiting.\n", proc->pid, addr);
 		dbg_dump_registers(regs);
-		process_exit(current_process(), PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
+		current_process_exit(PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
 	bool wr = ((regs->err_code & PF_WRITE_BIT) != 0);
 	if (wr && !(r->mode & MM_WRITE)) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not allowed to write) : exiting.\n", proc->pid, addr);
-		process_exit(current_process(), PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
+		current_process_exit(PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
 	bool pr = ((regs->err_code & PF_PRESENT_BIT) != 0);
@@ -506,7 +531,7 @@ void probe_for_read(const void* addr, size_t len) {
 	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_READ)) {
 		dbg_printf("Access violation on read at 0x%p len 0x%p in process %d : exiting.\n",
 			addr, len, proc->pid);
-		process_exit(current_process(), PS_FAILURE, FAIL_SC_SEGFAULT);
+		current_process_exit(PS_FAILURE, FAIL_SC_SEGFAULT);
 	}
 }
 
@@ -516,7 +541,7 @@ void probe_for_write(const void* addr, size_t len) {
 	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_WRITE)) {
 		dbg_printf("Access violation on write at 0x%p len 0x%p in process %d : exiting.\n",
 			addr, len, proc->pid);
-		process_exit(current_process(), PS_FAILURE, FAIL_SC_SEGFAULT);
+		current_process_exit(PS_FAILURE, FAIL_SC_SEGFAULT);
 	}
 }
 

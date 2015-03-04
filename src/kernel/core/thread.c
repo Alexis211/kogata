@@ -4,6 +4,8 @@
 #include <idt.h>
 #include <gdt.h>
 
+#include <hashtbl.h>
+
 #include <frame.h>
 #include <paging.h>
 #include <worker.h>
@@ -14,6 +16,9 @@ void save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
 
 thread_t *current_thread = 0;
+
+static hashtbl_t *waiters = 0;			// threads waiting on a ressource
+STATIC_MUTEX(waiters_mutex);
 
 // ====================== //
 // THE PROGRAMMABLE TIMER //
@@ -180,8 +185,11 @@ thread_t *new_thread(entry_t entry, void* data) {
 	*(--t->ctx.esp) = 0;		// push invalid return address (the run_thread function never returns)
 
 	t->ctx.eip = (void(*)())run_thread;
-	t->state = T_STATE_PAUSED;
+	t->state = T_STATE_LOADING;
 	t->last_ran = 0;
+
+	t->waiting_on = 0;
+	t->must_exit = false;
 
 	t->current_pd_d = get_kernel_pagedir();
 	t->critical_level = CL_USER;
@@ -195,6 +203,8 @@ thread_t *new_thread(entry_t entry, void* data) {
 }
 
 static void delete_thread(thread_t *t) {
+	dbg_printf("Deleting thread 0x%p\n", t);
+
 	if (t->proc != 0)
 		process_thread_deleted(t);
 
@@ -213,13 +223,17 @@ static void irq0_handler(registers_t *regs) {
 	}
 }
 void threading_setup(entry_t cont, void* arg) {
+	waiters = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
+	ASSERT(waiters != 0);
+
 	set_pit_frequency(TASK_SWITCH_FREQUENCY);
 	idt_set_irq_handler(IRQ0, irq0_handler);
 
 	thread_t *t = new_thread(cont, arg);
 	ASSERT(t != 0);
 
-	resume_thread(t);
+	start_thread(t);
+
 	exit_critical(CL_USER);
 
 	run_scheduler();	// never returns
@@ -230,27 +244,65 @@ void threading_setup(entry_t cont, void* arg) {
 // TASK STATE MANIPULATION //
 // ======================= //
 
+void start_thread(thread_t *t) {
+	ASSERT(t->state == T_STATE_LOADING);
+
+	t->state = T_STATE_RUNNING;
+
+	{	int st = enter_critical(CL_NOINT);
+
+		enqueue_thread(t, false);
+
+		exit_critical(st);	}
+}
+
 void yield() {
 	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
 
 	save_context_and_enter_scheduler(&current_thread->ctx);
 }
 
-void pause() {
+bool wait_on(void* x) {
 	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
+
+	mutex_lock(&waiters_mutex);
+
+	void* prev_th = hashtbl_find(waiters, x);
+	if (prev_th == 0) {
+		bool add_ok = hashtbl_add(waiters, x, (void*)1);
+		if (!add_ok) return false;	// should not happen to often, I hope
+	} else if (prev_th != (void*)1) {
+		mutex_unlock(&waiters_mutex);
+		return false;
+	}
+
+	int st = enter_critical(CL_NOSWITCH);
+
+	if (current_thread->must_exit) return false;
+
+	current_thread->waiting_on = x;
+
+	ASSERT(hashtbl_change(waiters, x, current_thread));
+	mutex_unlock(&waiters_mutex);
 
 	current_thread->state = T_STATE_PAUSED;
 	save_context_and_enter_scheduler(&current_thread->ctx);
+
+	exit_critical(st);
+
+	if (current_thread->must_exit) return false;
+	return true;
 }
 
 void usleep(int usecs) {
-	void sleeper_resume(void* t) {
-		thread_t *thread = (thread_t*)t;
-		resume_thread(thread);
-	}
 	if (current_thread == 0) return;
-	bool ok = worker_push_in(usecs, sleeper_resume, current_thread);
-	if (ok) pause();
+
+	void resume_on_v(void* x) {
+		resume_on(x);
+	}
+	bool ok = worker_push_in(usecs, resume_on_v, current_thread);
+
+	if (ok) wait_on(current_thread);
 }
 
 void exit() {
@@ -263,6 +315,8 @@ void exit() {
 	// (it may switch before adding the delete_thread task), but once the task is added
 	// no other switch may happen, therefore this thread will not get re-enqueued
 
+	dbg_printf("Thread 0x%p exiting.\n", current_thread);
+
 	worker_push(delete_thread_v, current_thread);
 	current_thread->state = T_STATE_FINISHED;
 
@@ -272,20 +326,29 @@ void exit() {
 	ASSERT(false);
 }
 
-bool resume_thread(thread_t *thread) {
-	bool ret = false;
+bool resume_on(void* x) {
+	thread_t *thread;
 
-	int st = enter_critical(CL_NOINT);
+	{	mutex_lock(&waiters_mutex);
 
-	if (thread->state == T_STATE_PAUSED) {
-		ret = true;
+		thread = hashtbl_find(waiters, x);
+		hashtbl_change(waiters, x, (void*)1);
+
+		mutex_unlock(&waiters_mutex);	}
+	
+	if (thread == 0 || thread == (void*)1) return false;
+
+	{	int st = enter_critical(CL_NOINT);
+
+		ASSERT(thread->state == T_STATE_PAUSED);
 		thread->state = T_STATE_RUNNING;
+		thread->waiting_on = 0;
+
 		enqueue_thread(thread, false);
-	}
 
-	exit_critical(st);
+		exit_critical(st);	}
 
-	return ret;
+	return true;
 }
 
 void kill_thread(thread_t *thread) {
@@ -293,9 +356,16 @@ void kill_thread(thread_t *thread) {
 
 	int st = enter_critical(CL_NOSWITCH);
 
-	thread->state = T_STATE_FINISHED;
-	remove_thread_from_queue(thread);
-	delete_thread(thread);
+	thread->must_exit = true;
+
+	int i = 0;
+	while (thread->state != T_STATE_FINISHED) {
+		if (thread->state == T_STATE_PAUSED) {
+			resume_on(thread->waiting_on);
+		}
+		yield();
+		if (i++ > 100) dbg_printf("Thread 0x%p must be killed but will not exit.\n", thread);
+	}
 
 	exit_critical(st);
 }
