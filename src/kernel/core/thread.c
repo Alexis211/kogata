@@ -117,7 +117,7 @@ void run_scheduler() {
 	// This function is expected NEVER TO RETURN
 
 	if (current_thread != 0 && current_thread->state == T_STATE_RUNNING) {
-		current_thread->last_ran = worker_get_time();
+		current_thread->last_ran = get_kernel_time();
 		if (current_thread->proc) current_thread->proc->last_ran = current_thread->last_ran;
 		enqueue_thread(current_thread, true);
 	}
@@ -217,7 +217,7 @@ static void delete_thread(thread_t *t) {
 // ========== //
 
 static void irq0_handler(registers_t *regs) {
-	worker_notify_time(1000000 / TASK_SWITCH_FREQUENCY);
+	notify_time_pass(1000000 / TASK_SWITCH_FREQUENCY);
 	if (current_thread != 0 && current_thread->critical_level == CL_USER) {
 		save_context_and_enter_scheduler(&current_thread->ctx);
 	}

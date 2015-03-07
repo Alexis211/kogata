@@ -14,9 +14,10 @@ functional languages, but what can I do...
 
 ### Monolithic design
 
-I would have liked to do a microkernel, but the necessity for asynchronous
-communication makes it much more difficult to code, and contradicts the goal of
-having simple and straightforward code.
+I would have liked to have more of a client/server architecture
+(microkernel-like), but the necessity for asynchronous communication makes it
+much more difficult to code, and contradicts the goal of having simple and
+straightforward code.
 
 ### Emphasis on code quality and reliability
 
@@ -27,18 +28,21 @@ the system more easily.
 ### Capability-like security system
 
 A normal ring-3 application managed by a ring-0 kernel is a bit like a virtual
-machine in wich the process runs : it has a full memory space and doesn't see it
-when it is interrupted by other things happening on the system. We take this a
-bit further by saying that a process that creates a child process creates a
-"box" in which some of the ressources of the parent can be made accessible,
+machine in which the process runs : it has a full memory space and doesn't see
+it when it is interrupted by other things happening on the system. We take this
+a bit further by saying that a process that creates a child process creates a
+"box" in which some of the resources of the parent can be made accessible,
 possibly with some restrictions. In particular this is true of filesystems :
-each process has its own filesystem namespace. Basically it means that the login
-manager has full access to all disk devices and system hardware, the session
-manager for a user session only has access to the user's data and read-only
-access to system files, and an untrusted user application can be sandboxed in an
-environment where it will only see its own data and necessary libraries, with
-"bridges" enabling access to user-approved data (for instance a file chooser, or
-taking a picture with a webcam or such).
+each process has its own filesystem namespace. Basically it means that the
+login manager has full access to all disk devices and system hardware, the
+session manager for a user session only has access to the user's data and
+read-only access to system files, and an untrusted user application can be
+sandboxed in an environment where it will only see its own data and necessary
+libraries, with "bridges" enabling access to user-approved data (for instance a
+file chooser, or taking a picture with a webcam or such). Also when a process
+has a child, it is seen as sharing part of it's computing resources with the
+child, therefore when a process is terminated, all its children are terminated
+as well.
 
 ### Goal : small and cool
 
@@ -57,7 +61,7 @@ it on older computers and prove that such machines can still be put to use.
 
 ### Building and running
 
-To build, clone the repo somewhere and simply run:
+To build, clone the git repository somewhere and simply run:
 
     $ make
 
@@ -69,7 +73,7 @@ Warning: dependencies between portions of code are not necessarily well handled
 by the makefile system. If you made changes and the OS fails miserably, try
 doing a `make rebuild` before blaming your code.
 
-### Runing the tests
+### Running the tests
 
 The directory `src/tests/` contains a few tests for some of the core
 components. The running of these tests is automated. To run the test suite,
@@ -84,10 +88,10 @@ running the tests):
 
 * The kernel
 * Libraries
-  * `libkogata` : basic system functionnality (memory allocator, mutexes, debugging)
+  * `libkogata` : basic system functionality (memory allocator, mutexes, debugging)
   * `libc` : implementation of a (very restricted) subset of the standard C library, basically just
     the functions that were needed somewhere
-  * `libalgo` : usefull data structures (hashtables, AVL trees, maybee more in the future)
+  * `libalgo` : useful data structures (hashtables, AVL trees, maybe more in the future)
 * Userspace : not much work done yet
 
 ### Files in the repository
@@ -108,9 +112,11 @@ running the tests):
 * Implement missing syscalls
 * Write device drivers : VGA, keyboard, FAT (or EXT2 ?), VESA
 * Work on userland
-* Define a format for "packages", ie readonly filesystem images used for adding system
+* Define a format for "packages", i.e. read-only filesystem images used for adding system
   components or apps to the OS ; make sure to implement it in a way that does not waste
   memory
+* IPC : sockets and pipes (both anonymous)
+* GUI server with help from kernel for framebuffer management
 
 ### Things to design
 
@@ -129,15 +135,13 @@ running the tests):
 * Reclaiming physical memory :
   - Freeing some cached stuff, ie swapping pages from mmap regions
   - Swapping pages from processes non-mmap regions (ie real data regions)
-* IPC
-* How does a process exit, what does it do, how do processes synchronize ?
-* Have several threads in a single process
 * Better handling of errors (rather than panicing) ; userspace apps should not
   have the possibility of crashing the system
 * How does a process transmit information (such as environment, arguments, file
   descriptors) to its children ?
-* How do we do stream-like IO on files ? (ie how do we implement the append acces mode
+* How do we do stream-like IO on files ? (ie how do we implement the append access mode
   and non-position-dependant read/write calls & seek call)
+* Better error reporting for system calls that fail
 
 ### Things not sure
 
@@ -147,6 +151,7 @@ running the tests):
 
 * Module system for extending the kernel
 * In userspace, simple Scheme-like scripting language
+* POSIX compatibility layer, self-hosting OS
 * The obvious stuff ;-)
 
 ## Licence

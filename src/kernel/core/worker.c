@@ -88,7 +88,7 @@ bool worker_push(entry_t fun, void* data) {
 	return worker_push_in(0, fun, data);
 }
 
-void worker_notify_time(int usecs) {
+void notify_time_pass(int usecs) {
 	time += usecs;
 	if (next_task_time <= time) {
 		for (int i = 0; i < nworkers; i++) {
@@ -97,7 +97,7 @@ void worker_notify_time(int usecs) {
 	}
 }
 
-uint64_t worker_get_time() {
+uint64_t get_kernel_time() {
 	return time;
 }
 
