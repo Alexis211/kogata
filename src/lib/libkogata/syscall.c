@@ -99,6 +99,7 @@ bool make_fs(const char* name, const char* driver, fd_t source, const char* opti
 		.source_fd = source,
 		.opts = options,
 		.opts_strlen = strlen(options),
+		.bind_to_pid = 0,
 	};
 	return call(SC_MAKE_FS, (uint32_t)&args, 0, 0, 0, 0);
 }
@@ -140,6 +141,19 @@ bool bind_subfs(pid_t pid, const char* new_name, const char* orig_fs, const char
 		.bind_to_pid = pid
 	};
 	return call(SC_BIND_SUBFS, (uint32_t)&args, 0, 0, 0, 0);
+}
+bool bind_make_fs(pid_t pid, const char* name, const char* driver, fd_t source, const char* options) {
+	sc_make_fs_args_t args = {
+		.driver = driver,
+		.driver_strlen = strlen(driver),
+		.fs_name = name,
+		.fs_name_strlen = strlen(name),
+		.source_fd = source,
+		.opts = options,
+		.opts_strlen = strlen(options),
+		.bind_to_pid = pid,
+	};
+	return call(SC_BIND_MAKE_FS, (uint32_t)&args, 0, 0, 0, 0);
 }
 bool bind_fd(pid_t pid, fd_t new_fd, fd_t fd) {
 	return call(SC_BIND_FD, new_fd, fd, 0, 0, 0);

@@ -12,8 +12,7 @@ typedef uint32_t (*syscall_handler_t)(sc_args_t);
 
 static syscall_handler_t sc_handlers[SC_MAX] = { 0 };
 
-static char* sc_copy_string(uint32_t s, uint32_t slen) {
-	const char* addr = (const char*)s;
+static char* sc_copy_string(const char* addr, size_t slen) {
 	probe_for_read(addr, slen);
 
 	char* buf = malloc(slen+1);
@@ -23,6 +22,10 @@ static char* sc_copy_string(uint32_t s, uint32_t slen) {
 	buf[slen] = 0;
 
 	return buf;
+}
+
+static char* sc_copy_string_x(uint32_t s, uint32_t slen) {
+	return sc_copy_string((const char*)s, slen);
 }
 
 // ==================== //
@@ -50,7 +53,7 @@ static uint32_t usleep_sc(sc_args_t args) {
 }
 
 static uint32_t dbg_print_sc(sc_args_t args) {
-	char* msg = sc_copy_string(args.a, args.b);
+	char* msg = sc_copy_string_x(args.a, args.b);
 	if (msg == 0) return -1;
 
 	dbg_print(msg);
@@ -86,7 +89,7 @@ static uint32_t munmap_sc(sc_args_t args) {
 static uint32_t create_sc(sc_args_t args) {
 	bool ret = false;
 
-	char* fn = sc_copy_string(args.a, args.b);
+	char* fn = sc_copy_string_x(args.a, args.b);
 	if (fn == 0) goto end_create;
 
 	char* sep = strchr(fn, ':');
@@ -108,7 +111,7 @@ end_create:
 static uint32_t delete_sc(sc_args_t args) {
 	bool ret = false;
 
-	char* fn = sc_copy_string(args.a, args.b);
+	char* fn = sc_copy_string_x(args.a, args.b);
 	if (fn == 0) goto end_del;
 
 	char* sep = strchr(fn, ':');
@@ -130,8 +133,8 @@ end_del:
 static uint32_t move_sc(sc_args_t args) {
 	bool ret = false;
 
-	char *fn_a = sc_copy_string(args.a, args.b),
-		 *fn_b = sc_copy_string(args.c, args.d);
+	char *fn_a = sc_copy_string_x(args.a, args.b),
+		 *fn_b = sc_copy_string_x(args.c, args.d);
 	if (fn_a == 0 || fn_b == 0) goto end_move;
 
 	char* sep_a = strchr(fn_a, ':');
@@ -160,7 +163,7 @@ end_move:
 static uint32_t stat_sc(sc_args_t args) {
 	bool ret = false;
 
-	char* fn = sc_copy_string(args.a, args.b);
+	char* fn = sc_copy_string_x(args.a, args.b);
 	if (fn == 0) goto end_stat;
 
 	char* sep = strchr(fn, ':');
@@ -185,7 +188,7 @@ end_stat:
 static uint32_t open_sc(sc_args_t args) {
 	int ret = 0;
 
-	char* fn = sc_copy_string(args.a, args.b);
+	char* fn = sc_copy_string_x(args.a, args.b);
 	if (fn == 0) goto end_open;
 
 	char* sep = strchr(fn, ':');
@@ -270,37 +273,186 @@ static uint32_t get_mode_sc(sc_args_t args) {
 //  ---- Managing file systems
 
 static uint32_t make_fs_sc(sc_args_t args) {
-	return -1; // TODO
+	sc_make_fs_args_t *a = (sc_make_fs_args_t*)args.a;
+	probe_for_read(a, sizeof(sc_make_fs_args_t));
+
+	bool ok = false;
+
+	char* driver = 0;
+	char* fs_name = 0;
+	char* opts = 0;
+	fs_t *the_fs = 0;
+
+	process_t *p;
+	if (a->bind_to_pid == 0) {
+		p = current_process();
+	} else {
+		p = process_find_child(current_process(), a->bind_to_pid);
+		if (p == 0) goto end_mk_fs;
+	}
+
+	fs_handle_t *source = 0;
+	if (a->source_fd != 0) {
+		source = proc_read_fd(current_process(), a->source_fd);
+		if (!source) goto end_mk_fs;
+	}
+
+	driver = sc_copy_string(a->driver, a->driver_strlen);
+	if (!driver) goto end_mk_fs;
+
+	fs_name = sc_copy_string(a->fs_name, a->fs_name_strlen);
+	if (!fs_name) goto end_mk_fs;
+
+	opts = sc_copy_string(a->opts, a->opts_strlen);
+	if (!opts) goto end_mk_fs;
+	
+	the_fs = make_fs(driver, source, opts);
+	if (!the_fs) goto end_mk_fs;
+
+	ok = proc_add_fs(p, the_fs, fs_name);
+
+end_mk_fs:
+	if (driver) free(driver);
+	if (fs_name) free(fs_name);
+	if (opts) free(opts);
+	if (the_fs && !ok) unref_fs(the_fs);
+	return ok;
 }
 
 static uint32_t fs_add_src_sc(sc_args_t args) {
-	return -1; //TODO
+	bool ok = false;
+
+	char* opts = 0;
+	char* fs_name = 0;
+
+	fs_name = sc_copy_string_x(args.a, args.b);
+	if (fs_name == 0) goto end_add_src;
+
+	opts = sc_copy_string_x(args.d, args.e);
+	if (opts == 0) goto end_add_src;
+
+	fs_t *fs = proc_find_fs(current_process(), fs_name);
+	if (fs == 0) goto end_add_src;
+
+	fs_handle_t *src = proc_read_fd(current_process(), args.c);
+	if (src == 0) goto end_add_src;
+
+	ok = fs_add_source(fs, src, opts);
+
+end_add_src:
+	if (fs_name) free(fs_name);
+	if (opts) free(opts);
+	return ok;
 }
 
 static uint32_t fs_subfs_sc(sc_args_t args) {
-	return -1; //TODO
+	sc_subfs_args_t *a = (sc_subfs_args_t*)args.a;
+	probe_for_read(a, sizeof(sc_subfs_args_t));
+
+	bool ok = false;
+
+	char* new_name = 0;
+	char* from_fs = 0;
+	char* root = 0;
+	fs_t* new_fs = 0;
+
+	process_t *p;
+	if (a->bind_to_pid == 0) {
+		p = current_process();
+	} else {
+		p = process_find_child(current_process(), a->bind_to_pid);
+		if (p == 0) goto end_subfs;
+	}
+
+	new_name = sc_copy_string(a->new_name, a->new_name_strlen);
+	if (!new_name) goto end_subfs;
+
+	from_fs = sc_copy_string(a->from_fs, a->from_fs_strlen);
+	if (!from_fs) goto end_subfs;
+
+	root = sc_copy_string(a->root, a->root_strlen);
+	if (!root) goto end_subfs;
+
+	fs_t *orig_fs = proc_find_fs(current_process(), from_fs);
+	if (!orig_fs) goto end_subfs;
+
+	new_fs = fs_subfs(orig_fs, root, a->ok_modes);
+	if (!new_fs) goto end_subfs;
+
+	ok = proc_add_fs(p, new_fs, new_name);
+
+end_subfs:
+	if (new_name) free(new_name);
+	if (from_fs) free(from_fs);
+	if (root) free(root);
+	if (new_fs && !ok) unref_fs(new_fs);
+	return ok;
 }
 
 static uint32_t rm_fs_sc(sc_args_t args) {
-	return -1; //TODO
+	char* fs_name = sc_copy_string_x(args.a, args.b);
+	if (fs_name == 0) return false;
+
+	proc_rm_fs(current_process(), fs_name);
+	free(fs_name);
+	return true;
 }
 
 //  ---- Spawning new processes & giving them ressources
 
 static uint32_t new_proc_sc(sc_args_t args) {
-	return -1; //TODO
+	process_t *new_proc = new_process(current_process());
+	if (new_proc == 0) return 0;
+
+	return new_proc->pid;
 }
 
 static uint32_t bind_fs_sc(sc_args_t args) {
-	return -1; //TODO
-}
+	bool ok = false;
 
-static uint32_t bind_subfs_sc(sc_args_t args) {
-	return -1; //TODO
+	char* old_name = 0;
+	char* new_name = 0;
+	fs_t* fs = 0;
+
+	process_t *p = process_find_child(current_process(), args.a);
+	if (p == 0) goto end_bind_fs;
+
+	new_name = sc_copy_string_x(args.b, args.c);
+	if (!new_name) goto end_bind_fs;
+
+	old_name = sc_copy_string_x(args.d, args.e);
+	if (!old_name) goto end_bind_fs;
+
+	fs = proc_find_fs(current_process(), old_name);
+	if (!fs) goto end_bind_fs;
+
+	ref_fs(fs);
+	ok = proc_add_fs(p, fs, new_name);
+
+end_bind_fs:
+	if (old_name) free(old_name);
+	if (new_name) free(new_name);
+	if (fs && !ok) unref_fs(fs);
+	return ok;
 }
 
 static uint32_t bind_fd_sc(sc_args_t args) {
-	return -1; //TODO
+	bool ok = false;
+
+	fs_handle_t *h = 0;
+
+	process_t *p = process_find_child(current_process(), args.a);
+	if (p == 0) goto end_bind_fd;
+
+	h = proc_read_fd(current_process(), args.c);
+	if (h == 0) goto end_bind_fd;
+
+	ref_file(h);
+	ok = proc_add_fd_as(p, h, args.b);
+
+end_bind_fd:
+	if (h && !ok) unref_file(h);
+	return ok;
 }
 
 static uint32_t proc_exec_sc(sc_args_t args) {
@@ -355,7 +507,8 @@ void setup_syscall_table() {
 
 	sc_handlers[SC_NEW_PROC] = new_proc_sc;
 	sc_handlers[SC_BIND_FS] = bind_fs_sc;
-	sc_handlers[SC_BIND_SUBFS] = bind_subfs_sc;
+	sc_handlers[SC_BIND_SUBFS] = fs_subfs_sc; 	// no bind_subfs_sc;
+	sc_handlers[SC_BIND_MAKE_FS] = make_fs_sc;	// no bind_make_fs_sc;
 	sc_handlers[SC_BIND_FD] = bind_fd_sc;
 	sc_handlers[SC_PROC_EXEC] = proc_exec_sc;
 	sc_handlers[SC_PROC_STATUS] = proc_status_sc;

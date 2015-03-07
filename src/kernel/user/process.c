@@ -267,6 +267,28 @@ void process_thread_deleted(thread_t *t) {
 		process_exit(p, PS_FINISHED, 0);
 }
 
+// =========================== //
+// PROCESS CHILDREN MANAGEMENT //
+// =========================== //
+
+process_t *process_find_child(process_t *p, int pid) {
+	process_t *ret = 0;
+	
+	mutex_lock(&p->lock);
+
+	for (process_t *it = p->children; it != 0; it = it->next_child) {
+		if (it->pid == pid) {
+			ret = it;
+			break;
+		}
+	}
+
+	mutex_unlock(&p->lock);
+
+	return ret;
+
+}
+
 
 // ================================== //
 // MANAGING FILESYSTEMS FOR PROCESSES //
@@ -289,7 +311,7 @@ fs_t *proc_find_fs(process_t *p, const char* name) {
 	return (fs_t*)hashtbl_find(p->filesystems, name);
 }
 
-void proc_remove_fs(process_t *p, const char* name) {
+void proc_rm_fs(process_t *p, const char* name) {
 	fs_t *fs = proc_find_fs(p, name);
 	if (fs) {
 		unref_fs(fs);
@@ -304,6 +326,15 @@ int proc_add_fd(process_t *p, fs_handle_t *f) {
 	if (!add_ok) return 0;
 
 	return fd;
+}
+
+bool proc_add_fd_as(process_t *p, fs_handle_t *f, int fd) {
+	if (hashtbl_find(p->files, (void*)fd) != 0) return false;
+
+	if (fd >= p->next_fd) p->next_fd = fd + 1;
+
+	bool add_ok = hashtbl_add(p->files, (void*)fd, f);
+	return add_ok;
 }
 
 fs_handle_t *proc_read_fd(process_t *p, int fd) {

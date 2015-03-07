@@ -86,7 +86,7 @@ void process_thread_deleted(thread_t *t);		// called by threading code when a th
 process_t *process_find_child(process_t *p, int pid);
 void process_get_status(process_t *p, proc_status_t *st);
 void process_wait(process_t *p, proc_status_t *st, bool block);	// waits for exit and frees process_t structure 
-void process_wait_any_child(process_t *p, bool block);
+void process_wait_any_child(process_t *p, proc_status_t *st, bool block);
 
 //  ---- Process FS namespace & FD set
 
@@ -94,6 +94,7 @@ bool proc_add_fs(process_t *p, fs_t *fs, const char* name);
 fs_t *proc_find_fs(process_t *p, const char* name);
 void proc_rm_fs(process_t *p, const char* name);
 int proc_add_fd(process_t *p, fs_handle_t *f);		// on error returns 0, nonzero other<ise
+bool proc_add_fd_as(process_t *p, fs_handle_t *f, int fd);
 fs_handle_t *proc_read_fd(process_t *p, int fd);
 void proc_close_fd(process_t *p, int fd);
 

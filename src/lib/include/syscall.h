@@ -45,6 +45,7 @@ void fs_remove(const char* name);
 pid_t new_proc();
 bool bind_fs(pid_t pid, const char* new_name, const char* fs);
 bool bind_subfs(pid_t pid, const char* new_name, const char* fs, const char* root, int ok_modes);
+bool bind_make_fs(pid_t pid, const char* name, const char* driver, fd_t source, const char* options);
 bool bind_fd(pid_t pid, fd_t new_fd, fd_t fd);
 bool proc_exec(pid_t pid, const char* file);
 bool proc_status(pid_t pid, proc_status_t *s);

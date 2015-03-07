@@ -37,7 +37,8 @@
 #define SC_NEW_PROC		50		// args: nothing ?
 #define SC_BIND_FS		51		// args: pid, new_name, new_name_strlen, fs_name, fs_name_strlen -- bind FS to child process
 #define SC_BIND_SUBFS	52		// args: sc_subfs_args_t -- subfs & bind to child process
-#define SC_BIND_FD		53		// args: pid, new_fd, local_fd -- copy a file descriptor to child process
+#define SC_BIND_MAKE_FS	53		// args: sc_make_fs_args_t
+#define SC_BIND_FD		54		// args: pid, new_fd, local_fd -- copy a file descriptor to child process
 #define SC_PROC_EXEC	55		// args: pid, exec_name, exec_name_strlen -- execute binary in process
 #define SC_PROC_STATUS	56		// args: pid, proc_status_t*
 #define SC_PROC_KILL	57		// args: pid, proc_status_t* -- inconditionnally kill child process
@@ -56,6 +57,8 @@ typedef struct {
 
 	const char* opts;
 	size_t opts_strlen;
+
+	int bind_to_pid;		// zero = bind to current proc
 } sc_make_fs_args_t;
 
 typedef struct {
@@ -70,7 +73,7 @@ typedef struct {
 
 	int ok_modes;
 
-	int bind_to_pid;		// used only for SC_BIND_SUBFS
+	int bind_to_pid;		// 0 = bind to current proc
 } sc_subfs_args_t;
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
