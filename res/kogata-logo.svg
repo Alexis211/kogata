@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="256mm"
+   height="256mm"
+   viewBox="0 0 907.08661 907.08661"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="kogata-logo.svg"
+   inkscape:export-filename="/home/katchup/Core/prog/kogata/res/kogata-logo.png"
+   inkscape:export-xdpi="25.4"
+   inkscape:export-ydpi="25.4">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.35"
+     inkscape:cx="-100.35903"
+     inkscape:cy="544.77456"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1364"
+     inkscape:window-height="728"
+     inkscape:window-x="0"
+     inkscape:window-y="18"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-145.27559)">
+    <path
+       style="fill:#000000"
+       d="M 392.91326,893.89045 C 378.00828,837.95394 343.05853,788.39166 291.38665,749.91558 c -29.76515,-22.16382 -10.71747,-24.665 43.83304,-5.75569 28.41675,9.85027 55.9653,16.26014 61.21903,14.2441 13.12565,-5.0368 18.86251,-105.29753 16.09514,-281.28809 -2.32345,-147.75982 -3.62459,-153.80497 -37.39874,-173.75585 -19.01565,-11.23283 -23.57884,-32.67775 -8.20841,-38.57595 5.17259,-1.9849 22.00219,-1.71979 37.39908,0.58913 23.25759,3.48768 34.97081,10.87237 69.22531,43.64356 39.54673,37.8343 41.01519,40.29497 35.94818,60.24019 -2.90552,11.43702 -5.43468,104.7495 -5.62026,207.36101 l -0.33769,186.56644 -20.82572,59.07937 c -24.33485,69.03401 -29.12767,79.19311 -46.20949,97.94738 -21.92204,24.06839 -31.74691,18.13632 -43.59304,-26.32073 z M 101.71127,761.62973 c -15.64014,-18.94789 -30.2578,-57.1848 -30.2578,-79.14853 0,-27.1637 47.15852,-119.30438 69.47682,-135.7473 22.71102,-16.73225 36.24417,-10.21798 36.24417,17.44635 0,12.60967 3.53538,23.51309 8.20506,25.305 4.51277,1.73173 23.40262,-3.92577 41.97745,-12.57218 33.42378,-15.55849 67.97622,-20.87015 67.97622,-10.44979 0,2.96584 -10.96902,12.65142 -24.37557,21.52347 -13.40658,8.87205 -41.68981,36.24805 -62.85163,60.83556 -35.32329,41.04145 -38.18052,46.52557 -34.86961,66.92836 2.9853,18.39625 0.75694,25.19803 -12.93845,39.49294 -19.05021,19.8842 -45.10104,22.72378 -58.58666,6.38612 z m 633.88726,-89.50712 c -21.53115,-27.85151 -47.8874,-62.1331 -58.56943,-76.1813 -10.68212,-14.04819 -28.17272,-33.76162 -38.86802,-43.8076 -22.69711,-21.31909 -24.35163,-31.5321 -6.64356,-41.00916 15.26866,-8.17154 39.13381,-3.7556 89.64758,16.58815 45.7979,18.44448 73.55377,44.36789 97.11718,90.70538 20.7583,40.82142 22.38997,57.98473 7.57098,79.63906 -27.08291,39.57522 -43.189,34.94721 -90.25473,-25.93453 z"
+       id="path3403"
+       inkscape:connector-curvature="0" />
+  </g>
+</svg>

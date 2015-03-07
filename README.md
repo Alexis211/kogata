@@ -1,5 +1,7 @@
 # kogata operating system project
 
+<img src="http://adnab.me/cgit/kogata.git/plain/res/kogata-logo.png" style="float: right" />
+
 kogata operating system : small and <del>beautiful</del>small.
 
 ## Project characteristics
