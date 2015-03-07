@@ -91,7 +91,7 @@ int get_mode(fd_t file) {
 }
 
 bool make_fs(const char* name, const char* driver, fd_t source, const char* options) {
-	sc_make_fs_args_t args = {
+	volatile sc_make_fs_args_t args = {
 		.driver = driver,
 		.driver_strlen = strlen(driver),
 		.fs_name = name,
@@ -107,7 +107,7 @@ bool fs_add_source(const char* fs, fd_t source, const char* options) {
 	return call(SC_FS_ADD_SRC, (uint32_t)fs, strlen(fs), source, (uint32_t)options, strlen(options));
 }
 bool fs_subfs(const char* name, const char* orig_fs, const char* root, int ok_modes) {
-	sc_subfs_args_t args = {
+	volatile sc_subfs_args_t args = {
 		.new_name = name,
 		.new_name_strlen = strlen(name),
 		.from_fs = orig_fs,
@@ -117,7 +117,7 @@ bool fs_subfs(const char* name, const char* orig_fs, const char* root, int ok_mo
 		.ok_modes = ok_modes,
 		.bind_to_pid = 0
 	};
-	return call(SC_SUBFS, (uint32_t)&args, 0, 0, 0, 0);
+	return call(SC_SUBFS, (uint32_t)(&args), 0, 0, 0, 0);
 }
 void fs_remove(const char* name) {
 	call(SC_RM_FS, (uint32_t)name, strlen(name), 0, 0, 0);
