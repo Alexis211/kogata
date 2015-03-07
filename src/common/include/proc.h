@@ -16,8 +16,8 @@
 
 typedef struct {
 	int pid;
-	int state;				// one of PS_*
-	int return_code;		// an error code if state == PS_FAILURE
+	int status;				// one of PS_*
+	int exit_code;		// an error code if state == PS_FAILURE
 } proc_status_t;
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

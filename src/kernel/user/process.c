@@ -239,7 +239,8 @@ void process_exit(process_t *p, int status, int exit_code) {
 	// notify parent
 	process_t *par = p->parent;
 	if (par->status == PS_RUNNING) {
-		// TODO: notify that child is exited
+		resume_on(par->children);
+		resume_on(p);
 	}
 
 	mutex_unlock(&p->lock);
@@ -286,7 +287,127 @@ process_t *process_find_child(process_t *p, int pid) {
 	mutex_unlock(&p->lock);
 
 	return ret;
+}
 
+void process_get_status(process_t *p, proc_status_t *st) {
+	st->pid = p->pid;
+	st->status = p->status;
+	st->exit_code = p->exit_code;
+}
+
+void process_wait(process_t *p, proc_status_t *st, bool wait) {
+	// This is such a mess...
+
+	process_t *par = p->parent;
+
+	st->pid = 0;
+	st->status = 0;
+
+	mutex_lock(&par->lock);
+
+	while (true) {
+		// problem : p may not be in parent's children list anymore,
+		// meaning the associated process_t* has been deleted
+		bool found = false;
+		for (process_t *it = par->children; it != 0; it = it->next_child) {
+			if (it == p) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			if (p->status != PS_LOADING && p->status != PS_RUNNING) {
+				process_get_status(p, st);
+
+				if (par->children == p) {
+					par->children = p->next_child;
+				} else {
+					for (process_t *it = par->children; it->next_child != 0; it = it->next_child) {
+						if (it->next_child == p) {
+							it->next_child = p->next_child;
+							break;
+						}
+					}
+				}
+
+				free(p);
+			} else if (wait) {
+				bool wait_ok;
+
+				{	int st = enter_critical(CL_NOSWITCH);
+		
+					mutex_unlock(&par->lock);
+					wait_ok = wait_on(p);
+
+					exit_critical(st);	}
+				
+				if (!wait_ok) return;
+
+				mutex_lock(&par->lock);
+				continue;	// loop around
+			}
+		}
+		break;
+	}
+
+	mutex_unlock(&par->lock);
+}
+
+void process_wait_any_child(process_t *par, proc_status_t *st, bool wait) {
+	st->pid = 0;
+	st->status = 0;
+
+	mutex_lock(&par->lock);
+
+	while (true) {
+		// problem : p may not be in parent's children list anymore,
+		// meaning the associated process_t* has been deleted
+		process_t *p = 0;
+
+		for (process_t *it = par->children; it != 0; it = it->next_child) {
+			if (it->status != PS_LOADING && it->status != PS_RUNNING) {
+				p = it;
+				break;
+			}
+		}
+
+		if (p) {
+			process_get_status(p, st);
+
+			if (par->children == p) {
+				par->children = p->next_child;
+			} else {
+				for (process_t *it = par->children; it->next_child != 0; it = it->next_child) {
+					if (it->next_child == p) {
+						it->next_child = p->next_child;
+						break;
+					}
+				}
+			}
+
+			free(p);
+		} else {
+			if (wait) {
+				bool wait_ok;
+				
+				{	int st = enter_critical(CL_NOSWITCH);
+
+					mutex_unlock(&par->lock);
+					wait_ok = wait_on(par);
+
+					exit_critical(st);	}
+				
+				if (!wait_ok) return;
+
+				mutex_lock(&par->lock);
+				continue;	// loop around
+			}
+		}
+		break;
+	}
+
+	mutex_unlock(&par->lock);
 }
 
 

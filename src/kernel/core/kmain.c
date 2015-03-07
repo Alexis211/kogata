@@ -299,7 +299,7 @@ void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs)  {
 
 	unref_file(init_bin);
 
-	start_process(init_p, e);
+	ASSERT(start_process(init_p, e));
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

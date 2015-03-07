@@ -1,6 +1,7 @@
 #include <string.h>
 #include <process.h>
 #include <vfs.h>
+#include <elf.h>
 
 #include <sct.h>
 
@@ -456,19 +457,82 @@ end_bind_fd:
 }
 
 static uint32_t proc_exec_sc(sc_args_t args) {
-	return -1; //TODO
+	bool ok = false;
+
+	process_t *p = 0;
+	char* exec_name = 0;
+	fs_handle_t *h = 0;
+	
+	p = process_find_child(current_process(), args.a);
+	if (p == 0) goto end_exec;
+
+	exec_name = sc_copy_string_x(args.b, args.c);
+	if (exec_name == 0) goto end_exec;
+
+	char* sep = strchr(exec_name, ':');
+	if (sep == 0) goto end_exec;
+
+	*sep = 0;
+	char* file = sep + 1;
+
+	fs_t *fs = proc_find_fs(current_process(), exec_name);
+	if (fs == 0) goto end_exec;
+
+	h = fs_open(fs, file, FM_READ | FM_MMAP);
+	if (h == 0) h = fs_open(fs, file, FM_READ);
+	if (h == 0) goto end_exec;
+
+	proc_entry_t *entry = elf_load(h, p);
+	if (entry == 0) goto end_exec;
+
+	ok = start_process(p, entry);
+
+end_exec:
+	if (exec_name) free(exec_name);
+	if (h) unref_file(h);
+	return ok;
 }
 
 static uint32_t proc_status_sc(sc_args_t args) {
-	return -1; //TODO
+	proc_status_t *st = (proc_status_t*)args.b;
+	probe_for_write(st, sizeof(proc_status_t));
+
+	process_t *p = process_find_child(current_process(), args.a);
+	if (p == 0) return false;
+
+	process_get_status(p, st);
+	return true;
 }
 
 static uint32_t proc_kill_sc(sc_args_t args) {
-	return -1; //TODO
+	proc_status_t *st = (proc_status_t*)args.b;
+	probe_for_write(st, sizeof(proc_status_t));
+
+	process_t *p = process_find_child(current_process(), args.a);
+	if (p == 0) return false;
+
+	process_exit(p, PS_KILLED, 0);
+	process_wait(p, st, true);		// (should return immediately)
+
+	return true;
 }
 
 static uint32_t proc_wait_sc(sc_args_t args) {
-	return -1; //TODO
+	proc_status_t *st = (proc_status_t*)args.c;
+	probe_for_write(st, sizeof(proc_status_t));
+
+	bool wait = (args.b != 0);
+
+	if (args.a == 0) {
+		process_wait_any_child(current_process(), st, wait);
+		return true;
+	} else {
+		process_t *p = process_find_child(current_process(), args.a);
+		if (p == 0) return false;
+
+		process_wait(p, st, wait);
+		return true;
+	}
 }
 
 // ====================== //
