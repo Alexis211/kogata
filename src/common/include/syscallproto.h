@@ -2,12 +2,18 @@
 
 #include <proc.h>
 
+typedef int fd_t;
+typedef int pid_t;
+typedef struct { fd_t a, b; } fd_pair_t;
+
 #define SC_MAX		128		// maximum number of syscalls
 
 #define SC_DBG_PRINT	0		// args: msg, msg_strlen
 #define SC_EXIT			1		// args: code
 #define SC_YIELD		2		// args: ()
 #define SC_USLEEP		3		// args: usecs
+#define SC_NEW_THREAD	4		// args: eip, esp
+#define SC_EXIT_THREAD	5		// args: ()
 
 #define	SC_MMAP			10		// args: addr, size, mode
 #define SC_MMAP_FILE	11		// args: handle, offset, addr, size, mode
@@ -57,12 +63,12 @@ typedef struct {
 	const char* fs_name;
 	size_t fs_name_strlen;
 
-	int source_fd;
+	fd_t source_fd;
 
 	const char* opts;
 	size_t opts_strlen;
 
-	int bind_to_pid;		// zero = bind to current proc
+	pid_t bind_to_pid;		// zero = bind to current proc
 } sc_make_fs_args_t;
 
 typedef struct {
@@ -77,7 +83,7 @@ typedef struct {
 
 	int ok_modes;
 
-	int bind_to_pid;		// 0 = bind to current proc
+	pid_t bind_to_pid;		// 0 = bind to current proc
 } sc_subfs_args_t;
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

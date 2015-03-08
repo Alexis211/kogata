@@ -9,14 +9,16 @@
 
 #include <fs.h>
 #include <debug.h>
+#include <token.h>
 
-typedef int fd_t;
-typedef int pid_t;
+typedef void (*entry_t)(void*);
 
 void dbg_print(const char* str);
 void yield();
 void exit(int code);
 void usleep(int usecs);
+bool new_thread(entry_t entry, void* data);
+void exit_thread();
 
 bool mmap(void* addr, size_t size, int mode);
 bool mmap_file(fd_t file, size_t offset, void* addr, size_t size, int mode);
@@ -36,6 +38,10 @@ bool readdir(fd_t file, size_t ent_no, dirent_t *d);
 bool stat_open(fd_t file, stat_t *s);
 int ioctl(fd_t file, int command, void* data);
 int get_mode(fd_t file);
+
+fd_pair_t make_channel(bool blocking);
+bool gen_token(fd_t file, token_t *tok);
+fd_t use_token(token_t *tok);
 
 bool make_fs(const char* name, const char* driver, fd_t source, const char* options);
 bool fs_add_source(const char* fs, fd_t source, const char* options);

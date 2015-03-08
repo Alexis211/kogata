@@ -1,7 +1,9 @@
 #include <string.h>
+
 #include <process.h>
 #include <vfs.h>
 #include <elf.h>
+#include <ipc.h>
 
 #include <sct.h>
 
@@ -60,6 +62,15 @@ static uint32_t dbg_print_sc(sc_args_t args) {
 	dbg_print(msg);
 
 	free(msg);
+	return 0;
+}
+
+static uint32_t new_thread_sc(sc_args_t args) {
+	return process_new_thread(current_process(), (proc_entry_t)args.a, (void*)args.b);
+}
+
+static uint32_t exit_thread_sc(sc_args_t args) {
+	exit();
 	return 0;
 }
 
@@ -269,6 +280,72 @@ static uint32_t get_mode_sc(sc_args_t args) {
 	if (h == 0) return 0;
 
 	return file_get_mode(h);
+}
+
+//  ---- IPC
+
+static uint32_t make_channel_sc(sc_args_t args) {
+	// messy messy messy
+
+	bool blocking = (args.a != 0);
+
+	fd_pair_t *f = (fd_pair_t*)args.b;
+	probe_for_write(f, sizeof(fd_pair_t));
+
+	f->a = f->b = 0;
+
+	fs_handle_pair_t ch = make_channel(blocking);
+
+	if (ch.a == 0 || ch.b == 0) goto error;
+
+	f->a = proc_add_fd(current_process(), ch.a);
+	if (f->a == 0) goto error;
+
+	f->b = proc_add_fd(current_process(), ch.b);
+	if (f->b == 0) goto error;
+
+	return true;
+
+error:
+	if (f->a) {
+		proc_close_fd(current_process(), f->a);
+		f->a = 0;
+	} else {
+		if (ch.a) unref_file(ch.a);
+	}
+	if (f->b) {
+		proc_close_fd(current_process(), f->b);
+		f->b = 0;
+	} else {
+		if (ch.b) unref_file(ch.b);
+	}
+	return false;
+}
+
+static uint32_t gen_token_sc(sc_args_t args) {
+	fs_handle_t *h = proc_read_fd(current_process(), args.a);
+	if (h == 0) return false;
+
+	token_t *tok = (token_t*)args.b;
+	probe_for_write(tok, sizeof(token_t));
+
+	return gen_token_for(h, tok);
+}
+
+static uint32_t use_token_sc(sc_args_t args) {
+	token_t *tok = (token_t*)args.a;
+	probe_for_read(tok, sizeof(token_t));
+
+	fs_handle_t *h = use_token(tok);
+
+	if (h == 0) return 0;
+
+	int fd = proc_add_fd(current_process(), h);
+	if (fd == 0) unref_file(h);
+
+	return fd;
+
+	return 0;	//TODO
 }
 
 //  ---- Managing file systems
@@ -544,6 +621,8 @@ void setup_syscall_table() {
 	sc_handlers[SC_YIELD] = yield_sc;
 	sc_handlers[SC_DBG_PRINT] = dbg_print_sc;
 	sc_handlers[SC_USLEEP] = usleep_sc;
+	sc_handlers[SC_NEW_THREAD] = new_thread_sc;
+	sc_handlers[SC_EXIT_THREAD] = exit_thread_sc;
 
 	sc_handlers[SC_MMAP] = mmap_sc;
 	sc_handlers[SC_MMAP_FILE] = mmap_file_sc;
@@ -563,6 +642,10 @@ void setup_syscall_table() {
 	sc_handlers[SC_STAT_OPEN] = stat_open_sc;
 	sc_handlers[SC_IOCTL] = ioctl_sc;
 	sc_handlers[SC_GET_MODE] = get_mode_sc;
+
+	sc_handlers[SC_MK_CHANNEL] = make_channel_sc;
+	sc_handlers[SC_GEN_TOKEN] = gen_token_sc;
+	sc_handlers[SC_USE_TOKEN] = use_token_sc;
 
 	sc_handlers[SC_MAKE_FS] = make_fs_sc;
 	sc_handlers[SC_FS_ADD_SRC] = fs_add_src_sc;

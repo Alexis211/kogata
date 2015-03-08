@@ -39,6 +39,15 @@ void usleep(int usecs) {
 	call(SC_USLEEP, usecs, 0, 0, 0, 0);
 }
 
+bool new_thread(entry_t entry, void* data) {
+	// TODO
+	return false;
+}
+
+void exit_thread() {
+	call(SC_EXIT_THREAD, 0, 0, 0, 0, 0);
+}
+
 bool mmap(void* addr, size_t size, int mode) {
 	return call(SC_MMAP, (uint32_t)addr, size, mode, 0, 0);
 }
@@ -88,6 +97,18 @@ int ioctl(fd_t file, int command, void* data) {
 }
 int get_mode(fd_t file) {
 	return call(SC_GET_MODE, file, 0, 0, 0, 0);
+}
+
+fd_pair_t make_channel(bool blocking) {
+	fd_pair_t ret;
+	call(SC_MK_CHANNEL, blocking, (uint32_t)&ret, 0, 0, 0);
+	return ret;
+}
+bool gen_token(fd_t file, token_t *tok) {
+	return call(SC_GEN_TOKEN, file, (uint32_t)tok, 0, 0, 0);
+}
+fd_t use_token(token_t *tok) {
+	return call(SC_USE_TOKEN, (uint32_t)tok, 0, 0, 0, 0);
 }
 
 bool make_fs(const char* name, const char* driver, fd_t source, const char* options) {
