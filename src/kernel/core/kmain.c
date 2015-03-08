@@ -23,9 +23,15 @@
 #include <slab_alloc.h>
 #include <string.h>
 
+#include <prng.h>
+
 #include <dev/pci.h>
 #include <dev/pciide.h>
 #include <fs/iso9660.h>
+
+#ifndef PRNG_INIT_ENTROPY
+#define PRNG_INIT_ENTROPY 1299733235
+#endif
 
 // ===== FOR TESTS =====
 #define TEST_PLACEHOLDER_AFTER_IDT
@@ -148,6 +154,10 @@ void kernel_init_stage2(void* data) {
 
 	// Register FS drivers
 	register_iso9660_driver();
+
+	// Add entropy to prng
+	uint32_t x = PRNG_INIT_ENTROPY;
+	prng_add_entropy((uint8_t*)&x, sizeof(x));
 
 	// Parse command line
 	btree_t *cmdline = parse_cmdline((const char*)mbd->cmdline);
