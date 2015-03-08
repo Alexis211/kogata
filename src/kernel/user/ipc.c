@@ -4,10 +4,10 @@
 #include <mutex.h>
 #include <thread.h>
 
-static size_t channel_read(fs_node_ptr c, size_t offset, size_t len, char* buf);
-static size_t channel_write(fs_node_ptr c, size_t offset, size_t len, const char* buf);
+static size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
+static size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
 static bool channel_stat(fs_node_ptr c, stat_t *st);
-static void channel_close(fs_node_ptr c);
+static void channel_close(fs_handle_t *c);
 
 static fs_node_ops_t channel_ops = {
 	.read = channel_read,
@@ -33,7 +33,7 @@ typedef struct channel {
 	size_t buf_use_begin, buf_used;		// circular buffer
 } channel_t;
 
-fs_handle_pair_t make_channel() {
+fs_handle_pair_t make_channel(bool blocking) {
 	fs_handle_pair_t ret = { .a = 0, .b = 0 };
 	channel_t *a = 0, *b = 0;
 
@@ -61,7 +61,7 @@ fs_handle_pair_t make_channel() {
 	ret.a->data = a;
 	ret.b->data = b;
 	ret.a->refs = ret.b->refs = 1;
-	ret.a->mode = ret.b->mode = FM_READ | FM_WRITE;
+	ret.a->mode = ret.b->mode = FM_READ | FM_WRITE | (blocking ? FM_BLOCKING : 0);
 
 	return ret;
 
@@ -74,65 +74,82 @@ error:
 	return ret;
 }
 
-size_t channel_read(fs_node_ptr ch, size_t offset, size_t len, char* buf) {
-	channel_t *c = (channel_t*)ch;
+size_t channel_read(fs_handle_t *h, size_t offset, size_t req_len, char* orig_buf) {
+	channel_t *c = (channel_t*)h->data;
+
+	size_t ret = 0;
 	
-	mutex_lock(&c->lock);
+	do {
+		size_t len = req_len - ret;
+		char *buf = orig_buf + ret;
 
-	if (c->buf_used < len) len = c->buf_used;
+		mutex_lock(&c->lock);
 
-	if (len) {
-		size_t len0 = len, len1 = 0;
+		if (c->buf_used < len) len = c->buf_used;
 
-		if (c->buf_use_begin + len > CHANNEL_BUFFER_SIZE) {
-			len0 = CHANNEL_BUFFER_SIZE - c->buf_use_begin;
-			len1 = len - len0;
+		if (len) {
+			size_t len0 = len, len1 = 0;
+
+			if (c->buf_use_begin + len > CHANNEL_BUFFER_SIZE) {
+				len0 = CHANNEL_BUFFER_SIZE - c->buf_use_begin;
+				len1 = len - len0;
+			}
+			memcpy(buf, c->buf + c->buf_use_begin, len0);
+			if (len1) memcpy(buf + len0, c->buf, len1);
+
+			c->buf_use_begin = (c->buf_use_begin + len) % CHANNEL_BUFFER_SIZE;
+			c->buf_used -= len;
+			
+			if (c->buf_used == 0) c->buf_use_begin = 0;
 		}
-		memcpy(buf, c->buf + c->buf_use_begin, len0);
-		if (len1) memcpy(buf + len0, c->buf, len1);
 
-		c->buf_use_begin = (c->buf_use_begin + len) % CHANNEL_BUFFER_SIZE;
-		c->buf_used -= len;
-		
-		if (c->buf_used == 0) c->buf_use_begin = 0;
-	}
+		ret += len;
 
-	mutex_unlock(&c->lock);
+		mutex_unlock(&c->lock);
+	} while ((h->mode & FM_BLOCKING) && ret < req_len);
 
-	return len;
+	return ret;
 }
 
-size_t channel_write(fs_node_ptr ch, size_t offset, size_t len, const char* buf) {
-	channel_t *tc = (channel_t*)ch;
+size_t channel_write(fs_handle_t *h, size_t offset, size_t req_len, const char* orig_buf) {
+	channel_t *tc = (channel_t*)h->data;
 	channel_t *c = tc->other_side;
 	
 	if (c == 0) return 0;
 
-	while (!mutex_try_lock(&c->lock)) {
-		yield();
-		if (tc->other_side == 0) return 0;
-	}
+	size_t ret = 0;
 
-	if (c->buf_used + len > CHANNEL_BUFFER_SIZE) len = CHANNEL_BUFFER_SIZE - c->buf_used;
+	do {
+		size_t len = req_len - ret;
+		const char* buf = orig_buf + ret;
 
-	if (len) {
-		size_t len0 = len, len1 = 0;
-
-		if (c->buf_use_begin + c->buf_used + len > CHANNEL_BUFFER_SIZE) {
-			len0 = CHANNEL_BUFFER_SIZE - c->buf_use_begin - c->buf_used;
-			len1 = len - len0;
+		while (!mutex_try_lock(&c->lock)) {
+			yield();
+			if (tc->other_side == 0) break;
 		}
-		memcpy(c->buf + c->buf_use_begin + c->buf_used, buf, len0);
-		if (len1) memcpy(c->buf, buf + len0, len1);
 
-		c->buf_used += len;
-	}
+		if (c->buf_used + len > CHANNEL_BUFFER_SIZE) len = CHANNEL_BUFFER_SIZE - c->buf_used;
 
-	mutex_unlock(&c->lock);
+		if (len) {
+			size_t len0 = len, len1 = 0;
 
-	if (len) resume_on(c);	// notify processes that may be waiting for data
+			if (c->buf_use_begin + c->buf_used + len > CHANNEL_BUFFER_SIZE) {
+				len0 = CHANNEL_BUFFER_SIZE - c->buf_use_begin - c->buf_used;
+				len1 = len - len0;
+			}
+			memcpy(c->buf + c->buf_use_begin + c->buf_used, buf, len0);
+			if (len1) memcpy(c->buf, buf + len0, len1);
 
-	return len;
+			c->buf_used += len;
+		}
+
+		mutex_unlock(&c->lock);
+
+		if (len) resume_on(c);	// notify processes that may be waiting for data
+		ret += len;
+	} while ((h->mode & FM_BLOCKING) && ret < req_len);
+
+	return ret;
 }
 
 bool channel_stat(fs_node_ptr ch, stat_t *st) {
@@ -149,8 +166,8 @@ bool channel_stat(fs_node_ptr ch, stat_t *st) {
 	return true;
 }
 
-void channel_close(fs_node_ptr ch) {
-	channel_t *c = (channel_t*)ch;
+void channel_close(fs_handle_t *ch) {
+	channel_t *c = (channel_t*)ch->data;
 
 	mutex_lock(&c->lock);
 

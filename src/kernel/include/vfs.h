@@ -83,10 +83,10 @@ typedef struct fs_handle {
 
 typedef struct fs_node_ops {
 	bool (*open)(fs_node_ptr n, int mode);
-	size_t (*read)(fs_node_ptr f, size_t offset, size_t len, char* buf);
-	size_t (*write)(fs_node_ptr f, size_t offset, size_t len, const char* buf);
-	bool (*readdir)(fs_node_ptr f, size_t ent_no, dirent_t *d);
-	void (*close)(fs_node_ptr f);
+	size_t (*read)(fs_handle_t *f, size_t offset, size_t len, char* buf);
+	size_t (*write)(fs_handle_t *f, size_t offset, size_t len, const char* buf);
+	bool (*readdir)(fs_handle_t *f, size_t ent_no, dirent_t *d);
+	void (*close)(fs_handle_t *f);
 
 	bool (*stat)(fs_node_ptr n, stat_t *st);
 	int (*ioctl)(fs_node_ptr f, int command, void* data);

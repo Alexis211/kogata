@@ -659,10 +659,10 @@ typedef struct {
 static bool ide_vfs_open(fs_node_ptr n, int mode);
 static bool ide_vfs_stat(fs_node_ptr n, stat_t *st);
 
-static size_t ide_vfs_read(fs_node_ptr f, size_t offset, size_t len, char* buf);
-static size_t ide_vfs_write(fs_node_ptr f, size_t offset, size_t len, const char* buf);
+static size_t ide_vfs_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
+static size_t ide_vfs_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 static int ide_vfs_ioctl(fs_node_ptr f, int command, void* data);
-static void ide_vfs_close(fs_node_ptr f);
+static void ide_vfs_close(fs_handle_t *f);
 
 static fs_node_ops_t ide_vfs_node_ops = {
 	.open = ide_vfs_open,
@@ -727,8 +727,8 @@ bool ide_vfs_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
-size_t ide_vfs_read(fs_node_ptr f, size_t offset, size_t len, char* buf) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
+size_t ide_vfs_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->data;
 
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;
@@ -739,8 +739,8 @@ size_t ide_vfs_read(fs_node_ptr f, size_t offset, size_t len, char* buf) {
 	return len;
 }
 
-size_t ide_vfs_write(fs_node_ptr f, size_t offset, size_t len, const char* buf) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
+size_t ide_vfs_write(fs_handle_t *h, size_t offset, size_t len, const char* buf) {
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->data;
 
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;
@@ -764,7 +764,7 @@ int ide_vfs_ioctl(fs_node_ptr f, int command, void* data) {
 	return ret;
 }
 
-void ide_vfs_close(fs_node_ptr f) {
+void ide_vfs_close(fs_handle_t *h) {
 	// nothing to do
 }
 

@@ -11,7 +11,7 @@ typedef struct {
 	fs_handle_t *a, *b;
 } fs_handle_pair_t;
 
-fs_handle_pair_t make_channel();
+fs_handle_pair_t make_channel(bool blocking);
 
 //  ---- Tokens for sharing file descriptors between processes
 

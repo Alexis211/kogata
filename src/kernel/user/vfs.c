@@ -449,7 +449,7 @@ void ref_file(fs_handle_t *file) {
 void unref_file(fs_handle_t *file) {
 	file->refs--;
 	if (file->refs == 0) {
-		file->ops->close(file->data);
+		file->ops->close(file);
 		if (file->node) unref_fs_node(file->node);
 		if (file->fs) unref_fs(file->fs);
 		free(file);
@@ -465,7 +465,7 @@ size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 
 	if (f->ops->read == 0) return 0;
 
-	return f->ops->read(f->data, offset, len, buf);
+	return f->ops->read(f, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
@@ -473,7 +473,7 @@ size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 
 	if (f->ops->write == 0) return 0;
 
-	return f->ops->write(f->data, offset, len, buf);
+	return f->ops->write(f, offset, len, buf);
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
@@ -491,7 +491,7 @@ int file_ioctl(fs_handle_t *f, int command, void* data) {
 bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 	if (!(f->mode & FM_READDIR)) return 0;
 
-	return f->ops->readdir && f->ops->readdir(f->data, ent_no, d);
+	return f->ops->readdir && f->ops->readdir(f, ent_no, d);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

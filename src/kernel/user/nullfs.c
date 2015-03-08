@@ -19,16 +19,16 @@ static bool nullfs_d_delete(fs_node_ptr n, const char* file);
 static bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name);
 static bool nullfs_d_create(fs_node_ptr n, const char* file, int type);
 static void nullfs_d_dispose(fs_node_ptr n);
-static bool nullfs_d_readdir(fs_node_ptr f, size_t ent_no, dirent_t *d);
-static void nullfs_d_close(fs_node_ptr f);
+static bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d);
+static void nullfs_d_close(fs_handle_t *f);
 
 // nullfs ram file node
 static bool nullfs_f_open(fs_node_ptr n, int mode);
 static bool nullfs_f_stat(fs_node_ptr n, stat_t *st);
 static void nullfs_f_dispose(fs_node_ptr n);
-static size_t nullfs_f_read(fs_node_ptr f, size_t offset, size_t len, char* buf);
-static size_t nullfs_f_write(fs_node_ptr f, size_t offset, size_t len, const char* buf);
-static void nullfs_f_close(fs_node_ptr f);
+static size_t nullfs_f_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
+static size_t nullfs_f_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
+static void nullfs_f_close(fs_handle_t *f);
 
 // VTables that go with it
 static fs_driver_ops_t nullfs_driver_ops = {
@@ -410,10 +410,10 @@ void nullfs_d_dispose(fs_node_ptr n) {
 	// nothing to do
 }
 
-bool nullfs_d_readdir(fs_node_ptr f, size_t ent_no, dirent_t *d) {
+bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 	// Very nonefficient !!
 
-	nullfs_dir_t *h = (nullfs_dir_t*)f;
+	nullfs_dir_t *h = (nullfs_dir_t*)f->data;
 
 	mutex_lock(&h->lock);
 
@@ -442,7 +442,7 @@ bool nullfs_d_readdir(fs_node_ptr f, size_t ent_no, dirent_t *d) {
 	return ok;
 }
 
-void nullfs_d_close(fs_node_ptr f) {
+void nullfs_d_close(fs_handle_t *f) {
 	// Nothing to do
 }
 
@@ -486,8 +486,8 @@ void nullfs_f_dispose(fs_node_ptr n) {
 
 //   -- File handle --
 
-static size_t nullfs_f_read(fs_node_ptr h, size_t offset, size_t len, char* buf) {
-	nullfs_file_t *f = (nullfs_file_t*)h;
+static size_t nullfs_f_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
+	nullfs_file_t *f = (nullfs_file_t*)h->data;
 	mutex_lock(&f->lock);
 
 	size_t ret = 0;
@@ -503,8 +503,8 @@ end_read:
 	return ret;
 }
 
-static size_t nullfs_f_write(fs_node_ptr h, size_t offset, size_t len, const char* buf) {
-	nullfs_file_t *f = (nullfs_file_t*)h;
+static size_t nullfs_f_write(fs_handle_t *h, size_t offset, size_t len, const char* buf) {
+	nullfs_file_t *f = (nullfs_file_t*)h->data;
 	mutex_lock(&f->lock);
 
 	size_t ret = 0;
@@ -532,7 +532,7 @@ end_write:
 	return ret;
 }
 
-static void nullfs_f_close(fs_node_ptr h) {
+static void nullfs_f_close(fs_handle_t *h) {
 	// nothing to do
 }
 

@@ -8,14 +8,14 @@ static void iso9660_fs_shutdown(fs_ptr f);
 
 static bool iso9660_node_stat(fs_node_ptr n, stat_t *st);
 static void iso9660_node_dispose(fs_node_ptr n);
-static void iso9660_node_close(fs_node_ptr f);
+static void iso9660_node_close(fs_handle_t *h);
 
 static bool iso9660_dir_open(fs_node_ptr n, int mode);
 static bool iso9660_dir_walk(fs_node_ptr n, const char* file, struct fs_node *node_d);
-static bool iso9660_dir_readdir(fs_node_ptr f, size_t ent_no, dirent_t *d);
+static bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d);
 
 static bool iso9660_file_open(fs_node_ptr n, int mode);
-static size_t iso9660_file_read(fs_node_ptr f, size_t offset, size_t len, char* buf);
+static size_t iso9660_file_read(fs_handle_t *h, size_t offset, size_t len, char* buf);
 
 static fs_driver_ops_t iso9660_driver_ops = {
 	.make = iso9660_make,
@@ -156,7 +156,7 @@ void iso9660_node_dispose(fs_node_ptr n) {
 	free(node);
 }
 
-void iso9660_node_close(fs_node_ptr f) {
+void iso9660_node_close(fs_handle_t *h) {
 	// nothing to do
 }
 
@@ -220,8 +220,8 @@ bool iso9660_file_open(fs_node_ptr n, int mode) {
 	return true;
 }
 
-size_t iso9660_file_read(fs_node_ptr f, size_t offset, size_t len, char* buf) {
-	iso9660_node_t *node = (iso9660_node_t*)f;
+size_t iso9660_file_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
+	iso9660_node_t *node = (iso9660_node_t*)h->data;
 
 	if (offset >= node->dr.size.lsb) return 0;
 	if (offset + len > node->dr.size.lsb) len =  node->dr.size.lsb - offset;
@@ -262,10 +262,10 @@ void iso9660_file_close(fs_node_ptr f) {
 	// nothing to do
 }
 
-bool iso9660_dir_readdir(fs_node_ptr n, size_t ent_no, dirent_t *d) {
-	// Very nonefficient !!
+bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d) {
+	// TODO : Very nonefficient !!
 
-	iso9660_node_t *node = (iso9660_node_t*)n;
+	iso9660_node_t *node = (iso9660_node_t*)h->data;
 
 	char buffer[2048];
 	size_t dr_len = 0;
