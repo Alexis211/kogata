@@ -494,4 +494,13 @@ bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 	return f->ops->readdir && f->ops->readdir(f, ent_no, d);
 }
 
+int file_poll(fs_handle_t *f, void** out_wait_obj) {
+	if (!f->ops->poll) {
+		if (out_wait_obj) *out_wait_obj = 0;
+		return 0;
+	}
+
+	return f->ops->poll(f, out_wait_obj);
+}
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

@@ -39,6 +39,7 @@ static fs_node_ops_t iso9660_dir_ops = {
 	.read = 0,
 	.write = 0,
 	.ioctl = 0,
+	.poll = 0,
 };
 
 static fs_node_ops_t iso9660_file_ops = {
@@ -54,6 +55,7 @@ static fs_node_ops_t iso9660_file_ops = {
 	.read = iso9660_file_read,
 	.write = 0,
 	.ioctl = 0,
+	.poll = 0,
 };
 
 void register_iso9660_driver() {

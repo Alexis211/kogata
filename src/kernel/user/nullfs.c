@@ -53,6 +53,7 @@ static fs_node_ops_t nullfs_d_ops = {
 	.read = 0,
 	.write = 0,
 	.ioctl = 0,
+	.poll = 0,
 };
 
 static fs_node_ops_t nullfs_f_ops = {
@@ -68,6 +69,7 @@ static fs_node_ops_t nullfs_f_ops = {
 	.close = nullfs_f_close,
 	.readdir = 0,
 	.ioctl =0,
+	.poll = 0,
 };
 
 

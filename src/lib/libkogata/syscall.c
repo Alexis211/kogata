@@ -39,9 +39,8 @@ void usleep(int usecs) {
 	call(SC_USLEEP, usecs, 0, 0, 0, 0);
 }
 
-bool new_thread(entry_t entry, void* data) {
-	// TODO
-	return false;
+bool sys_new_thread(void* eip, void* esp) {
+	return call(SC_NEW_THREAD, (uint32_t)eip, (uint32_t)esp, 0, 0, 0);
 }
 
 void exit_thread() {
@@ -97,6 +96,9 @@ int ioctl(fd_t file, int command, void* data) {
 }
 int get_mode(fd_t file) {
 	return call(SC_GET_MODE, file, 0, 0, 0, 0);
+}
+bool select(sel_fd_t* fds, size_t nfds, int timeout) {
+	return call(SC_SELECT, (uint32_t)fds, nfds, timeout, 0, 0);
 }
 
 fd_pair_t make_channel(bool blocking) {

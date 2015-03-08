@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+typedef int pid_t;
+
 #define PS_LOADING	1
 #define PS_RUNNING  2
 #define PS_FINISHED	3

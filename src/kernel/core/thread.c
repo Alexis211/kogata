@@ -147,7 +147,8 @@ static void run_thread(void (*entry)(void*), void* data) {
 
 	switch_pagedir(get_kernel_pagedir());
 
-	asm volatile("sti");
+	exit_critical(CL_USER);
+
 	entry(data);
 
 	exit();
@@ -192,11 +193,10 @@ thread_t *new_thread(entry_t entry, void* data) {
 	t->state = T_STATE_LOADING;
 	t->last_ran = 0;
 
-	t->waiting_on = 0;
 	t->must_exit = false;
 
 	t->current_pd_d = get_kernel_pagedir();
-	t->critical_level = CL_USER;
+	t->critical_level = CL_EXCL;
 
 	// used by user processes
 	t->proc = 0;
@@ -220,8 +220,11 @@ static void delete_thread(thread_t *t) {
 // SETUP CODE //
 // ========== //
 
-static void irq0_handler(registers_t *regs) {
+void irq0_handler(registers_t *regs, int crit_level) {
 	notify_time_pass(1000000 / TASK_SWITCH_FREQUENCY);
+
+	exit_critical(crit_level);
+
 	if (current_thread != 0 && current_thread->critical_level == CL_USER) {
 		save_context_and_enter_scheduler(&current_thread->ctx);
 	}
@@ -231,7 +234,7 @@ void threading_setup(entry_t cont, void* arg) {
 	ASSERT(waiters != 0);
 
 	set_pit_frequency(TASK_SWITCH_FREQUENCY);
-	idt_set_irq_handler(IRQ0, irq0_handler);
+	// no need to set irq0 handler
 
 	thread_t *t = new_thread(cont, arg);
 	ASSERT(t != 0);
@@ -267,34 +270,59 @@ void yield() {
 }
 
 bool wait_on(void* x) {
+	return wait_on_many(&x, 1);
+}
+
+bool wait_on_many(void** x, size_t n) {
 	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
+	ASSERT(n > 0);
 
 	mutex_lock(&waiters_mutex);
 
-	void* prev_th = hashtbl_find(waiters, x);
-	if (prev_th == 0) {
-		bool add_ok = hashtbl_add(waiters, x, (void*)1);
-		if (!add_ok) return false;	// should not happen to often, I hope
-	} else if (prev_th != (void*)1) {
+	//  ---- Check we can wait on all the requested objects
+	bool ok = true;
+	for (size_t i = 0; ok && i < n; i++) {
+		void* prev_th = hashtbl_find(waiters, x[i]);
+		if (prev_th == 0) {
+			bool add_ok = hashtbl_add(waiters, x[i], (void*)1);
+			if (!add_ok) {
+				ok = false;
+			}
+		} else if (prev_th != (void*)1) {
+			ok = false;
+		}
+	}
+	if (!ok) {
 		mutex_unlock(&waiters_mutex);
 		return false;
 	}
 
+	//  ---- Set ourselves as the waiting thread for all the requested objets
 	int st = enter_critical(CL_NOSWITCH);
 
-	if (current_thread->must_exit) return false;
+	for (size_t i = 0; i < n; i++) {
+		ASSERT(hashtbl_change(waiters, x[i], current_thread));
+	}
 
-	current_thread->waiting_on = x;
-
-	ASSERT(hashtbl_change(waiters, x, current_thread));
+	//  ---- Go to sleep
 	mutex_unlock(&waiters_mutex);
 
 	current_thread->state = T_STATE_PAUSED;
 	save_context_and_enter_scheduler(&current_thread->ctx);
 
+	//  ---- Remove ourselves from the list
+	mutex_lock(&waiters_mutex);
+
+	for (size_t i = 0; i < n; i++) {
+		ASSERT(hashtbl_change(waiters, x[i], (void*)1));
+	}
+
+	mutex_unlock(&waiters_mutex);
 	exit_critical(st);
 
+	//  ---- Check that we weren't waked up because of a kill request
 	if (current_thread->must_exit) return false;
+
 	return true;
 }
 
@@ -333,26 +361,27 @@ void exit() {
 bool resume_on(void* x) {
 	thread_t *thread;
 
-	{	mutex_lock(&waiters_mutex);
+	bool ret = false;
 
-		thread = hashtbl_find(waiters, x);
-		hashtbl_change(waiters, x, (void*)1);
+	mutex_lock(&waiters_mutex);
+	int st = enter_critical(CL_NOINT);
 
-		mutex_unlock(&waiters_mutex);	}
-	
-	if (thread == 0 || thread == (void*)1) return false;
+	thread = hashtbl_find(waiters, x);
 
-	{	int st = enter_critical(CL_NOINT);
+	if (thread != 0 && thread != (void*)1) {
+		if (thread->state == T_STATE_PAUSED) {
+			thread->state = T_STATE_RUNNING;
 
-		ASSERT(thread->state == T_STATE_PAUSED);
-		thread->state = T_STATE_RUNNING;
-		thread->waiting_on = 0;
+			enqueue_thread(thread, false);
 
-		enqueue_thread(thread, false);
+			ret = true;
+		}
+	}
 
-		exit_critical(st);	}
+	mutex_unlock(&waiters_mutex);
+	exit_critical(st);
 
-	return true;
+	return ret;
 }
 
 void kill_thread(thread_t *thread) {
@@ -365,7 +394,8 @@ void kill_thread(thread_t *thread) {
 	int i = 0;
 	while (thread->state != T_STATE_FINISHED) {
 		if (thread->state == T_STATE_PAUSED) {
-			resume_on(thread->waiting_on);
+			thread->state = T_STATE_RUNNING;
+			enqueue_thread(thread, false);
 		}
 		yield();
 		if (i++ > 100) dbg_printf("Thread 0x%p must be killed but will not exit.\n", thread);

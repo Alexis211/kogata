@@ -1,9 +1,8 @@
 #pragma once
 
 #include <proc.h>
+#include <fs.h>
 
-typedef int fd_t;
-typedef int pid_t;
 typedef struct { fd_t a, b; } fd_pair_t;
 
 #define SC_MAX		128		// maximum number of syscalls
@@ -33,6 +32,7 @@ typedef struct { fd_t a, b; } fd_pair_t;
 #define SC_STAT_OPEN	35		// args: fd, out stat_t *data -- stat on open file handle
 #define SC_IOCTL		36		// args: fd, command, out void* data
 #define SC_GET_MODE		37		// args: fd -- get mode for open file handle
+#define SC_SELECT		38		// args: sel_fd_t*, count, timeout
 
 #define SC_MK_CHANNEL	40		// args: blocking?, (int, int)*
 #define SC_GEN_TOKEN	41		// args: fd, token_t*

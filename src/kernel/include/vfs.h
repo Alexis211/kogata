@@ -86,6 +86,7 @@ typedef struct fs_node_ops {
 	size_t (*read)(fs_handle_t *f, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 	bool (*readdir)(fs_handle_t *f, size_t ent_no, dirent_t *d);
+	int (*poll)(fs_handle_t *f, void** out_wait_obj);
 	void (*close)(fs_handle_t *f);
 
 	bool (*stat)(fs_node_ptr n, stat_t *st);
@@ -181,5 +182,6 @@ size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 int file_ioctl(fs_handle_t *f, int command, void* data);
 bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d);
+int file_poll(fs_handle_t *f, void** out_wait_obj);	// just polls the file & returns a mask of SEL_* (see <fs.h>)
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

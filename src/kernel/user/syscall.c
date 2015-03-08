@@ -6,6 +6,7 @@
 #include <ipc.h>
 
 #include <sct.h>
+#include <worker.h>
 
 typedef struct {
 	uint32_t sc_id, a, b, c, d, e;		// a: ebx, b: ecx, c: edx, d: esi, e: edi
@@ -280,6 +281,58 @@ static uint32_t get_mode_sc(sc_args_t args) {
 	if (h == 0) return 0;
 
 	return file_get_mode(h);
+}
+
+static uint32_t select_sc(sc_args_t args) {
+	sel_fd_t *fds = (sel_fd_t*)args.a;
+	size_t n = args.b;
+	int timeout = args.c;
+
+	probe_for_write(fds, n * sizeof(sel_fd_t));
+
+	uint64_t select_begin_time = get_kernel_time();
+
+	void** wait_objs = (void**)malloc((n+1) * sizeof(void*));
+	if (!wait_objs) return false;
+
+	bool ret = false;
+
+	int st = enter_critical(CL_NOSWITCH);
+
+	while (true) {
+		//  ---- Poll FDs, if any is ok then return it
+		size_t n_wait_objs = 0;
+		if (timeout > 0) wait_objs[n_wait_objs++] = current_thread;
+		for (size_t i = 0; i < n; i++) {
+			fs_handle_t *h = proc_read_fd(current_process(), fds[i].fd);
+			if (h) {
+				fds[i].got_flags = file_poll(h, &wait_objs[n_wait_objs]);
+				if (wait_objs[n_wait_objs]) n_wait_objs++;
+				if (fds[i].got_flags & fds[i].req_flags) ret = true;
+			}
+		}
+
+		uint64_t time = get_kernel_time();
+
+		//  ---- If none of the handles given is a valid handle, return false
+		if (n_wait_objs == 0) break;
+		//  ---- If any is ok, return true
+		if (ret) break;
+		//  ---- If the timeout is over, return false
+		if (timeout >= 0 && time - select_begin_time >= (uint64_t)timeout) break;
+
+		//  ---- Do a wait, if interrupted (killed or whatever) return false
+		void resume_on_v(void*x) {
+			resume_on(x);
+		}
+		if (timeout > 0) worker_push_in(time - select_begin_time - timeout, resume_on_v, current_thread);
+		if (!wait_on_many(wait_objs, n_wait_objs)) break;
+	}
+
+	exit_critical(st);
+
+	free(wait_objs);
+	return ret;
 }
 
 //  ---- IPC
@@ -642,6 +695,7 @@ void setup_syscall_table() {
 	sc_handlers[SC_STAT_OPEN] = stat_open_sc;
 	sc_handlers[SC_IOCTL] = ioctl_sc;
 	sc_handlers[SC_GET_MODE] = get_mode_sc;
+	sc_handlers[SC_SELECT] = select_sc;
 
 	sc_handlers[SC_MK_CHANNEL] = make_channel_sc;
 	sc_handlers[SC_GEN_TOKEN] = gen_token_sc;

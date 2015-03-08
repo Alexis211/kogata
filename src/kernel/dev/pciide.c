@@ -677,6 +677,7 @@ static fs_node_ops_t ide_vfs_node_ops = {
 	.ioctl = ide_vfs_ioctl,
 	.close = ide_vfs_close,
 	.readdir = 0,
+	.poll = 0,
 };
 
 void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {

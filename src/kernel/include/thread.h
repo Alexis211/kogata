@@ -36,7 +36,6 @@ typedef struct thread {
 	struct thread *next_in_queue;
 	struct thread *next_in_proc;
 
-	void* waiting_on;
 	bool must_exit;
 } thread_t;
 
@@ -45,6 +44,8 @@ typedef void (*entry_t)(void*);
 void threading_setup(entry_t cont, void* data);		// never returns
 thread_t *new_thread(entry_t entry, void* data);	// thread is PAUSED, and must be started with start_thread
 void start_thread(thread_t *t);
+
+void irq0_handler(registers_t *regs, int crit_level);
 
 extern thread_t *current_thread;
 
@@ -60,6 +61,7 @@ void usleep(int usecs);
 //  killed and must terminate its kernel-land processing as soon as possible.
 
 bool wait_on(void* x);	// true : resumed normally, false : resumed because thread was killed, or someone else already waiting
+bool wait_on_many(void** x, size_t count);	// true only if we could wait on ALL objects
 
 bool resume_on(void* x);
 void kill_thread(thread_t *thread);		// cannot be called for current thread

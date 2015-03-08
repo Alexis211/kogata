@@ -11,6 +11,7 @@
 
 static size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
 static size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
+static int channel_poll(fs_handle_t *c, void** out_wait_obj);
 static bool channel_stat(fs_node_ptr c, stat_t *st);
 static void channel_close(fs_handle_t *c);
 
@@ -18,6 +19,7 @@ static fs_node_ops_t channel_ops = {
 	.read = channel_read,
 	.write = channel_write,
 	.close = channel_close,
+	.poll = channel_poll,
 	.open = 0,
 	.readdir = 0,
 	.ioctl = 0,
@@ -157,6 +159,20 @@ size_t channel_write(fs_handle_t *h, size_t offset, size_t req_len, const char* 
 	return ret;
 }
 
+int channel_poll(fs_handle_t *h, void** out_wait_obj) {
+	channel_t *c = (channel_t*)h->data;
+
+	int ret = 0;
+
+	if (c->other_side == 0) ret |= SEL_ERROR;
+	if (c->other_side && c->other_side->buf_used < CHANNEL_BUFFER_SIZE) ret |= SEL_WRITE;
+	if (c->buf_used > 0) ret |= SEL_READ;
+
+	if (out_wait_obj) *out_wait_obj = c;
+
+	return ret;
+}
+
 bool channel_stat(fs_node_ptr ch, stat_t *st) {
 	channel_t *c = (channel_t*)ch;
 
@@ -176,7 +192,11 @@ void channel_close(fs_handle_t *ch) {
 
 	mutex_lock(&c->lock);
 
-	c->other_side->other_side = 0;
+	if (c->other_side) {
+		resume_on(c->other_side);
+		c->other_side->other_side = 0;
+	}
+
 	free(c);
 }
 

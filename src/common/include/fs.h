@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef int fd_t;
+
 #define FT_REGULAR      0 		// no flags = regular file
 #define FT_DIR 			(0x01)
 #define FT_DEV 			(0x02)
@@ -28,6 +30,7 @@
 
 #define FM_ALL_MODES (0xFFFF)
 
+
 typedef struct {
 	int type;
 	int access;
@@ -45,5 +48,15 @@ typedef struct {
 
 #define IOCTL_BLOCKDEV_GET_BLOCK_SIZE   40
 #define IOCTL_BLOCKDEV_GET_BLOCK_COUNT  41
+
+
+#define SEL_READ	0x01
+#define	SEL_WRITE	0x02
+#define SEL_ERROR	0x04
+
+typedef struct {
+	fd_t fd;
+	uint16_t req_flags, got_flags;		// rq_flags : what caller is interested in
+} sel_fd_t;
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

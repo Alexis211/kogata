@@ -17,7 +17,7 @@ void dbg_print(const char* str);
 void yield();
 void exit(int code);
 void usleep(int usecs);
-bool new_thread(entry_t entry, void* data);
+bool sys_new_thread(void* eip, void* esp);
 void exit_thread();
 
 bool mmap(void* addr, size_t size, int mode);
@@ -38,6 +38,7 @@ bool readdir(fd_t file, size_t ent_no, dirent_t *d);
 bool stat_open(fd_t file, stat_t *s);
 int ioctl(fd_t file, int command, void* data);
 int get_mode(fd_t file);
+bool select(sel_fd_t* fds, size_t nfds, int timeout);
 
 fd_pair_t make_channel(bool blocking);
 bool gen_token(fd_t file, token_t *tok);
