@@ -15,7 +15,12 @@ fs_handle_pair_t make_channel(bool blocking);
 
 //  ---- Tokens for sharing file descriptors between processes
 
-token_t gen_token_for(fs_handle_t *h);
-fs_handle_t *use_token(token_t tok);
+#define TOKEN_LIFETIME 1500000		// in usecs
+
+bool gen_token_for(fs_handle_t *h, token_t *tok);
+fs_handle_t *use_token(token_t *tok);
+
+bool token_eq_fun(const void* a, const void* b);
+hash_t token_hash_fun(const void* t);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

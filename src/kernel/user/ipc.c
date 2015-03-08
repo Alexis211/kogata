@@ -4,6 +4,11 @@
 #include <mutex.h>
 #include <thread.h>
 
+#include <prng.h>
+#include <worker.h>
+
+#include <hashtbl.h>
+
 static size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
 static size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
 static bool channel_stat(fs_node_ptr c, stat_t *st);
@@ -175,5 +180,114 @@ void channel_close(fs_handle_t *ch) {
 	free(c);
 }
 
+//  ---- ------
+//  ---- Tokens
+//  ---- ------
+
+static hashtbl_t *token_table = 0;
+STATIC_MUTEX(token_table_mutex);
+
+typedef struct {
+	token_t tok;
+	fs_handle_t *h;
+	uint64_t time;
+} token_table_entry_t;
+
+static token_table_entry_t *expired_token = 0;
+
+static void token_expiration_check(void* x) {
+	mutex_lock(&token_table_mutex);
+
+	do {
+		expired_token = 0;
+
+		void find_expired_token(void* k, void* x) {
+			token_table_entry_t *e = (token_table_entry_t*)x;
+			if (e->time + TOKEN_LIFETIME < get_kernel_time()) {
+				expired_token = e;
+			}
+		}
+		hashtbl_iter(token_table, find_expired_token);
+
+		if (expired_token) {
+			hashtbl_remove(token_table, &expired_token->tok);
+			unref_file(expired_token->h);
+			free(expired_token);
+		}
+	} while (expired_token != 0);
+
+	mutex_unlock(&token_table_mutex);
+
+	while (!worker_push_in(1000000, token_expiration_check, 0)) yield();
+}
+
+bool gen_token_for(fs_handle_t *h, token_t *tok) {
+	bool ok = false;
+
+	token_table_entry_t *e = 0;
+
+	mutex_lock(&token_table_mutex);
+
+	if (token_table == 0) {
+		token_table = create_hashtbl(token_eq_fun, token_hash_fun, 0);
+		if (token_table == 0) goto end;
+
+		while (!worker_push_in(1000000, token_expiration_check, 0)) yield();
+	}
+
+	e = (token_table_entry_t*)malloc(sizeof(token_t));
+	if (!e) goto end;
+
+	prng_bytes((uint8_t*)e->tok.bytes, TOKEN_LENGTH);
+	memcpy(tok->bytes, e->tok.bytes, TOKEN_LENGTH);
+	e->h = h;
+	e->time = get_kernel_time();
+
+	ok = hashtbl_add(token_table, &e->tok, e);
+	if (!ok) goto end;
+
+	ref_file(h);
+	ok = true;
+
+end:
+	if (!ok && e) free(e);
+	mutex_unlock(&token_table_mutex);
+	return ok;
+}
+
+fs_handle_t* use_token(token_t* tok) {
+	fs_handle_t *ret = 0;
+
+	mutex_lock(&token_table_mutex);
+
+	token_table_entry_t *e = hashtbl_find(token_table, tok);
+	if (e != 0) {
+		ret = e->h;
+
+		hashtbl_remove(token_table, tok);
+		free(e);
+	}
+
+	mutex_unlock(&token_table_mutex);
+	return ret;
+
+}
+
+hash_t token_hash_fun(const void* v) {
+	token_t *t = (token_t*)v;
+	hash_t h = 707;
+	for (int i = 0; i < TOKEN_LENGTH; i++) {
+		h = h * 101 + t->bytes[i];
+	}
+	return h;
+}
+
+bool token_eq_fun(const void* a, const void* b) {
+	token_t *ta = (token_t*)a, *tb = (token_t*)b;
+	for (int i = 0; i < TOKEN_LENGTH; i++) {
+		if (ta->bytes[i] != tb->bytes[i]) return false;
+	}
+	return true;
+}
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

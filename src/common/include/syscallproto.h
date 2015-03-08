@@ -28,21 +28,25 @@
 #define SC_IOCTL		36		// args: fd, command, out void* data
 #define SC_GET_MODE		37		// args: fd -- get mode for open file handle
 
-#define SC_MAKE_FS		40		// args: sc_make_fs_args_t
-#define SC_FS_ADD_SRC	41		// args: fs_name, fs_name_strlen, fd, opts, opts_strlen
-#define SC_SUBFS		42		// args: sc_subfs_args_t
-#define SC_RM_FS		43		// args: fs_name, fs_name_strlen
+#define SC_MK_CHANNEL	40		// args: blocking?, (int, int)*
+#define SC_GEN_TOKEN	41		// args: fd, token_t*
+#define SC_USE_TOKEN	42		// args: token_t*
+
+#define SC_MAKE_FS		50		// args: sc_make_fs_args_t
+#define SC_FS_ADD_SRC	51		// args: fs_name, fs_name_strlen, fd, opts, opts_strlen
+#define SC_SUBFS		52		// args: sc_subfs_args_t
+#define SC_RM_FS		53		// args: fs_name, fs_name_strlen
 // TODO : how do we enumerate filesystems ?
 
-#define SC_NEW_PROC		50		// args: nothing ?
-#define SC_BIND_FS		51		// args: pid, new_name, new_name_strlen, fs_name, fs_name_strlen -- bind FS to child process
-#define SC_BIND_SUBFS	52		// args: sc_subfs_args_t -- subfs & bind to child process
-#define SC_BIND_MAKE_FS	53		// args: sc_make_fs_args_t
-#define SC_BIND_FD		54		// args: pid, new_fd, local_fd -- copy a file descriptor to child process
-#define SC_PROC_EXEC	55		// args: pid, exec_name, exec_name_strlen -- execute binary in process
-#define SC_PROC_STATUS	56		// args: pid, proc_status_t*
-#define SC_PROC_KILL	57		// args: pid, proc_status_t* -- inconditionnally kill child process
-#define SC_PROC_WAIT	58		// args: pid?, block?, proc_status_t*
+#define SC_NEW_PROC		60		// args: nothing ?
+#define SC_BIND_FS		61		// args: pid, new_name, new_name_strlen, fs_name, fs_name_strlen -- bind FS to child process
+#define SC_BIND_SUBFS	62		// args: sc_subfs_args_t -- subfs & bind to child process
+#define SC_BIND_MAKE_FS	63		// args: sc_make_fs_args_t
+#define SC_BIND_FD		64		// args: pid, new_fd, local_fd -- copy a file descriptor to child process
+#define SC_PROC_EXEC	65		// args: pid, exec_name, exec_name_strlen -- execute binary in process
+#define SC_PROC_STATUS	66		// args: pid, proc_status_t*
+#define SC_PROC_KILL	67		// args: pid, proc_status_t* -- inconditionnally kill child process
+#define SC_PROC_WAIT	68		// args: pid?, block?, proc_status_t*
 
 #define INVALID_PID 0		// do a wait with this PID to wayt for any child
 
