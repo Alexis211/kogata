@@ -110,14 +110,9 @@ running the tests):
 
 ### Plans for soon
 
-* Complete process management (implement process exiting, process deletion, waiting, ...)
-* Implement missing syscalls
-* Write device drivers : VGA, keyboard, FAT (or EXT2 ?), VESA
-* Work on userland
-* Define a format for "packages", i.e. read-only filesystem images used for adding system
-  components or apps to the OS ; make sure to implement it in a way that does not waste
-  memory
-* IPC : sockets and pipes (both anonymous)
+* `select` system call
+* Write device drivers : VESA, keyboard, FAT (or EXT2 ?)
+* Work on userland : init, terminal emulator, shell
 * GUI server with help from kernel for framebuffer management
 
 ### Things to design
@@ -148,9 +143,13 @@ running the tests):
 ### Things not sure
 
 * VFS thread safety : is the design correct ? (probably)
+* Not enough tests!
 
 ### Plans for the later future
 
+* Define a format for "packages", i.e. read-only filesystem images used for adding system
+  components or apps to the OS ; make sure to implement it in a way that does not waste
+  memory
 * Module system for extending the kernel
 * In userspace, simple Scheme-like scripting language
 * POSIX compatibility layer, self-hosting OS
