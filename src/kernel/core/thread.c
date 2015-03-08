@@ -11,6 +11,7 @@
 #include <worker.h>
 #include <process.h>
 #include <freemem.h>
+#include <prng.h>
 
 void save_context_and_enter_scheduler(saved_context_t *ctx);
 void resume_context(saved_context_t *ctx);
@@ -124,6 +125,9 @@ void run_scheduler() {
 	current_thread = dequeue_thread();
 
 	if (current_thread != 0) {
+		thread_t *ptr = current_thread;
+		prng_add_entropy((uint8_t*)&ptr, sizeof(ptr));
+
 		set_kernel_stack(current_thread->stack_region->addr + current_thread->stack_region->size);
 		resume_context(&current_thread->ctx);
 	} else {

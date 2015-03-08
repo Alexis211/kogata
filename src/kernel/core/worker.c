@@ -2,6 +2,7 @@
 #include <btree.h>
 #include <mutex.h>
 #include <malloc.h>
+#include <prng.h>
 
 static uint64_t time = 0;
 static uint64_t next_task_time = UINT64_MAX;
@@ -58,6 +59,8 @@ void worker_thread(void* x) {
 		mutex_unlock(&tasks_mutex);
 		
 		if (t != 0) {
+			prng_add_entropy((uint8_t*)&t, sizeof(t));
+
 			// do task :-)
 			t->fun(t->data);
 			free(t);

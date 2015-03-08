@@ -1,4 +1,5 @@
 #include <prng.h>
+#include <thread.h>
 
 #define EPOOLSIZE 2048
 
@@ -10,11 +11,10 @@ static const uint32_t a = 16807;
 static const uint32_t m = 0x7FFFFFFF;
 
 uint16_t prng_word() {
-	if (++n == 100) {
+	if (++n >= 100) {
 		n = 0;
 		if (entropy_count) {
-			entropy_count--;
-			x += entropy[entropy_count];
+			x += entropy[--entropy_count];
 		}
 	}
 	x = (x * a) % m;
@@ -30,9 +30,13 @@ void prng_bytes(uint8_t* out, size_t nbytes) {
 }
 
 void prng_add_entropy(const uint8_t* ptr, size_t nbytes) {
+	int st = enter_critical(CL_NOINT);
+
 	while (nbytes-- && entropy_count < EPOOLSIZE - 1) {
 		entropy[entropy_count++] = *(ptr++);
 	}
+
+	exit_critical(st);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
