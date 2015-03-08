@@ -427,6 +427,8 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	h->fs = fs;
 	h->node = n;
 	h->mode = mode;
+	h->ops = n->ops;
+	h->data = n->data;
 
 	// our reference to node n is transferred to the file handle
 	mutex_unlock(&n->lock);
@@ -447,9 +449,9 @@ void ref_file(fs_handle_t *file) {
 void unref_file(fs_handle_t *file) {
 	file->refs--;
 	if (file->refs == 0) {
-		file->node->ops->close(file->node->data);
-		unref_fs_node(file->node);
-		unref_fs(file->fs);
+		file->ops->close(file->data);
+		if (file->node) unref_fs_node(file->node);
+		if (file->fs) unref_fs(file->fs);
 		free(file);
 	}
 }
@@ -461,35 +463,35 @@ int file_get_mode(fs_handle_t *f) {
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 	if (!(f->mode & FM_READ)) return 0;
 
-	if (f->node->ops->read == 0) return 0;
+	if (f->ops->read == 0) return 0;
 
-	return f->node->ops->read(f->node->data, offset, len, buf);
+	return f->ops->read(f->data, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 	if (!(f->mode & FM_WRITE)) return 0;
 
-	if (f->node->ops->write == 0) return 0;
+	if (f->ops->write == 0) return 0;
 
-	return f->node->ops->write(f->node->data, offset, len, buf);
+	return f->ops->write(f->data, offset, len, buf);
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
-	return f->node->ops->stat && f->node->ops->stat(f->node->data, st);
+	return f->ops->stat && f->ops->stat(f->data, st);
 }
 
 int file_ioctl(fs_handle_t *f, int command, void* data) {
 	if (!(f->mode & FM_IOCTL)) return -1;
 
-	if (f->node->ops->ioctl == 0) return -1;
+	if (f->ops->ioctl == 0) return -1;
 
-	return f->node->ops->ioctl(f->node->data, command, data);
+	return f->ops->ioctl(f->data, command, data);
 }
 
 bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 	if (!(f->mode & FM_READDIR)) return 0;
 
-	return f->node->ops->readdir && f->node->ops->readdir(f->node->data, ent_no, d);
+	return f->ops->readdir && f->ops->readdir(f->data, ent_no, d);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

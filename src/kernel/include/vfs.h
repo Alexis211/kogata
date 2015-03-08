@@ -40,14 +40,21 @@ struct fs;
 struct fs_node;
 
 typedef struct user_region user_region_t;
+typedef struct fs_node_ops fs_node_ops_t;
 
 // -------------------------------------------
 // Structure defining a handle to an open file
 // This structure is entirely managed by the VFS, the underlying filesystem does not see it
+// For IPC structures (sockets, channels), fs and node are null because the handle does not reference
+// an underlying object. The ops and data fields are filled in by the IPC code with corresponding
+// data structures. All VFS calls are done on ops and data as specified in the handle and not the node.
 
 typedef struct fs_handle {
 	struct fs *fs;
 	struct fs_node *node;
+
+	fs_node_ops_t *ops;
+	fs_node_ptr data;
 
 	int refs;
 
@@ -74,7 +81,7 @@ typedef struct fs_handle {
 //	- dispose() is not called on the root node when a filesystem is shutdown
 //	- delete() is not expected to delete recursively : it should fail on a non-empty directory
 
-typedef struct {
+typedef struct fs_node_ops {
 	bool (*open)(fs_node_ptr n, int mode);
 	size_t (*read)(fs_node_ptr f, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_node_ptr f, size_t offset, size_t len, const char* buf);
