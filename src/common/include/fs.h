@@ -8,7 +8,7 @@
 #define FT_DEV 			(0x02)
 #define FT_BLOCKDEV 	(0x04)
 #define FT_CHARDEV 		(0x08)
-#define FT_FIFO 		(0x10)
+#define FT_CHANNEL 		(0x10)		// dual-pipe
 // #define FT_SOCKET 		(0x20)		// Not yet! Semantics not defined.	 (TODO)
 
 // FM_* enum describes modes for opening a file as well as authorized operations in stat_t
