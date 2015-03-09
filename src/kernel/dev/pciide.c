@@ -729,7 +729,7 @@ bool ide_vfs_stat(fs_node_ptr n, stat_t *st) {
 }
 
 size_t ide_vfs_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->data;
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->node->data;
 
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;
@@ -741,7 +741,7 @@ size_t ide_vfs_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
 }
 
 size_t ide_vfs_write(fs_handle_t *h, size_t offset, size_t len, const char* buf) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->data;
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->node->data;
 
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;

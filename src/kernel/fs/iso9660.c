@@ -223,7 +223,7 @@ bool iso9660_file_open(fs_node_ptr n, int mode) {
 }
 
 size_t iso9660_file_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
-	iso9660_node_t *node = (iso9660_node_t*)h->data;
+	iso9660_node_t *node = (iso9660_node_t*)h->node->data;
 
 	if (offset >= node->dr.size.lsb) return 0;
 	if (offset + len > node->dr.size.lsb) len =  node->dr.size.lsb - offset;
@@ -267,7 +267,7 @@ void iso9660_file_close(fs_node_ptr f) {
 bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d) {
 	// TODO : Very nonefficient !!
 
-	iso9660_node_t *node = (iso9660_node_t*)h->data;
+	iso9660_node_t *node = (iso9660_node_t*)h->node->data;
 
 	char buffer[2048];
 	size_t dr_len = 0;

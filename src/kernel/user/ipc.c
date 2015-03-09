@@ -12,15 +12,17 @@
 static size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
 static size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
 static int channel_poll(fs_handle_t *c, void** out_wait_obj);
+static bool channel_open(fs_node_ptr c, int mode);
 static bool channel_stat(fs_node_ptr c, stat_t *st);
 static void channel_close(fs_handle_t *c);
+static void channel_dispose(fs_node_ptr c);
 
 static fs_node_ops_t channel_ops = {
 	.read = channel_read,
 	.write = channel_write,
 	.close = channel_close,
 	.poll = channel_poll,
-	.open = 0,
+	.open = channel_open,
 	.readdir = 0,
 	.ioctl = 0,
 	.stat = channel_stat,
@@ -28,7 +30,7 @@ static fs_node_ops_t channel_ops = {
 	.create = 0,
 	.move = 0,
 	.delete = 0,
-	.dispose = 0,
+	.dispose = channel_dispose,
 };
 
 typedef struct channel {
@@ -41,6 +43,7 @@ typedef struct channel {
 } channel_t;
 
 fs_handle_pair_t make_channel(bool blocking) {
+	fs_node_t *na = 0, *nb = 0;
 	fs_handle_pair_t ret = { .a = 0, .b = 0 };
 	channel_t *a = 0, *b = 0;
 
@@ -56,17 +59,28 @@ fs_handle_pair_t make_channel(bool blocking) {
 	ret.b = (fs_handle_t*)malloc(sizeof(fs_handle_t));
 	if (ret.b == 0) goto error;
 
+	na = (fs_node_t*)malloc(sizeof(fs_node_t));
+	if (na == 0) goto error;
+
+	nb = (fs_node_t*)malloc(sizeof(fs_node_t));
+	if (nb == 0) goto error;
+
 	a->other_side = b;
 	b->other_side = a;
 	a->lock = b->lock = MUTEX_UNLOCKED;
 	a->buf_use_begin = a->buf_used = 0;
 	b->buf_use_begin = b->buf_used = 0;
 
+	memset(na, 0, sizeof(fs_node_t));
+	memset(nb, 0, sizeof(fs_node_t));
+	na->refs = nb->refs = 1;
+	na->ops = nb->ops = &channel_ops;
+	na->data = a;
+	nb->data = b;
+
 	ret.a->fs = ret.b->fs = 0;
-	ret.a->node = ret.b->node = 0;
-	ret.a->ops = ret.b->ops = &channel_ops;
-	ret.a->data = a;
-	ret.b->data = b;
+	ret.a->node = na;
+	ret.b->node = nb;
 	ret.a->refs = ret.b->refs = 1;
 	ret.a->mode = ret.b->mode = FM_READ | FM_WRITE | (blocking ? FM_BLOCKING : 0);
 
@@ -77,12 +91,14 @@ error:
 	if (b) free(b);
 	if (ret.a) free(ret.a);
 	if (ret.b) free(ret.b);
+	if (na) free(na);
+	if (nb) free(nb);
 	ret.a = ret.b = 0;
 	return ret;
 }
 
 size_t channel_read(fs_handle_t *h, size_t offset, size_t req_len, char* orig_buf) {
-	channel_t *c = (channel_t*)h->data;
+	channel_t *c = (channel_t*)h->node->data;
 
 	size_t ret = 0;
 	
@@ -119,7 +135,7 @@ size_t channel_read(fs_handle_t *h, size_t offset, size_t req_len, char* orig_bu
 }
 
 size_t channel_write(fs_handle_t *h, size_t offset, size_t req_len, const char* orig_buf) {
-	channel_t *tc = (channel_t*)h->data;
+	channel_t *tc = (channel_t*)h->node->data;
 	channel_t *c = tc->other_side;
 	
 	if (c == 0) return 0;
@@ -160,7 +176,7 @@ size_t channel_write(fs_handle_t *h, size_t offset, size_t req_len, const char* 
 }
 
 int channel_poll(fs_handle_t *h, void** out_wait_obj) {
-	channel_t *c = (channel_t*)h->data;
+	channel_t *c = (channel_t*)h->node->data;
 
 	int ret = 0;
 
@@ -171,6 +187,13 @@ int channel_poll(fs_handle_t *h, void** out_wait_obj) {
 	if (out_wait_obj) *out_wait_obj = c;
 
 	return ret;
+}
+
+bool channel_open(fs_node_ptr ch, int mode) {
+	int ok_modes = FM_READ | FM_WRITE | FM_BLOCKING;
+
+	if (mode & ~ok_modes) return false;
+	return true;
 }
 
 bool channel_stat(fs_node_ptr ch, stat_t *st) {
@@ -188,7 +211,11 @@ bool channel_stat(fs_node_ptr ch, stat_t *st) {
 }
 
 void channel_close(fs_handle_t *ch) {
-	channel_t *c = (channel_t*)ch->data;
+	// do nothing
+}
+
+void channel_dispose(fs_node_ptr ch) {
+	channel_t *c = (channel_t*)ch;
 
 	mutex_lock(&c->lock);
 

@@ -415,7 +415,7 @@ void nullfs_d_dispose(fs_node_ptr n) {
 bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 	// Very nonefficient !!
 
-	nullfs_dir_t *h = (nullfs_dir_t*)f->data;
+	nullfs_dir_t *h = (nullfs_dir_t*)f->node->data;
 
 	mutex_lock(&h->lock);
 
@@ -489,7 +489,7 @@ void nullfs_f_dispose(fs_node_ptr n) {
 //   -- File handle --
 
 static size_t nullfs_f_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
-	nullfs_file_t *f = (nullfs_file_t*)h->data;
+	nullfs_file_t *f = (nullfs_file_t*)h->node->data;
 	mutex_lock(&f->lock);
 
 	size_t ret = 0;
@@ -506,7 +506,7 @@ end_read:
 }
 
 static size_t nullfs_f_write(fs_handle_t *h, size_t offset, size_t len, const char* buf) {
-	nullfs_file_t *f = (nullfs_file_t*)h->data;
+	nullfs_file_t *f = (nullfs_file_t*)h->node->data;
 	mutex_lock(&f->lock);
 
 	size_t ret = 0;

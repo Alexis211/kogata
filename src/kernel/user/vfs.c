@@ -121,24 +121,32 @@ void unref_fs_node(fs_node_t *n) {
 	mutex_lock(&n->lock);
 	n->refs--;
 	if (n->refs == 0) {
-		ASSERT (n != n->fs->root);
+		// delete object!
+		if (n->fs) {
+			ASSERT (n != n->fs->root);
 
-		ASSERT(n->parent != 0);
-		ASSERT(n->name != 0);
+			ASSERT(n->parent != 0);
+			ASSERT(n->name != 0);
 
-		mutex_lock(&n->parent->lock);
-		hashtbl_remove(n->parent->children, n->name);
-		if (n->ops->dispose) n->ops->dispose(n->data);
-		mutex_unlock(&n->parent->lock);
+			mutex_lock(&n->parent->lock);
+			hashtbl_remove(n->parent->children, n->name);
+			if (n->ops->dispose) n->ops->dispose(n->data);
+			mutex_unlock(&n->parent->lock);
 
-		unref_fs_node(n->parent);
-		unref_fs(n->fs);
+			unref_fs_node(n->parent);
+			unref_fs(n->fs);
 
-		if (n->children != 0) {
-			ASSERT(hashtbl_count(n->children) == 0);
-			delete_hashtbl(n->children);
+			if (n->children != 0) {
+				ASSERT(hashtbl_count(n->children) == 0);
+				delete_hashtbl(n->children);
+			}
+		} else {
+			// stand-alone IPC/SHM object
+			ASSERT(n->parent == 0 && n->children == 0);
+
+			if (n->ops->dispose) n->ops->dispose(n->data);
 		}
-		free(n->name);
+		if (n->name) free(n->name);
 		free(n);
 	} else {
 		mutex_unlock(&n->lock);
@@ -427,8 +435,6 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	h->fs = fs;
 	h->node = n;
 	h->mode = mode;
-	h->ops = n->ops;
-	h->data = n->data;
 
 	// our reference to node n is transferred to the file handle
 	mutex_unlock(&n->lock);
@@ -449,8 +455,8 @@ void ref_file(fs_handle_t *file) {
 void unref_file(fs_handle_t *file) {
 	file->refs--;
 	if (file->refs == 0) {
-		file->ops->close(file);
-		if (file->node) unref_fs_node(file->node);
+		if (file->node->ops->close) file->node->ops->close(file);
+		unref_fs_node(file->node);
 		if (file->fs) unref_fs(file->fs);
 		free(file);
 	}
@@ -463,44 +469,44 @@ int file_get_mode(fs_handle_t *f) {
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 	if (!(f->mode & FM_READ)) return 0;
 
-	if (f->ops->read == 0) return 0;
+	if (f->node->ops->read == 0) return 0;
 
-	return f->ops->read(f, offset, len, buf);
+	return f->node->ops->read(f, offset, len, buf);
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 	if (!(f->mode & FM_WRITE)) return 0;
 
-	if (f->ops->write == 0) return 0;
+	if (f->node->ops->write == 0) return 0;
 
-	return f->ops->write(f, offset, len, buf);
+	return f->node->ops->write(f, offset, len, buf);
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
-	return f->ops->stat && f->ops->stat(f->data, st);
+	return f->node->ops->stat && f->node->ops->stat(f->node->data, st);
 }
 
 int file_ioctl(fs_handle_t *f, int command, void* data) {
 	if (!(f->mode & FM_IOCTL)) return -1;
 
-	if (f->ops->ioctl == 0) return -1;
+	if (f->node->ops->ioctl == 0) return -1;
 
-	return f->ops->ioctl(f->data, command, data);
+	return f->node->ops->ioctl(f->node->data, command, data);
 }
 
 bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 	if (!(f->mode & FM_READDIR)) return 0;
 
-	return f->ops->readdir && f->ops->readdir(f, ent_no, d);
+	return f->node->ops->readdir && f->node->ops->readdir(f, ent_no, d);
 }
 
 int file_poll(fs_handle_t *f, void** out_wait_obj) {
-	if (!f->ops->poll) {
+	if (!f->node->ops->poll) {
 		if (out_wait_obj) *out_wait_obj = 0;
 		return 0;
 	}
 
-	return f->ops->poll(f, out_wait_obj);
+	return f->node->ops->poll(f, out_wait_obj);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

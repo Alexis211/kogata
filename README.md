@@ -110,7 +110,6 @@ running the tests):
 
 ### Plans for soon
 
-* `select` system call
 * Write device drivers : VESA, keyboard, FAT (or EXT2 ?)
 * Work on userland : init, terminal emulator, shell
 * GUI server with help from kernel for framebuffer management

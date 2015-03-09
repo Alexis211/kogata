@@ -45,16 +45,12 @@ typedef struct fs_node_ops fs_node_ops_t;
 // -------------------------------------------
 // Structure defining a handle to an open file
 // This structure is entirely managed by the VFS, the underlying filesystem does not see it
-// For IPC structures (sockets, channels), fs and node are null because the handle does not reference
-// an underlying object. The ops and data fields are filled in by the IPC code with corresponding
-// data structures. All VFS calls are done on ops and data as specified in the handle and not the node.
+// For IPC structures (sockets, channels), fs is null, but a node object is nevertheless
+// created by the IPC code.
 
 typedef struct fs_handle {
 	struct fs *fs;
 	struct fs_node *node;
-
-	fs_node_ops_t *ops;
-	fs_node_ptr data;
 
 	int refs;
 

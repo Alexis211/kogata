@@ -30,3 +30,4 @@ mrproper: clean
 	rm $(OUT) || true
 
 rebuild: mrproper all
+
