@@ -15,9 +15,9 @@
 
 #include <thread.h>
 #include <vfs.h>
+#include <pager.h>
 
-#include <mmap.h>
-
+#include <mmap.h>	// common header for mmaps
 #include <proc.h> 	// common header defining process statuses
 
 #define USERSTACK_ADDR	0xB8000000
@@ -31,12 +31,15 @@ typedef struct user_region {
 	void* addr;
 	size_t size;
 
-	int mode;
+	fs_handle_t *file;
+	pager_t *pager;
+	size_t offset;
+	bool own_pager;
 
-	fs_handle_t *file;		// null if not mmaped-file
-	size_t file_offset;
+	int16_t mode;
 
-	struct user_region *next;
+	struct user_region *next_in_proc;
+	struct user_region *next_for_pager;
 } user_region_t;
 
 typedef struct process {

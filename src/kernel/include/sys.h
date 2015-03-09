@@ -75,9 +75,10 @@ static inline void invlpg(void* addr) {
 
 #define PAGE_SIZE		0x1000
 #define PAGE_MASK		0xFFFFF000
-#define PAGE_ALIGN_DOWN(x)	(((size_t)x) & PAGE_MASK) 
-#define PAGE_ALIGN_UP(x)  	((((size_t)x)&(~PAGE_MASK)) == 0 ? ((size_t)x) : (((size_t)x) & PAGE_MASK) + PAGE_SIZE)
-#define PAGE_ID(x)			(((size_t)x) / PAGE_SIZE)
+#define PAGE_ALIGNED(x)     ((((size_t)(x)) & (~PAGE_MASK)) == 0)
+#define PAGE_ALIGN_DOWN(x)	(((size_t)(x)) & PAGE_MASK) 
+#define PAGE_ALIGN_UP(x)  	((((size_t)(x))&(~PAGE_MASK)) == 0 ? ((size_t)x) : (((size_t)x) & PAGE_MASK) + PAGE_SIZE)
+#define PAGE_ID(x)			(((size_t)(x)) / PAGE_SIZE)
 #define PAGE_SHIFT		12
 #define PT_SHIFT		10
 // PAGE_SHIFT + PT_SHIFT + PT_SHIFT = 32

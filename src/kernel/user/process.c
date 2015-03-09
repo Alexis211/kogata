@@ -489,32 +489,38 @@ bool mmap(process_t *proc, void* addr, size_t size, int mode) {
 
 	if ((uint32_t)addr & (~PAGE_MASK)) return false;
 
+	if (addr >= (void*)K_HIGHHALF_ADDR || addr + size > (void*)K_HIGHHALF_ADDR
+		|| addr + size <= addr || size == 0) return false;
+
 	user_region_t *r = (user_region_t*)malloc(sizeof(user_region_t));
 	if (r == 0) return false;
 
+	r->proc = proc;
 	r->addr = addr;
-	r->size = PAGE_ALIGN_UP(size);
+	r->size = size;
 
-	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR
-		|| r->addr + r->size <= r->addr || r->size == 0) {
-		free(r);
-		return false;
-	}
+	r->own_pager = true;
+	r->pager = new_swap_pager(size);
+	if (r->pager == 0) goto error;
+	r->offset = 0;
 
 	bool add_ok = btree_add(proc->regions_idx, r->addr, r);
-	if (!add_ok) {
-		free(r);
-		return false;
-	}
+	if (!add_ok) goto error;
 
 	r->mode = mode;
 	r->file = 0;
-	r->file_offset = 0;
 
-	r->next = proc->regions;
+	r->next_in_proc = proc->regions;
 	proc->regions = r;
 
+	pager_add_map(r->pager, r);
+
 	return true;
+
+error:
+	if (r && r->pager) delete_pager(r->pager);
+	if (r) free(r);
+	return false;
 }
 
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode) {
@@ -527,34 +533,38 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 	if (!(fmode & FM_MMAP) || !(fmode & FM_READ)) return false;
 	if ((mode & MM_WRITE) && !(fmode & FM_WRITE)) return false;
 
+	ASSERT(h->node->pager != 0);
+
+	if (addr >= (void*)K_HIGHHALF_ADDR || addr + size > (void*)K_HIGHHALF_ADDR
+		|| addr + size <= addr || size == 0) return false;
+
 	user_region_t *r = (user_region_t*)malloc(sizeof(user_region_t));
 	if (r == 0) return false;
 
 	r->addr = addr;
-	r->size = PAGE_ALIGN_UP(size);
-
-	if (r->addr >= (void*)K_HIGHHALF_ADDR || r->addr + r->size > (void*)K_HIGHHALF_ADDR
-		|| r->addr + r->size <= r->addr || r->size == 0) {
-		free(r);
-		return false;
-	}
+	r->size = size;
 
 	bool add_ok = btree_add(proc->regions_idx, r->addr, r);
-	if (!add_ok) {
-		free(r);
-		return false;
-	}
+	if (!add_ok) goto error;
 
 	ref_file(h);
+	r->file = h;
 
 	r->mode = mode;
-	r->file = h;
-	r->file_offset = offset;
+	r->offset = offset;
+	r->pager = h->node->pager;
+	r->own_pager = false;
 
-	r->next = proc->regions;
+	pager_add_map(r->pager, r);
+
+	r->next_in_proc = proc->regions;
 	proc->regions = r;
 
 	return true;
+
+error:
+	if (r) free(r);
+	return false;
 }
 
 bool mchmap(process_t *proc, void* addr, int mode) {
@@ -592,11 +602,11 @@ bool munmap(process_t *proc, void* addr) {
 	if (r == 0) return false;
 
 	if (proc->regions == r) {
-		proc->regions = r->next;
+		proc->regions = r->next_in_proc;
 	} else {
-		for (user_region_t *it = proc->regions; it != 0; it = it->next) {
-			if (it->next == r) {
-				it->next = r->next;
+		for (user_region_t *it = proc->regions; it != 0; it = it->next_in_proc) {
+			if (it->next_in_proc == r) {
+				it->next_in_proc = r->next_in_proc;
 				break;
 			}
 		}
@@ -609,22 +619,20 @@ bool munmap(process_t *proc, void* addr) {
 	switch_pagedir(proc->pd);
 	for (void* it = r->addr; it < r->addr + r->size; it += PAGE_SIZE) {
 		uint32_t ent = pd_get_entry(it);
-		uint32_t frame = pd_get_frame(it);
 
 		if (ent & PTE_PRESENT) {
-			if ((ent & PTE_DIRTY) && (r->mode & MM_WRITE) && r->file != 0) {
-				// TODO COMMIT PAGE!!
-			}
+			pager_access(r->pager,
+				it - r->addr + r->offset, PAGE_SIZE,
+				(ent & PTE_ACCESSED), (ent & PTE_DIRTY));
 			pd_unmap_page(it);
-			if (r->file != 0) {
-				// frame is owned by process
-				frame_free(frame, 1);
-			}
 		}
 	}
 	switch_pagedir(save_pd);
 
+	pager_rm_map(r->pager, r);
+
 	if (r->file != 0) unref_file(r->file);
+	if (r->own_pager) delete_pager(r->pager);
 
 	free(r);
 
@@ -663,12 +671,7 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 
 	uint32_t frame;
 	do {
-		if (r->file == 0) {
-			frame = frame_alloc(1);
-		} else {
-			PANIC("Not implemented mmap (AWFUL TODO)");
-			// Here we must get the page from the cache
-		}
+		frame = pager_get_frame(r->pager, addr - r->addr + r->offset);
 		if (frame == 0) {
 			free_some_memory();
 		}
@@ -677,8 +680,6 @@ static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	while(!pd_map_page(addr, frame, (r->mode & MM_WRITE) != 0)) {
 		free_some_memory();
 	}
-
-	if (r->file == 0) memset(addr, 0, PAGE_SIZE);		// zero out
 }
 
 void probe_for_read(const void* addr, size_t len) {

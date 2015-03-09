@@ -8,6 +8,8 @@
 
 #include <fs.h> 		// common header
 
+#include <pager.h>
+
 // How to use :
 // - When using a filesystem : never call the operations in fs_*_ops_t directly, use
 // 		the functions defined bellow in section "public functions";
@@ -108,6 +110,8 @@ typedef struct fs_node {
 	// These fields are filled by the FS's specific walk() code
 	fs_node_ops_t *ops;
 	fs_node_ptr data;
+
+	pager_t *pager;
 } fs_node_t;
 
 // -------------------------------------------
