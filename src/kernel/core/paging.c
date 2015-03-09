@@ -200,7 +200,6 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	const uint32_t page = PAGE_OF_ADDR(vaddr);
 
 	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
-	ASSERT(frame_id != 0);
 	
 	bool on_kernel_pd = (size_t)vaddr >= K_HIGHHALF_ADDR || current_thread == 0;
 	

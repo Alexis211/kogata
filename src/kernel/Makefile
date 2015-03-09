@@ -4,7 +4,7 @@ OBJ = core/loader.o core/dbglog.o \
 	core/frame.o core/paging.o core/freemem.o core/region.o core/kmalloc.o \
 	core/worker.o core/prng.o \
 	user/vfs.o user/nullfs.o user/process.o user/elf.o user/syscall.o user/ipc.o user/pager.o \
-	dev/pci.o dev/pciide.o \
+	dev/pci.o dev/pciide.o dev/v86.o dev/v86asm.o dev/vesa.o \
 	fs/iso9660.o
 
 LIB = ../common/libc/libc.lib ../common/libkogata/libkogata.lib ../common/libalgo/libalgo.lib

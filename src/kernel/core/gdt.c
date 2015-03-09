@@ -50,6 +50,7 @@ typedef struct {
 	uint32_t ldt;        // Unused...
 	uint16_t trap;
 	uint16_t iomap_base;
+	uint8_t iomap[8192];
 } __attribute__((packed)) tss_entry_t;
 
 // ========================= //
@@ -87,7 +88,7 @@ void gdt_init() {
 
 	tss_entry.ss0  = 0x10;
 	tss_entry.esp0 = 0;
-	tss_entry.iomap_base = sizeof(tss_entry_t);
+	tss_entry.iomap_base = sizeof(tss_entry_t) - 8192;
 
 	uint32_t tss_base = (uint32_t)&tss_entry;
 	uint32_t tss_limit = tss_base + sizeof(tss_entry_t);

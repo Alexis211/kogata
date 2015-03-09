@@ -27,6 +27,7 @@
 
 #include <dev/pci.h>
 #include <dev/pciide.h>
+#include <dev/vesa.h>
 #include <fs/iso9660.h>
 
 #ifndef PRNG_INIT_ENTROPY
@@ -151,6 +152,7 @@ void kernel_init_stage2(void* data) {
 	// Scan for devices
 	pci_setup();
 	pciide_detect(iofs);
+	vesa_detect(iofs);
 
 	// Register FS drivers
 	register_iso9660_driver();
