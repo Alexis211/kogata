@@ -47,7 +47,7 @@ error:
 void swap_page_in(pager_t *p, size_t offset, size_t len) {
 	ASSERT(PAGE_ALIGNED(offset));
 
-	void *region = region_alloc(PAGE_SIZE, "Page zeroing area", 0);
+	void *region = region_alloc(PAGE_SIZE, "Page zeroing area");
 	if (region == 0) return;
 
 	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
@@ -92,7 +92,7 @@ bool swap_pager_resize(pager_t *p, size_t new_size) {
 	size_t last_page = PAGE_ALIGN_DOWN(new_size);
 
 	if (!PAGE_ALIGNED(new_size) && hashtbl_find(p->pages, (void*)last_page) != 0) {
-		void *region = region_alloc(PAGE_SIZE, "Page zeroing area", 0);
+		void *region = region_alloc(PAGE_SIZE, "Page zeroing area");
 		if (!region) PANIC("TODO");
 
 		uint32_t frame = (uint32_t)hashtbl_find(p->pages, (void*)last_page) >> ENT_FRAME_SHIFT;
@@ -154,7 +154,7 @@ void vfs_page_in(pager_t *p, size_t offset, size_t len) {
 	ASSERT(PAGE_ALIGNED(offset));
 	ASSERT(p->vfs_pager.ops->read != 0);
 
-	void *region = region_alloc(PAGE_SIZE, "Page loading area", 0);
+	void *region = region_alloc(PAGE_SIZE, "Page loading area");
 	if (region == 0) return;
 
 	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
@@ -332,7 +332,7 @@ size_t pager_do_rw(pager_t *p, size_t offset, size_t len, char* buf, bool write)
 	size_t first_page = PAGE_ALIGN_DOWN(offset);
 	size_t region_len = offset + len - first_page;
 
-	region = region_alloc(PAGE_ALIGN_UP(region_len), "Temporary pager read/write zone", 0);
+	region = region_alloc(PAGE_ALIGN_UP(region_len), "Temporary pager read/write zone");
 	if (region == 0) goto end_read;
 
 	p->ops->page_in(p, first_page, region_len);

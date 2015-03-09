@@ -682,8 +682,14 @@ void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 		current_process_exit(PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
-	bool pr = ((regs->err_code & PF_PRESENT_BIT) != 0);
-	ASSERT(!pr);
+	bool pr = (regs->err_code & PF_PRESENT_BIT) != 0;
+	if (pr) {
+		uint32_t frame = pd_get_entry(addr);
+		dbg_printf("UPF 0x%p %s present %d 0x%p\n",
+			addr, (wr ? "write" : "read"),
+			frame >> PTE_FRAME_SHIFT, frame);
+		PANIC("Unexpected fault on present page.");
+	}
 
 	addr = (void*)((uint32_t)addr & PAGE_MASK);
 

@@ -8,6 +8,8 @@
 #include <malloc.h>
 #include <freemem.h>
 
+#include <string.h>
+
 #define PAGE_OF_ADDR(x)		(((size_t)(x) >> PAGE_SHIFT) % N_PAGES_IN_PT)
 #define PT_OF_ADDR(x)		((size_t)(x) >> (PAGE_SHIFT + PT_SHIFT))
 
@@ -103,18 +105,13 @@ void page_fault_handler(registers_t *regs) {
 			}
 
 			region_info_t *i = find_region(vaddr);
-			if (i == 0) {
-				dbg_printf("Kernel pagefault in non-existing region at 0x%p\n", vaddr);
-				dbg_dump_registers(regs);
-				PANIC("Unhandled kernel space page fault");
-			}
-			if (i->pf == 0) {
-				dbg_printf("Kernel pagefault in region with no handler at 0x%p (%s region)\n", vaddr, i->type);
-				dbg_dump_registers(regs);
-				dbg_print_region_info();
-				PANIC("Unhandled kernel space page fault");
-			}
-			i->pf(get_current_pagedir(), i, vaddr);
+
+			char* region = (i == 0 ? "non-exting" : i->type);
+
+			dbg_printf("Kernel pagefault in region with no handler at 0x%p (%s region)\n", vaddr, region);
+			dbg_dump_registers(regs);
+			dbg_print_region_info();
+			PANIC("Unhandled kernel space page fault");
 		}
 	}
 }
@@ -203,6 +200,7 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	const uint32_t page = PAGE_OF_ADDR(vaddr);
 
 	ASSERT((size_t)vaddr < PD_MIRROR_ADDR);
+	ASSERT(frame_id != 0);
 	
 	bool on_kernel_pd = (size_t)vaddr >= K_HIGHHALF_ADDR || current_thread == 0;
 	
@@ -212,7 +210,6 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	mutex_lock(&pdd->mutex);
 
 	if (!(pd->page[pt] & PTE_PRESENT)) {
-
 		uint32_t new_pt_frame;
 		int tries = 0;
 		while ((new_pt_frame = frame_alloc(1)) == 0 && (tries++) < 3) {
@@ -226,13 +223,15 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 		}
 
 		current_pd->page[pt] = pd->page[pt] =
-			(new_pt_frame << PTE_FRAME_SHIFT) | PTE_PRESENT | PTE_RW
+			(new_pt_frame << PTE_FRAME_SHIFT)
+			| PTE_PRESENT | PTE_RW
 			| ((size_t)vaddr < K_HIGHHALF_ADDR ? PTE_USER : 0);
+
 		invlpg(&current_pt[pt]);
+		memset(&current_pt[pt], 0, PAGE_SIZE);
 	}
 	current_pt[pt].page[page] =
-		(frame_id << PTE_FRAME_SHIFT)
-			| PTE_PRESENT
+		(frame_id << PTE_FRAME_SHIFT) | PTE_PRESENT
 			| ((size_t)vaddr < K_HIGHHALF_ADDR ? PTE_USER : PTE_GLOBAL)
 			| (rw ? PTE_RW : 0);
 	invlpg(vaddr);
@@ -273,7 +272,7 @@ pagedir_t *create_pagedir(user_pf_handler_t pf, void* pfd) {
 	pd = (pagedir_t*)malloc(sizeof(pagedir_t));
 	if (pd == 0) goto error;
 
-	temp = region_alloc(PAGE_SIZE, "Temporary pagedir mapping", 0);
+	temp = region_alloc(PAGE_SIZE, "Temporary pagedir mapping");
 	if (temp == 0) goto error;
 
 	bool map_ok = pd_map_page(temp, pd_phys, true);

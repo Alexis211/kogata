@@ -216,7 +216,6 @@ void region_allocator_init(void* kernel_data_end) {
 	u0->used.i.addr = (void*)K_HIGHHALF_ADDR;
 	u0->used.i.size = PAGE_ALIGN_UP(kernel_data_end) - K_HIGHHALF_ADDR;
 	u0->used.i.type = "Kernel code & data";
-	u0->used.i.pf = 0;
 	u0->used.next_by_addr = 0;
 	first_used_region = u0;
 }
@@ -238,7 +237,7 @@ void region_free(void* addr) {
 	mutex_unlock(&ra_mutex);
 }
 
-static void* region_alloc_inner(size_t size, char* type, kernel_pf_handler_t pf, bool use_reserve) {
+static void* region_alloc_inner(size_t size, char* type, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
 	for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.first_bigger) {
@@ -273,7 +272,6 @@ static void* region_alloc_inner(size_t size, char* type, kernel_pf_handler_t pf,
 			i->used.i.addr = addr;
 			i->used.i.size = size;
 			i->used.i.type = type;
-			i->used.i.pf = pf;
 			add_used_region(i);
 
 			return addr;
@@ -282,7 +280,7 @@ static void* region_alloc_inner(size_t size, char* type, kernel_pf_handler_t pf,
 	return 0;	//No big enough block found
 }
 
-void* region_alloc(size_t size, char* type, kernel_pf_handler_t pf) {
+void* region_alloc(size_t size, char* type) {
 	void* result = 0;
 	mutex_lock(&ra_mutex);
 
@@ -290,7 +288,7 @@ void* region_alloc(size_t size, char* type, kernel_pf_handler_t pf) {
 		uint32_t frame = frame_alloc(1);
 		if (frame == 0) goto try_anyway;
 
-		void* descriptor_region = region_alloc_inner(PAGE_SIZE, "Region descriptors", 0, true);
+		void* descriptor_region = region_alloc_inner(PAGE_SIZE, "Region descriptors", true);
 		ASSERT(descriptor_region != 0);
 
 		bool map_ok = pd_map_page(descriptor_region, frame, 1);
@@ -312,7 +310,7 @@ void* region_alloc(size_t size, char* type, kernel_pf_handler_t pf) {
 	// even if we don't have enough unused descriptors, we might find
 	// a free region that has exactly the right size and therefore
 	// does not require splitting, so we try the allocation in all cases
-	result = region_alloc_inner(size, type, pf, false);
+	result = region_alloc_inner(size, type, false);
 
 	mutex_unlock(&ra_mutex);
 	return result;

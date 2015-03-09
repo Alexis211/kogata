@@ -2,16 +2,16 @@
 void test_region_1() {
 	BEGIN_TEST("region-test-1");
 
-	void* p = region_alloc(0x1000, "Test region", 0);
+	void* p = region_alloc(0x1000, "Test region");
 	dbg_printf("Allocated one-page region: 0x%p\n", p);
 	dbg_print_region_info();
-	void* q = region_alloc(0x1000, "Test region", 0);
+	void* q = region_alloc(0x1000, "Test region");
 	dbg_printf("Allocated one-page region: 0x%p\n", q);
 	dbg_print_region_info();
-	void* r = region_alloc(0x2000, "Test region", 0);
+	void* r = region_alloc(0x2000, "Test region");
 	dbg_printf("Allocated two-page region: 0x%p\n", r);
 	dbg_print_region_info();
-	void* s = region_alloc(0x10000, "Test region", 0);
+	void* s = region_alloc(0x10000, "Test region");
 	dbg_printf("Allocated 16-page region: 0x%p\n", s);
 	dbg_print_region_info();
 	region_free(p);
