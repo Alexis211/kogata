@@ -89,25 +89,7 @@ bool swap_pager_resize(pager_t *p, size_t new_size) {
 
 	swap_page_release(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
 
-	size_t last_page = PAGE_ALIGN_DOWN(new_size);
-
-	if (!PAGE_ALIGNED(new_size) && hashtbl_find(p->pages, (void*)last_page) != 0) {
-		void *region = region_alloc(PAGE_SIZE, "Page zeroing area");
-		if (!region) PANIC("TODO");
-
-		uint32_t frame = (uint32_t)hashtbl_find(p->pages, (void*)last_page) >> ENT_FRAME_SHIFT;
-		ASSERT(frame != 0);
-
-		if (!pd_map_page(region, frame, true)) PANIC("TODO");
-
-		size_t b0 = new_size - last_page;
-		memset(region + b0, 0, PAGE_SIZE - b0);
-
-		pd_unmap_page(region);
-
-		region_free(region);
-	}
-
+	p->size = new_size;
 	return true;
 }
 
@@ -187,20 +169,80 @@ void vfs_page_in(pager_t *p, size_t offset, size_t len) {
 }
 
 void vfs_page_commit(pager_t *p, size_t offset, size_t len) {
-	// TODO
+	ASSERT(PAGE_ALIGNED(offset));
+	ASSERT(p->vfs_pager.ops->read != 0);
+
+	void *region = region_alloc(PAGE_SIZE, "Page saving area");
+	if (region == 0) return;
+
+	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
+		uint32_t ent = (uint32_t)hashtbl_find(p->pages, (void*)page);
+		if (ent == 0) continue;
+
+		if (ent & PAGE_DIRTY) {
+			uint32_t frame = ent >> ENT_FRAME_SHIFT;
+
+			size_t expect_len = PAGE_SIZE;
+			if (page + expect_len > p->size) {
+				expect_len = p->size - page;
+			}
+
+			if (!pd_map_page(region, frame, true)) continue;
+
+			if (p->vfs_pager.ops->write) {
+				size_t write_len = p->vfs_pager.ops->write(p->vfs_pager.node, page, expect_len, (char*)region);
+				if (write_len == expect_len) {
+					hashtbl_change(p->pages, (void*)page, (void*)(ent & ~PAGE_DIRTY));
+				}
+			} else {
+				dbg_printf("Warning: read-only page was dirtied! Changes will be lost.\n");
+			}
+
+			pd_unmap_page(region);
+		}
+	}
+
+	region_free(region);
 }
 
 void vfs_page_out(pager_t *p, size_t offset, size_t len) {
-	// TODO
+	vfs_page_commit(p, offset, len);
+
+	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
+		uint32_t ent = (uint32_t)hashtbl_find(p->pages, (void*)page);
+		if (ent != 0) {
+			if (ent & PAGE_DIRTY) continue;		// for some reason page could not be commited ; keep it for nwo
+
+			hashtbl_remove(p->pages, (void*)page);
+			frame_free(ent >> ENT_FRAME_SHIFT, 1);
+		}
+	}
 }
 
 void vfs_page_release(pager_t *p, size_t offset, size_t len) {
-	// TODO
+	ASSERT(PAGE_ALIGNED(offset));
+	ASSERT(p->vfs_pager.ops->read != 0);
+
+	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
+		uint32_t ent = (uint32_t)hashtbl_find(p->pages, (void*)page);
+		if (ent != 0) {
+			if (ent & PTE_DIRTY) {
+				dbg_printf("Warning: releasing a dirtied VFS page (it probably could not be written earlier) ; data will be lost.\n");
+			}
+			hashtbl_remove(p->pages, (void*)page);
+			frame_free(ent >> ENT_FRAME_SHIFT, 1);
+		}
+	}
 }
 
 bool vfs_pager_resize(pager_t *p, size_t new_size) {
-	// TODO
-	return false;
+	if (p->vfs_pager.ops->resize == 0) return false;
+	if (!p->vfs_pager.ops->resize(p->vfs_pager.node, new_size)) return false;
+
+	vfs_page_release(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
+
+	p->size = new_size;
+	return true;
 }
 
 // ============ //
