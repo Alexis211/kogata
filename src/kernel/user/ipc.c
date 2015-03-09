@@ -15,7 +15,7 @@ static int channel_poll(fs_handle_t *c, void** out_wait_obj);
 static bool channel_open(fs_node_ptr c, int mode);
 static bool channel_stat(fs_node_ptr c, stat_t *st);
 static void channel_close(fs_handle_t *c);
-static void channel_dispose(fs_node_ptr c);
+static void channel_dispose(fs_node_t *c);
 
 static fs_node_ops_t channel_ops = {
 	.read = channel_read,
@@ -214,8 +214,8 @@ void channel_close(fs_handle_t *ch) {
 	// do nothing
 }
 
-void channel_dispose(fs_node_ptr ch) {
-	channel_t *c = (channel_t*)ch;
+void channel_dispose(fs_node_t *n) {
+	channel_t *c = (channel_t*)n->data;
 
 	mutex_lock(&c->lock);
 

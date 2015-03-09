@@ -12,17 +12,17 @@
 // SWAP PAGER //
 // ========== //
 
-static void swap_page_in(pager_t *p, size_t offset, size_t len);
-static void swap_page_out(pager_t *p, size_t offset, size_t len);
-static void swap_page_release(pager_t *p, size_t offset, size_t len);
-static bool swap_resize(pager_t *p, size_t new_size);
+void swap_page_in(pager_t *p, size_t offset, size_t len);
+void swap_page_out(pager_t *p, size_t offset, size_t len);
+void swap_page_release(pager_t *p, size_t offset, size_t len);
+bool swap_pager_resize(pager_t *p, size_t new_size);
 
-static pager_ops_t swap_pager_ops = {
+pager_ops_t swap_pager_ops = {
 	.page_in = swap_page_in,
 	.page_commit = 0,
 	.page_out = swap_page_out,
 	.page_release = swap_page_release,
-	.resize = swap_resize,
+	.resize = swap_pager_resize,
 };
 
 pager_t *new_swap_pager(size_t size) {
@@ -53,14 +53,15 @@ void swap_page_in(pager_t *p, size_t offset, size_t len) {
 	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
 		if (hashtbl_find(p->pages, (void*)page) == 0) {
 			uint32_t frame = frame_alloc(1);
-			if (frame != 0) {
-				if (!pd_map_page(region, frame, true)) PANIC("TODO");;
-				memset(region, 0, PAGE_SIZE);
-				pd_unmap_page(region);
-			}
-			if (!hashtbl_add(p->pages, (void*)page, (void*)(frame << ENT_FRAME_SHIFT))) {
-				frame_free(frame, 1);
-			}
+
+			if (frame == 0) continue;
+			if (!pd_map_page(region, frame, true)) continue;
+
+			memset(region, 0, PAGE_SIZE);
+			pd_unmap_page(region);
+
+			bool ok = hashtbl_add(p->pages, (void*)page, (void*)(frame << ENT_FRAME_SHIFT));
+			if (!ok) frame_free(frame, 1);
 		}
 	}
 
@@ -83,7 +84,7 @@ void swap_page_release(pager_t *p, size_t offset, size_t len) {
 	}
 }
 
-bool swap_resize(pager_t *p, size_t new_size) {
+bool swap_pager_resize(pager_t *p, size_t new_size) {
 	// later : remove unused pages in swap file
 
 	swap_page_release(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
@@ -110,13 +111,105 @@ bool swap_resize(pager_t *p, size_t new_size) {
 	return true;
 }
 
+// ========= //
+// VFS PAGER //
+// ========= //
+
+void vfs_page_in(pager_t *p, size_t offset, size_t len);
+void vfs_page_commit(pager_t *p, size_t offset, size_t len);
+void vfs_page_out(pager_t *p, size_t offset, size_t len);
+void vfs_page_release(pager_t *p, size_t offset, size_t len);
+bool vfs_pager_resize(pager_t *p, size_t new_size);
+
+pager_ops_t vfs_pager_ops = {
+	.page_in = vfs_page_in,
+	.page_commit = vfs_page_commit,
+	.page_out = vfs_page_out,
+	.page_release = vfs_page_release,
+	.resize = vfs_pager_resize,
+};
+
+pager_t *new_vfs_pager(size_t size, fs_node_t *vfs_node, vfs_pager_ops_t *vfs_ops) {
+	pager_t *p = (pager_t*)malloc(sizeof(pager_t));
+	if (p == 0) return 0;
+
+	p->pages = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
+	if (p->pages == 0) goto error;
+
+	p->ops = &vfs_pager_ops;
+	p->size = size;
+	p->lock = MUTEX_UNLOCKED;
+	p->maps = 0;
+	p->vfs_pager.node = vfs_node;
+	p->vfs_pager.ops = vfs_ops;
+
+	return p;
+
+error:
+	if (p) free(p);
+	return 0;
+}
+
+void vfs_page_in(pager_t *p, size_t offset, size_t len) {
+	ASSERT(PAGE_ALIGNED(offset));
+	ASSERT(p->vfs_pager.ops->read != 0);
+
+	void *region = region_alloc(PAGE_SIZE, "Page loading area", 0);
+	if (region == 0) return;
+
+	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
+		if (hashtbl_find(p->pages, (void*)page) == 0) {
+			bool ok = false;
+			uint32_t frame = frame_alloc(1);
+
+			if (frame == 0) continue;
+			if (!pd_map_page(region, frame, true)) goto end;
+
+			size_t expect_len = PAGE_SIZE;
+			if (page + expect_len > p->size) {
+				expect_len = p->size - page;
+				memset(region + expect_len, 0, PAGE_SIZE - expect_len);
+			}
+
+			size_t read_len = p->vfs_pager.ops->read(p->vfs_pager.node, page, expect_len, (char*)region);
+			pd_unmap_page(region);
+
+			if (read_len != expect_len) goto end;
+
+			ok = hashtbl_add(p->pages, (void*)page, (void*)(frame << ENT_FRAME_SHIFT));
+
+		end:
+			if (!ok) frame_free(frame, 1);
+		}
+	}
+
+	region_free(region);
+}
+
+void vfs_page_commit(pager_t *p, size_t offset, size_t len) {
+	// TODO
+}
+
+void vfs_page_out(pager_t *p, size_t offset, size_t len) {
+	// TODO
+}
+
+void vfs_page_release(pager_t *p, size_t offset, size_t len) {
+	// TODO
+}
+
+bool vfs_pager_resize(pager_t *p, size_t new_size) {
+	// TODO
+	return false;
+}
+
 // ============ //
 // DEVICE PAGER //
 // ============ //
 
-static void device_page_in(pager_t *p, size_t offset, size_t len);
+void device_page_in(pager_t *p, size_t offset, size_t len);
 
-static pager_ops_t device_pager_ops = {
+pager_ops_t device_pager_ops = {
 	.page_in = device_page_in,
 	.page_commit = 0,
 	.page_out = 0,
@@ -227,7 +320,7 @@ int pager_get_frame(pager_t *p, size_t offset) {
 	return ret;
 }
 
-static size_t pager_do_rw(pager_t *p, size_t offset, size_t len, char* buf, bool write) {
+size_t pager_do_rw(pager_t *p, size_t offset, size_t len, char* buf, bool write) {
 	size_t ret = 0;
 	void* region = 0;
 

@@ -24,8 +24,8 @@ region_info_t *find_region(void* addr);
 void region_free(void* addr);
 
 // some usefull PF handlers
-void pf_handler_unexpected(pagedir_t *pd, struct region_info *r, void* addr);	// Expects never to be called
-void pf_handler_stackoverflow(pagedir_t *pd, struct region_info *r, void* addr);	// Stack overflow detected
+// void pf_handler_unexpected(pagedir_t *pd, struct region_info *r, void* addr);	// Expects never to be called
+// void pf_handler_stackoverflow(pagedir_t *pd, struct region_info *r, void* addr);	// Stack overflow detected
 
 // some functions for freeing regions and frames
 // region_free_unmap_free : deletes a region and frees all frames that were mapped in it

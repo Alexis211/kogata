@@ -9,8 +9,8 @@
 
 static int next_pid = 1;
 
-static void proc_user_exception(registers_t *regs);
-static void proc_usermem_pf(void* proc, registers_t *regs, void* addr);
+void proc_user_exception(registers_t *regs);
+void proc_usermem_pf(void* proc, registers_t *regs, void* addr);
 
 process_t *current_process() {
 	if (current_thread) return current_thread->proc;
@@ -661,12 +661,12 @@ void dbg_dump_proc_memmap(process_t *proc) {
 // USER MEMORY PAGE FAULT HANDLERS //
 // =============================== //
 
-static void proc_user_exception(registers_t *regs) {
+void proc_user_exception(registers_t *regs) {
 	dbg_printf("Usermode exception in user process : exiting.\n");
 	dbg_dump_registers(regs);
 	current_process_exit(PS_FAILURE, FAIL_EXCEPTION);
 }
-static void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
+void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	process_t *proc = (process_t*)p;
 
 	user_region_t *r = find_user_region(proc, addr);

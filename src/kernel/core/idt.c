@@ -275,7 +275,19 @@ void dbg_dump_registers(registers_t *regs) {
 	dbg_printf("| EAX: 0x%p   EBX: 0x%p   ECX: 0x%p   EDX: 0x%p\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
 	dbg_printf("| EDI: 0x%p   ESI: 0x%p   ESP: 0x%p   EBP: 0x%p\n", regs->edi, regs->esi, regs->esp, regs->ebp);
 	dbg_printf("| EIP: 0x%p   CS : 0x%p   DS : 0x%p   SS : 0x%p\n", regs->eip, regs->cs, regs->ds, regs->ss);
-	dbg_printf("\\ EFl: 0x%p   I# : 0x%p   Err: 0x%p\n", regs->eflags, regs->int_no, regs->err_code);
+	dbg_printf("| EFl: 0x%p   I# : 0x%p   Err: 0x%p\n", regs->eflags, regs->int_no, regs->err_code);
+	dbg_printf("- Stack trace:\n");
+
+	uint32_t ebp = regs->ebp, eip = regs->eip;
+	int i = 0;
+	while (ebp >= K_HIGHHALF_ADDR && eip >= K_HIGHHALF_ADDR && i++ < 10) {
+		dbg_printf("| 0x%p	EIP: 0x%p\n", ebp, eip);
+		uint32_t *d = (uint32_t*)ebp;
+		ebp = d[0];
+		eip = d[1];
+	}
+
+	dbg_printf("\\\n");
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

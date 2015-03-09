@@ -15,18 +15,18 @@ static void nullfs_fs_shutdown(fs_ptr fs);
 // nullfs directory node
 static bool nullfs_d_open(fs_node_ptr n, int mode);
 static bool nullfs_d_stat(fs_node_ptr n, stat_t *st);
-static bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d);
+static bool nullfs_d_walk(fs_node_t *n, const char* file, struct fs_node *node_d);
 static bool nullfs_d_delete(fs_node_ptr n, const char* file);
 static bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name);
 static bool nullfs_d_create(fs_node_ptr n, const char* file, int type);
-static void nullfs_d_dispose(fs_node_ptr n);
+static void nullfs_d_dispose(fs_node_t *n);
 static bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d);
 static void nullfs_d_close(fs_handle_t *f);
 
 // nullfs ram file node
 static bool nullfs_f_open(fs_node_ptr n, int mode);
 static bool nullfs_f_stat(fs_node_ptr n, stat_t *st);
-static void nullfs_f_dispose(fs_node_ptr n);
+static void nullfs_f_dispose(fs_node_t *n);
 static size_t nullfs_f_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 static size_t nullfs_f_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 static void nullfs_f_close(fs_handle_t *f);
@@ -250,8 +250,8 @@ bool nullfs_d_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
-bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d) {
-	nullfs_dir_t* d = (nullfs_dir_t*)n;
+bool nullfs_d_walk(fs_node_t *n, const char* file, struct fs_node *node_d) {
+	nullfs_dir_t* d = (nullfs_dir_t*)n->data;
 
 	mutex_lock(&d->lock);
 
@@ -415,7 +415,7 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 	}
 }
 
-void nullfs_d_dispose(fs_node_ptr n) {
+void nullfs_d_dispose(fs_node_t *n) {
 	// nothing to do
 }
 
@@ -486,7 +486,7 @@ bool nullfs_f_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
-void nullfs_f_dispose(fs_node_ptr n) {
+void nullfs_f_dispose(fs_node_t *n) {
 	// nothing to do
 }
 

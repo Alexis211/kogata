@@ -7,13 +7,13 @@
 #include <dev/pci.h>
 #include <dev/pciide.h>
 
-static void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs);
+void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs);
 
 // ================================ //
 // HELPER FUNCTIONS FOR PCI IDE I/O //
 // ================================ //
 
-static void ide_write(ide_controller_t *c, uint8_t channel, uint8_t reg, uint8_t data) {
+void ide_write(ide_controller_t *c, uint8_t channel, uint8_t reg, uint8_t data) {
 	if (reg > 0x07 && reg < 0x0C) {
 		ide_write(c, channel, ATA_REG_CONTROL, 0x80 | c->channels[channel].nIEN);
 	}
@@ -31,7 +31,7 @@ static void ide_write(ide_controller_t *c, uint8_t channel, uint8_t reg, uint8_t
 	}
 }
 
-static uint8_t ide_read(ide_controller_t *c, uint8_t channel, uint8_t reg) {
+uint8_t ide_read(ide_controller_t *c, uint8_t channel, uint8_t reg) {
 	uint8_t result = 0;
 	if (reg > 0x07 && reg < 0x0C) {
 		ide_write(c, channel, ATA_REG_CONTROL, 0x80 | c->channels[channel].nIEN);
@@ -51,7 +51,7 @@ static uint8_t ide_read(ide_controller_t *c, uint8_t channel, uint8_t reg) {
 	return result;
 }
 
-static void ide_read_buffer(ide_controller_t *c, uint8_t channel, uint8_t reg, void* buffer, size_t quads) {
+void ide_read_buffer(ide_controller_t *c, uint8_t channel, uint8_t reg, void* buffer, size_t quads) {
 	if (reg > 0x07 && reg < 0x0C) {
 		ide_write(c, channel, ATA_REG_CONTROL, 0x80 | c->channels[channel].nIEN);
 	}
@@ -69,7 +69,7 @@ static void ide_read_buffer(ide_controller_t *c, uint8_t channel, uint8_t reg, v
 	}
 }
 
-static int ide_polling(ide_controller_t *c, uint8_t channel, bool advanced_check) {
+int ide_polling(ide_controller_t *c, uint8_t channel, bool advanced_check) {
 	// (I) Delay 400 nanosecond for BSY to be set:
 	for(int i = 0; i < 4; i++)
 		ide_read(c, channel, ATA_REG_ALTSTATUS); // Reading the Alternate Status port wastes 100ns; loop four times.
@@ -96,7 +96,7 @@ static int ide_polling(ide_controller_t *c, uint8_t channel, bool advanced_check
 	return 0; // ok
 }
 
-static uint8_t ide_print_error(ide_controller_t *c, int drive, uint8_t err) {
+uint8_t ide_print_error(ide_controller_t *c, int drive, uint8_t err) {
 	if (err == 0)
 		return err;
 
@@ -189,7 +189,7 @@ void pciirq_handler(int pci_id) {
 	}
 }
 
-static void ide_prewait_irq(ide_controller_t *c, int channel) {
+void ide_prewait_irq(ide_controller_t *c, int channel) {
 	int irq = c->channels[channel].irq;
 	if (irq == 14) {
 		mutex_lock(&on_irq14);
@@ -203,7 +203,7 @@ static void ide_prewait_irq(ide_controller_t *c, int channel) {
 	}
 }
 
-static bool ide_wait_irq(ide_controller_t *c, int channel) {
+bool ide_wait_irq(ide_controller_t *c, int channel) {
 	bool ret = true;
 
 	int st = enter_critical(CL_NOINT);
@@ -229,7 +229,7 @@ static bool ide_wait_irq(ide_controller_t *c, int channel) {
 // ACTUAL READING AND WRITING OF SECTORS //
 // ===================================== //
 
-static uint8_t ide_ata_access(ide_controller_t *c, int direction,
+uint8_t ide_ata_access(ide_controller_t *c, int direction,
 	uint8_t drive, uint32_t lba, uint8_t numsects, void* ptr)
 {
 	uint32_t channel = c->devices[drive].channel; // Read the Channel.
@@ -362,7 +362,7 @@ static uint8_t ide_ata_access(ide_controller_t *c, int direction,
 }
 
 
-static uint8_t ide_atapi_read(ide_controller_t *c, uint8_t drive, uint32_t lba,
+uint8_t ide_atapi_read(ide_controller_t *c, uint8_t drive, uint32_t lba,
 	uint8_t numsects, void* ptr)
 {
 	uint32_t channel  = c->devices[drive].channel;
@@ -442,7 +442,7 @@ must_terminate:
 	return 5;
 }
 
-static uint8_t ide_read_sectors(ide_controller_t *c, uint8_t drive,
+uint8_t ide_read_sectors(ide_controller_t *c, uint8_t drive,
 	uint32_t lba, uint8_t numsects, void* ptr)
 {
 	// 1: Check if the drive presents:
@@ -467,7 +467,7 @@ static uint8_t ide_read_sectors(ide_controller_t *c, uint8_t drive,
 	}
 }
 
-static uint8_t ide_write_sectors(ide_controller_t *c, uint8_t drive,
+uint8_t ide_write_sectors(ide_controller_t *c, uint8_t drive,
 	uint8_t numsects, uint32_t lba, void* ptr)
 {
 	// 1: Check if the drive presents:
@@ -493,7 +493,7 @@ static uint8_t ide_write_sectors(ide_controller_t *c, uint8_t drive,
 // SETUP ROUTINES //
 // ============== //
 
-static void ide_init(int pci_id, ide_controller_t *c, fs_t *iofs) {
+void ide_init(int pci_id, ide_controller_t *c, fs_t *iofs) {
 	pci_devices[pci_id].data = c;
 	c->pci_id = pci_id;
 
@@ -656,15 +656,15 @@ typedef struct {
 	uint8_t type;
 } ide_vfs_dev_t;
 
-static bool ide_vfs_open(fs_node_ptr n, int mode);
-static bool ide_vfs_stat(fs_node_ptr n, stat_t *st);
+bool ide_vfs_open(fs_node_ptr n, int mode);
+bool ide_vfs_stat(fs_node_ptr n, stat_t *st);
 
-static size_t ide_vfs_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
-static size_t ide_vfs_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
-static int ide_vfs_ioctl(fs_node_ptr f, int command, void* data);
-static void ide_vfs_close(fs_handle_t *f);
+size_t ide_vfs_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
+size_t ide_vfs_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
+int ide_vfs_ioctl(fs_node_ptr f, int command, void* data);
+void ide_vfs_close(fs_handle_t *f);
 
-static fs_node_ops_t ide_vfs_node_ops = {
+fs_node_ops_t ide_vfs_node_ops = {
 	.open = ide_vfs_open,
 	.stat = ide_vfs_stat,
 	.walk = 0,

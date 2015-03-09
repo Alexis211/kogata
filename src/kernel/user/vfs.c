@@ -101,7 +101,7 @@ void unref_fs(fs_t *fs) {
 			unref_fs_node(fs->root);
 		} else {
 			ASSERT(fs->root->refs == 1);
-			if (fs->root->ops->dispose) fs->root->ops->dispose(fs->root->data);
+			if (fs->root->ops->dispose) fs->root->ops->dispose(fs->root);
 		}
 		if (fs->ops->shutdown) fs->ops->shutdown(fs->data);
 		free(fs);
@@ -130,7 +130,7 @@ void unref_fs_node(fs_node_t *n) {
 
 			mutex_lock(&n->parent->lock);
 			hashtbl_remove(n->parent->children, n->name);
-			if (n->ops->dispose) n->ops->dispose(n->data);
+			if (n->ops->dispose) n->ops->dispose(n);
 			mutex_unlock(&n->parent->lock);
 
 			unref_fs_node(n->parent);
@@ -144,7 +144,7 @@ void unref_fs_node(fs_node_t *n) {
 			// stand-alone IPC/SHM object
 			ASSERT(n->parent == 0 && n->children == 0);
 
-			if (n->ops->dispose) n->ops->dispose(n->data);
+			if (n->ops->dispose) n->ops->dispose(n);
 		}
 		if (n->name) free(n->name);
 		free(n);
@@ -178,7 +178,7 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 	n->name = strdup(file);
 	if (n->name == 0) goto error;
 	
-	walk_ok = from->ops->walk && from->ops->walk(from->data, file, n);
+	walk_ok = from->ops->walk && from->ops->walk(from, file, n);
 	if (!walk_ok) goto error;
 
 	if (from->children == 0) {
@@ -197,7 +197,7 @@ fs_node_t* fs_walk_one(fs_node_t* from, const char* file) {
 	return n;
 
 error:
-	if (walk_ok) n->ops->dispose(n->data);
+	if (walk_ok) n->ops->dispose(n);
 	if (n != 0 && n->name != 0) free(n->name);
 	if (n != 0) free(n);
 	mutex_unlock(&from->lock);

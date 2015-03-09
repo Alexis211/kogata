@@ -3,30 +3,31 @@
 
 #include <fs/iso9660.h>
 
-static bool iso9660_make(fs_handle_t *source, const char* opts, fs_t *t);
-static void iso9660_fs_shutdown(fs_ptr f);
+bool iso9660_make(fs_handle_t *source, const char* opts, fs_t *t);
+void iso9660_fs_shutdown(fs_ptr f);
 
-static bool iso9660_node_stat(fs_node_ptr n, stat_t *st);
-static void iso9660_node_dispose(fs_node_ptr n);
-static void iso9660_node_close(fs_handle_t *h);
+bool iso9660_node_stat(fs_node_ptr n, stat_t *st);
+void iso9660_node_dispose(fs_node_t *n);
+void iso9660_node_close(fs_handle_t *h);
 
-static bool iso9660_dir_open(fs_node_ptr n, int mode);
-static bool iso9660_dir_walk(fs_node_ptr n, const char* file, struct fs_node *node_d);
-static bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d);
+bool iso9660_dir_open(fs_node_ptr n, int mode);
+bool iso9660_dir_walk(fs_node_t* n, const char* file, struct fs_node *node_d);
+bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d);
 
-static bool iso9660_file_open(fs_node_ptr n, int mode);
-static size_t iso9660_file_read(fs_handle_t *h, size_t offset, size_t len, char* buf);
+bool iso9660_file_open(fs_node_ptr n, int mode);
 
-static fs_driver_ops_t iso9660_driver_ops = {
+size_t iso9660_node_read(fs_node_t *n, size_t offset, size_t len, char* buf);
+
+fs_driver_ops_t iso9660_driver_ops = {
 	.make = iso9660_make,
 };
 
-static fs_ops_t iso9660_fs_ops = {
+fs_ops_t iso9660_fs_ops = {
 	.add_source = 0,
 	.shutdown = iso9660_fs_shutdown
 };
 
-static fs_node_ops_t iso9660_dir_ops = {
+fs_node_ops_t iso9660_dir_ops = {
 	.open = iso9660_dir_open,
 	.stat = iso9660_node_stat,
 	.walk = iso9660_dir_walk,
@@ -42,7 +43,7 @@ static fs_node_ops_t iso9660_dir_ops = {
 	.poll = 0,
 };
 
-static fs_node_ops_t iso9660_file_ops = {
+fs_node_ops_t iso9660_file_ops = {
 	.open = iso9660_file_open,
 	.stat = iso9660_node_stat,
 	.dispose = iso9660_node_dispose,
@@ -52,10 +53,16 @@ static fs_node_ops_t iso9660_file_ops = {
 	.create = 0,
 	.readdir = 0,
 	.close = iso9660_node_close,
-	.read = iso9660_file_read,
+	.read = fs_read_from_pager,
 	.write = 0,
 	.ioctl = 0,
 	.poll = 0,
+};
+
+vfs_pager_ops_t iso9660_pager_ops = {
+	.read = iso9660_node_read,
+	.write = 0,
+	.resize = 0,
 };
 
 void register_iso9660_driver() {
@@ -93,10 +100,7 @@ bool iso9660_make(fs_handle_t *source, const char* opts, fs_t *t) {
 	if (fs == 0) return false;
 
 	iso9660_node_t *root = (iso9660_node_t*)malloc(sizeof(iso9660_node_t));
-	if (root == 0) {
-		free(fs);
-		return false;
-	}
+	if (root == 0) goto error;
 
 	memcpy(&fs->vol_descr, &ent.prim, sizeof(iso9660_pvd_t));
 	fs->disk = source;
@@ -110,8 +114,14 @@ bool iso9660_make(fs_handle_t *source, const char* opts, fs_t *t) {
 
 	t->root->data = root;
 	t->root->ops = &iso9660_dir_ops;
+	t->root->pager = new_vfs_pager(root->dr.size.lsb, t->root, &iso9660_pager_ops);
 
-	return true;	// TODO
+	return true;
+
+error:
+	if (root) free(root);
+	if (fs) free(fs);
+	return false;
 }
 
 void iso9660_fs_shutdown(fs_ptr f) {
@@ -139,7 +149,7 @@ static void dr_stat(iso9660_dr_t *dr, stat_t *st) {
 		st->size = dr->size.lsb;		// TODO: precise item count ?
 	} else {
 		st->type = FT_REGULAR;
-		st->access = FM_READ;
+		st->access = FM_READ | FM_MMAP;
 		st->size = dr->size.lsb;
 	}
 }
@@ -153,8 +163,11 @@ bool iso9660_node_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
-void iso9660_node_dispose(fs_node_ptr n) {
-	iso9660_node_t *node = (iso9660_node_t*)n;
+void iso9660_node_dispose(fs_node_t *n) {
+	ASSERT(n->pager != 0);
+	delete_pager(n->pager);
+
+	iso9660_node_t *node = (iso9660_node_t*)n->data;
 	free(node);
 }
 
@@ -168,22 +181,25 @@ bool iso9660_dir_open(fs_node_ptr n, int mode) {
 	return true;
 }
 
-bool iso9660_dir_walk(fs_node_ptr n, const char* search_for, struct fs_node *node_d) {
-	iso9660_node_t *node = (iso9660_node_t*)n;
+bool iso9660_dir_walk(fs_node_t *n, const char* search_for, struct fs_node *node_d) {
+	iso9660_node_t *node = (iso9660_node_t*)n->data;
 
 	size_t filename_len = strlen(search_for);
 
 	dbg_printf("Looking up %s...\n", search_for);
 
-	char buffer[2048];
 	size_t dr_len = 0;
 	for (size_t pos = 0; pos < node->dr.size.lsb; pos += dr_len) {
-		if (pos % 2048 == 0) {
-			if (file_read(node->fs->disk, node->dr.lba_loc.lsb * 2048 + pos, 2048, buffer) != 2048)
-				return false;
-		}
+		union {
+			iso9660_dr_t dr;
+			char buf[256];
+		} data;
 
-		iso9660_dr_t *dr = (iso9660_dr_t*)(buffer + (pos % 2048));
+		size_t rs = pager_read(n->pager, pos, 256, data.buf);
+		if (rs < sizeof(iso9660_dr_t)) return false;
+
+		iso9660_dr_t *dr = &data.dr;
+
 		dr_len = dr->len;
 		if (dr_len == 0) return false;
 
@@ -210,6 +226,12 @@ bool iso9660_dir_walk(fs_node_ptr n, const char* search_for, struct fs_node *nod
 				node_d->ops = &iso9660_file_ops;
 			}
 
+			node_d->pager = new_vfs_pager(dr->size.lsb, node_d, &iso9660_pager_ops);
+			if (node_d->pager == 0) {
+				free(n);
+				return false;
+			}
+
 			return true;
 		}
 	}
@@ -217,44 +239,45 @@ bool iso9660_dir_walk(fs_node_ptr n, const char* search_for, struct fs_node *nod
 }
 
 bool iso9660_file_open(fs_node_ptr n, int mode) {
-	if (mode != FM_READ) return false;
+	int ok_modes = FM_READ | FM_MMAP;
+	
+	if (mode & ~ok_modes) return false;
 
 	return true;
 }
 
-size_t iso9660_file_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
-	iso9660_node_t *node = (iso9660_node_t*)h->node->data;
+size_t iso9660_node_read(fs_node_t *n, size_t offset, size_t len, char* buf) {
+	iso9660_node_t *node = (iso9660_node_t*)n->data;
 
 	if (offset >= node->dr.size.lsb) return 0;
-	if (offset + len > node->dr.size.lsb) len =  node->dr.size.lsb - offset;
+	if (offset + len > node->dr.size.lsb) len = node->dr.size.lsb - offset;
+
+	ASSERT(offset % 2048 == 0);
 
 	size_t ret = 0;
 
-	const size_t off0 = offset % 2048;
-	const size_t first_block = offset - off0;
+	for (size_t i = offset; i < offset + len; i += 2048) {
+		size_t stor_pos = node->dr.lba_loc.lsb * 2048 + i;
 
-	char buffer[2048];
+		size_t blk_len = 2048;
+		if (i + blk_len > offset + len) blk_len = offset + len - i;
 
-	for (size_t i = first_block; i < offset + len; i += 2048) {
-		if (file_read(node->fs->disk, node->dr.lba_loc.lsb * 2048 + i, 2048, buffer) != 2048) {
-			dbg_printf("Could not read data at %d\n", i);
-			break;
-		}
-
-		size_t block_pos;
-		size_t block_buf_ofs;
-		if (i <= offset) {
-			block_pos = 0;
-			block_buf_ofs = off0;
+		if (blk_len == 2048) {
+			if (file_read(node->fs->disk, stor_pos, 2048, buf + i - offset) != 2048) break;
+			ret += 2048;
 		} else {
-			block_pos = i - offset - off0;
-			block_buf_ofs = 0;
-		}
-		size_t block_buf_end = (i + 2048 > offset + len ? offset + len - i : 2048);
-		size_t block_len = block_buf_end - block_buf_ofs;
+			char *block_buf = (void*)malloc(2048);
+			if (block_buf == 0) break;
 
-		memcpy(buf + block_pos, buffer + block_buf_ofs, block_len);
-		ret += block_len;
+			size_t read = file_read(node->fs->disk, stor_pos, 2048, block_buf);
+			
+			if (read == 2048) {
+				memcpy(buf + i - offset, block_buf, blk_len);
+				ret += blk_len;
+			}
+
+			free(block_buf);
+		}
 	}
 
 	return ret;
@@ -265,20 +288,21 @@ void iso9660_file_close(fs_node_ptr f) {
 }
 
 bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d) {
-	// TODO : Very nonefficient !!
-
 	iso9660_node_t *node = (iso9660_node_t*)h->node->data;
 
-	char buffer[2048];
 	size_t dr_len = 0;
 	size_t idx = 0;
 	for (size_t pos = 0; pos < node->dr.size.lsb; pos += dr_len) {
-		if (pos % 2048 == 0) {
-			if (file_read(node->fs->disk, node->dr.lba_loc.lsb * 2048 + pos, 2048, buffer) != 2048)
-				return false;
-		}
+		union {
+			iso9660_dr_t dr;
+			char buf[256];
+		} data;
 
-		iso9660_dr_t *dr = (iso9660_dr_t*)(buffer + (pos % 2048));
+		size_t rs = pager_read(h->node->pager, pos, 256, data.buf);
+		if (rs < sizeof(iso9660_dr_t)) return false;
+
+		iso9660_dr_t *dr = &data.dr;
+
 		dr_len = dr->len;
 		if (dr_len == 0) return false;
 

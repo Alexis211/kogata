@@ -157,7 +157,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 	thread_t *t = (thread_t*)malloc(sizeof(thread_t));
 	if (t == 0) return 0;
 
-	void* stack = region_alloc(KPROC_STACK_SIZE + PAGE_SIZE, "Stack", pf_handler_stackoverflow);
+	void* stack = region_alloc(KPROC_STACK_SIZE + PAGE_SIZE, "Stack", 0);
 	if (stack == 0) {
 		free(t);
 		return 0;

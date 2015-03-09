@@ -33,8 +33,8 @@ typedef struct pager {
 
 	union {
 		struct {
-			fs_node_t* vfs_data;
-			vfs_pager_ops_t *vfs_ops;
+			fs_node_t* node;
+			vfs_pager_ops_t *ops;
 		} vfs_pager;
 		struct {
 			size_t phys_offset;

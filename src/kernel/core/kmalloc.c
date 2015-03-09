@@ -9,7 +9,7 @@
 #include <freemem.h>
 
 static void* page_alloc_fun_for_kmalloc(size_t bytes) {
-	void* addr = region_alloc(bytes, "Core kernel heap", pf_handler_unexpected);
+	void* addr = region_alloc(bytes, "Core kernel heap", 0);
 	if (addr == 0) return 0;
 
 	// Map physical memory
