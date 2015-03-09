@@ -692,10 +692,10 @@ void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {
 	char name[40];
 
 	if (d->type == IDE_ATAPI) {
-		snprintf(name, 40, "/atapi%d", next_atapi_id);
+		snprintf(name, 40, "/disk/atapi%d", next_atapi_id);
 		next_atapi_id++;
 	} else {
-		snprintf(name, 40, "/ata%d", next_ata_id);
+		snprintf(name, 40, "/disk/ata%d", next_ata_id);
 		next_ata_id++;
 	}
 
@@ -721,7 +721,7 @@ bool ide_vfs_open(fs_node_ptr n, int mode) {
 bool ide_vfs_stat(fs_node_ptr n, stat_t *st) {
 	ide_vfs_dev_t *d = (ide_vfs_dev_t*)n;
 
-	st->type = FT_BLOCKDEV;
+	st->type = FT_BLOCKDEV | FT_DEV;
 	st->access = (d->type == IDE_ATA ? FM_WRITE : 0) | FM_READ | FM_IOCTL;
 	st->size = d->c->devices[d->device].size * d->block_size;
 

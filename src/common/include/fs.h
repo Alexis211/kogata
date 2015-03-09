@@ -11,7 +11,7 @@ typedef int fd_t;
 #define FT_BLOCKDEV 	(0x04)
 #define FT_CHARDEV 		(0x08)
 #define FT_CHANNEL 		(0x10)		// dual-pipe
-// #define FT_SOCKET 		(0x20)		// Not yet! Semantics not defined.	 (TODO)
+#define FT_FRAMEBUFFER	(0x20)
 
 // FM_* enum describes modes for opening a file as well as authorized operations in stat_t
 // (some flags are used only for open() or only in stat_t.access)

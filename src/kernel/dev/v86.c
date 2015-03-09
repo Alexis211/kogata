@@ -48,6 +48,9 @@ bool v86_begin_session() {
 			pd_map_page(addr, (uint32_t)addr / PAGE_SIZE, true);
 		}
 		pd_map_page(0, 0, true);
+	} else {
+		v86_prev_pagedir = get_current_pagedir();
+		switch_pagedir(v86_pagedir);
 	}
 
 	if (v86_thread == 0) {
@@ -70,6 +73,7 @@ bool v86_begin_session() {
 
 void v86_end_session() {
 	switch_pagedir(v86_prev_pagedir);
+
 	v86_prev_pagedir = 0;
 	v86_caller_thread = 0;
 

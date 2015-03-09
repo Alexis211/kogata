@@ -7,8 +7,7 @@
 
 #define ENT_FRAME_SHIFT 12
 
-// TODO TODO TODO TODO !!! when resizing/paging out, make sure to UNMAP ALL PAGES from processes!!
-
+void pager_unmap(pager_t *p, size_t offset, size_t len);
 
 // ========== //
 // SWAP PAGER //
@@ -89,9 +88,6 @@ void swap_page_release(pager_t *p, size_t offset, size_t len) {
 bool swap_pager_resize(pager_t *p, size_t new_size) {
 	// later : remove unused pages in swap file
 
-	swap_page_release(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
-
-	p->size = new_size;
 	return true;
 }
 
@@ -241,9 +237,6 @@ bool vfs_pager_resize(pager_t *p, size_t new_size) {
 	if (p->vfs_pager.ops->resize == 0) return false;
 	if (!p->vfs_pager.ops->resize(p->vfs_pager.node, new_size)) return false;
 
-	vfs_page_release(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
-
-	p->size = new_size;
 	return true;
 }
 
@@ -252,16 +245,17 @@ bool vfs_pager_resize(pager_t *p, size_t new_size) {
 // ============ //
 
 void device_page_in(pager_t *p, size_t offset, size_t len);
+void device_page_release(pager_t *p, size_t offset, size_t len);
 
 pager_ops_t device_pager_ops = {
 	.page_in = device_page_in,
 	.page_commit = 0,
 	.page_out = 0,
-	.page_release = 0,
+	.page_release = device_page_release,
 	.resize = 0,
 };
 
-pager_t *new_device_page(size_t size, size_t phys_offset) {
+pager_t *new_device_pager(size_t size, void* phys_offset) {
 	ASSERT(PAGE_ALIGNED(phys_offset));
 
 	pager_t *p = (pager_t*)malloc(sizeof(pager_t));
@@ -288,14 +282,56 @@ void device_page_in(pager_t *p, size_t offset, size_t len) {
 
 	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
 		if (hashtbl_find(p->pages, (void*)page) == 0) {
-			hashtbl_add(p->pages, (void*)page, (void*)(p->device_pager.phys_offset + page));
+			hashtbl_add(p->pages, (void*)page, p->device_pager.phys_offset + page);
 		}
 	}
+}
+
+void device_page_release(pager_t *p, size_t offset, size_t len) {
+	ASSERT(PAGE_ALIGNED(offset));
+
+	for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
+		hashtbl_remove(p->pages, (void*)page);
+	}
+}
+
+void change_device_pager(pager_t *p, size_t new_size, void* new_phys_offset) {
+	if (p->ops != &device_pager_ops) return;
+
+	mutex_lock(&p->lock);
+
+	pager_unmap(p, 0, p->size);
+	device_page_release(p, 0, p->size);
+
+	p->size = new_size;
+	p->device_pager.phys_offset = new_phys_offset;
+
+	mutex_unlock(&p->lock);
 }
 
 // ======================= //
 // GENERIC PAGER FUNCTIONS //
 // ======================= //
+
+//  ---- Pager internals
+
+void pager_unmap(pager_t *p, size_t offset, size_t len) {
+	pagedir_t *r = get_current_pagedir();
+
+	for (user_region_t *it = p->maps; it != 0; it = it->next_for_pager) {
+		switch_pagedir(it->proc->pd);
+
+		for (size_t page = offset; page < offset + len; page += PAGE_SIZE) {
+			void* addr = it->addr + offset - it->offset;
+
+			if (pd_get_entry(addr) & PTE_PRESENT) pd_unmap_page(addr);
+		}
+	}
+
+	switch_pagedir(r);
+}
+
+//  ---- Pager public interface
 
 void delete_pager(pager_t *p) {
 	ASSERT(p->maps == 0);
@@ -309,12 +345,21 @@ void delete_pager(pager_t *p) {
 	free(p);
 }
 
-bool pager_resize(pager_t *p, size_t newsize) {
+bool pager_resize(pager_t *p, size_t new_size) {
 	if (!p->ops->resize) return false;
 
 	mutex_lock(&p->lock);
 
-	bool ret = p->ops->resize(p, newsize);
+	bool ret = p->ops->resize(p, new_size);
+
+	if (ret) {
+		if (PAGE_ALIGN_UP(new_size) < p->size) {
+			pager_unmap(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
+			if (p->ops->page_release)
+				p->ops->page_release(p, PAGE_ALIGN_UP(new_size), p->size - PAGE_ALIGN_UP(new_size));
+		}
+		p->size = new_size;
+	}
 
 	mutex_unlock(&p->lock);
 	

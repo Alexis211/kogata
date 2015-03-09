@@ -222,7 +222,10 @@ fs_t *setup_iofs(multiboot_info_t *mbd) {
 	}
 
 	// Populate iofs with files for kernel modules
-	ASSERT(fs_create(iofs, "/mod", FT_DIR));
+	const char *dirs[] = { "/mod", "/disk", "/input", "/display", 0 };
+	for (int i = 0; dirs[i] != 0; i++) {
+		ASSERT(fs_create(iofs, dirs[i], FT_DIR));
+	}
 	multiboot_module_t *mods = (multiboot_module_t*)mbd->mods_addr;
 	for (unsigned i = 0; i < mbd->mods_count; i++) {
 		char* modname = (char*)mods[i].string;

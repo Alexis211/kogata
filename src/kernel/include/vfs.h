@@ -88,11 +88,11 @@ typedef struct fs_node_ops {
 	void (*close)(fs_handle_t *f);
 
 	bool (*stat)(fs_node_ptr n, stat_t *st);
-	int (*ioctl)(fs_node_ptr f, int command, void* data);
+	int (*ioctl)(fs_node_ptr n, int command, void* data);
 
 	bool (*walk)(fs_node_t *n, const char* file, struct fs_node *node_d);
 	bool (*delete)(fs_node_ptr n, const char* file);
-	bool (*move)(fs_node_ptr dir, const char* old_name, struct fs_node *new_parent, const char *new_name);
+	bool (*move)(fs_node_ptr n, const char* old_name, struct fs_node *new_parent, const char *new_name);
 	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
 	void (*dispose)(fs_node_t *n);
 } fs_node_ops_t;

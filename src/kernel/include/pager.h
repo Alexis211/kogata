@@ -37,7 +37,7 @@ typedef struct pager {
 			vfs_pager_ops_t *ops;
 		} vfs_pager;
 		struct {
-			size_t phys_offset;
+			void* phys_offset;
 		} device_pager;
 	};
 
@@ -51,7 +51,9 @@ typedef struct pager {
 
 pager_t* new_swap_pager(size_t size);
 pager_t* new_vfs_pager(size_t size, fs_node_t* vfs_node, vfs_pager_ops_t *vfs_ops);
-pager_t* new_device_pager(size_t size, size_t phys_offset);
+pager_t* new_device_pager(size_t size, void* phys_offset);
+
+void change_device_pager(pager_t *p, size_t new_size, void* new_phys_offset);
 
 void delete_pager(pager_t *p);
 
