@@ -699,7 +699,7 @@ void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {
 		next_ata_id++;
 	}
 
-	bool add_ok = nullfs_add_node(iofs, name, d, &ide_vfs_node_ops);
+	bool add_ok = nullfs_add_node(iofs, name, d, &ide_vfs_node_ops, 0);
 	if (add_ok) {
 		dbg_printf(" Registered as %s.\n", name);
 	} else {

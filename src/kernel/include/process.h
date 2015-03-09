@@ -108,6 +108,8 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 bool mchmap(process_t *proc, void* addr, int mode);
 bool munmap(process_t *proc, void* addr);
 
+void dbg_dump_proc_memmap(process_t *proc);
+
 // for syscalls : check that process is authorized to read/write given addresses
 // (if not, process exits with a segfault)
 void probe_for_read(const void* addr, size_t len);

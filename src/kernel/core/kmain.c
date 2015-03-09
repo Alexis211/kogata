@@ -216,7 +216,7 @@ fs_t *setup_iofs(multiboot_info_t *mbd) {
 	{
 		dbg_printf("Kernel command line: '%s'\n", (char*)mbd->cmdline);
 		size_t len = strlen((char*)mbd->cmdline);
-		ASSERT(nullfs_add_ram_file(iofs, "/cmdline", (char*)mbd->cmdline, len, false, FM_READ));
+		ASSERT(nullfs_add_ram_file(iofs, "/cmdline", (char*)mbd->cmdline, len, FM_READ | FM_MMAP));
 	}
 
 	// Populate iofs with files for kernel modules
@@ -240,7 +240,7 @@ fs_t *setup_iofs(multiboot_info_t *mbd) {
 
 		ASSERT(nullfs_add_ram_file(iofs, name,
 					(char*)mods[i].mod_start,
-					len, false, FM_READ));
+					len, FM_READ | FM_MMAP));
 	}
 
 	return iofs;
@@ -292,7 +292,8 @@ void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs)  {
 	if (init_fs == 0) PANIC("Invalid file system specification for init file.");
 
 	// Launch INIT
-	fs_handle_t *init_bin = fs_open(init_fs, init_file, FM_READ);
+	fs_handle_t *init_bin = fs_open(init_fs, init_file, FM_READ | FM_MMAP);
+	if (init_bin == 0) init_bin = fs_open(init_fs, init_file, FM_READ);
 	if (init_bin == 0) PANIC("Could not open init file.");
 	if (!is_elf(init_bin)) PANIC("init.bin is not valid ELF32 binary");
 
@@ -308,6 +309,8 @@ void launch_init(btree_t *cmdline, fs_t *iofs, fs_t *rootfs)  {
 	if (e == 0) PANIC("Could not load init ELF file");
 
 	unref_file(init_bin);
+
+	dbg_dump_proc_memmap(init_p);
 
 	ASSERT(start_process(init_p, e));
 }

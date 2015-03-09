@@ -639,6 +639,24 @@ bool munmap(process_t *proc, void* addr) {
 	return true;
 }
 
+void dbg_dump_proc_memmap(process_t *proc) {
+	//WARNING not thread safe
+
+	dbg_printf("/ Region map for process %d\n", proc->pid);
+
+	for (user_region_t *it = proc->regions; it != 0; it = it->next_in_proc) {
+		dbg_printf("| 0x%p - 0x%p : (0x%p) ", it->addr, it->addr + it->size, it->pager);
+		if (it->file != 0) {
+			dbg_printf("mmap of 0x%p", it->file);
+		} else {
+			dbg_printf("private");
+		}
+		dbg_printf(", %d pages\n", hashtbl_count(it->pager->pages));
+	}
+	
+	dbg_printf("\\ ----\n");
+}
+
 // =============================== //
 // USER MEMORY PAGE FAULT HANDLERS //
 // =============================== //

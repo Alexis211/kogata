@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $1 = 'watchdog' ]; then
-	sleep 10 &
+	sleep 3 &
 	PID=$!
 	echo $PID > pid2
 	wait $PID

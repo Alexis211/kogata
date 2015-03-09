@@ -42,9 +42,7 @@ proc_entry_t elf_load(fs_handle_t *f, process_t* process) {
 				size_t read_r = file_read(f, phdr.p_offset, phdr.p_filesz, (char*)phdr.p_vaddr);
 				if (read_r != phdr.p_filesz) goto error;
 
-				if (phdr.p_memsz > phdr.p_filesz) {
-					memset((char*)phdr.p_vaddr + phdr.p_filesz, 0, phdr.p_memsz - phdr.p_filesz);
-				}
+				// no need to zero out extra portion, paging code does that for us
 
 				if (!(phdr.p_flags & PF_W)) {
 					bool mchmap_ok = mchmap(process, (void*)phdr.p_vaddr,

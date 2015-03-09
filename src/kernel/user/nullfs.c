@@ -4,6 +4,7 @@
 #include <debug.h>
 
 #include <nullfs.h>
+#include <pager.h>
 
 // nullfs driver
 static bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *d);
@@ -64,8 +65,8 @@ static fs_node_ops_t nullfs_f_ops = {
 	.create = 0,
 	.delete = 0,
 	.move = 0,
-	.read = nullfs_f_read,
-	.write = nullfs_f_write,
+	.read = fs_read_from_pager,
+	.write = fs_write_to_pager,
 	.close = nullfs_f_close,
 	.readdir = 0,
 	.ioctl =0,
@@ -85,6 +86,7 @@ typedef struct nullfs_item {
 	char* name;
 	fs_node_ptr data;
 	fs_node_ops_t *ops;
+	pager_t *pager;
 
 	struct nullfs_item *next;
 } nullfs_item_t;
@@ -101,9 +103,8 @@ typedef struct {
 } nullfs_dir_t;
 
 typedef struct {
-	char* data;
-	size_t size;
-	bool own_data;
+	pager_t *pager;
+
 	int ok_modes;
 	
 	mutex_t lock;		// locked on open
@@ -161,7 +162,7 @@ void nullfs_fs_shutdown(fs_ptr fs) {
 	// TODO free all
 }
 
-bool nullfs_add_node(fs_t *fs, const char* name, fs_node_ptr data, fs_node_ops_t *ops) {
+bool nullfs_add_node(fs_t *fs, const char* name, fs_node_ptr data, fs_node_ops_t *ops, pager_t *pager) {
 	char file_name[DIR_MAX];
 
 	fs_node_t *n = fs_walk_path_except_last(fs->root, name, file_name);
@@ -179,6 +180,7 @@ bool nullfs_add_node(fs_t *fs, const char* name, fs_node_ptr data, fs_node_ops_t
 
 	i->data = data;
 	i->ops = ops;
+	i->pager = pager;
 
 	bool add_ok = hashtbl_add(d->items_idx, i->name, i);
 	if (!add_ok) goto error;
@@ -196,31 +198,30 @@ error:
 	return false;
 }
 
-bool nullfs_add_ram_file(fs_t *fs, const char* name, char* data, size_t init_sz, bool copy, int ok_modes) {
+bool nullfs_add_ram_file(fs_t *fs, const char* name, const char* data, size_t init_sz, int ok_modes) {
+	pager_t *p = 0;
+
 	nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
 	if (f == 0) return false;
+	
+	p = new_swap_pager(init_sz);
+	if (p == 0) goto error;
 
-	f->size = init_sz;
-	if (copy) {
-		f->data = malloc(init_sz);
-		memcpy(f->data, data, init_sz);
-		f->own_data = true;
-	} else {
-		f->data = data;
-		f->own_data = false;
-	}
-	f->ok_modes = ok_modes &
-		(FM_TRUNC | FM_READ | FM_WRITE);	// no MMAP support
+	f->ok_modes = ok_modes & (FM_MMAP | FM_TRUNC | FM_READ | FM_WRITE);
 	f->lock = MUTEX_UNLOCKED;
+	f->pager = p;
 
-	bool add_ok = nullfs_add_node(fs, name, f, &nullfs_f_ops);
-	if (!add_ok) {
-		if (f->own_data) free(f->data);
-		free(f);
-		return false;
-	}
+	bool add_ok = nullfs_add_node(fs, name, f, &nullfs_f_ops, p);
+	if (!add_ok) goto error;
+
+	pager_write(p, 0, init_sz, data);
 
 	return true;
+
+error:
+	if (p) delete_pager(p);
+	if (f) free(f);
+	return false;
 }
 
 //   -- Directory node --
@@ -262,6 +263,7 @@ bool nullfs_d_walk(fs_node_ptr n, const char* file, struct fs_node *node_d) {
 
 	node_d->ops = x->ops;
 	node_d->data = x->data;
+	node_d->pager = x->pager;
 
 	mutex_unlock(&d->lock);
 
@@ -290,7 +292,7 @@ bool nullfs_d_delete(fs_node_ptr n, const char* file) {
 		nullfs_file_t* f = (nullfs_file_t*)i->data;
 		if (!mutex_try_lock(&f->lock)) goto error;	// in use
 
-		if (f->own_data) free(f->data);
+		delete_pager(f->pager);
 		free(f);
 	} else {
 		goto error;		// special nodes (devices, ...) may not be deleted
@@ -332,13 +334,16 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 	if (type == FT_REGULAR) {
 		mutex_lock(&d->lock);
 
+		pager_t *p = 0;
+
 		nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
 		if (f == 0) goto f_error;
 
+		p = new_swap_pager(0);
+		if (p == 0) goto f_error;
+
 		f->ok_modes = FM_READ | FM_WRITE | FM_TRUNC | FM_APPEND;
-		f->data = 0;
-		f->size = 0;
-		f->own_data = false;
+		f->pager = p;
 		f->lock = MUTEX_UNLOCKED;
 
 		i = (nullfs_item_t*)malloc(sizeof(nullfs_item_t));
@@ -349,6 +354,7 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 
 		i->ops = &nullfs_f_ops;
 		i->data = f;
+		i->pager = p;
 
 		bool add_ok = hashtbl_add(d->items_idx, i->name, i);
 		if (!add_ok) goto f_error;
@@ -363,6 +369,7 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 		if (i != 0 && i->name != 0) free(i->name);
 		if (i != 0) free(i);
 		if (f != 0) free(f);
+		if (p != 0) delete_pager(p);
 		mutex_unlock(&d->lock);
 		return false;
 	} else if (type == FT_DIR) {
@@ -459,10 +466,7 @@ bool nullfs_f_open(fs_node_ptr n, int mode) {
 		// truncate file
 		mutex_lock(&f->lock);
 
-		if (f->own_data) free(f->data);
-		f->size = 0;
-		f->own_data = false;
-		f->data = 0;
+		pager_resize(f->pager, 0);
 
 		mutex_unlock(&f->lock);
 	}
@@ -476,7 +480,7 @@ bool nullfs_f_stat(fs_node_ptr n, stat_t *st) {
 
 	st->type = FT_REGULAR;
 	st->access = f->ok_modes;
-	st->size = f->size;
+	st->size = f->pager->size;
 
 	mutex_unlock(&f->lock);
 	return true;
@@ -487,52 +491,6 @@ void nullfs_f_dispose(fs_node_ptr n) {
 }
 
 //   -- File handle --
-
-static size_t nullfs_f_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
-	nullfs_file_t *f = (nullfs_file_t*)h->node->data;
-	mutex_lock(&f->lock);
-
-	size_t ret = 0;
-	
-	if (offset >= f->size) goto end_read;
-	if (offset + len > f->size) len = f->size - offset;
-
-	memcpy(buf, f->data + offset, len);
-	ret = len;
-
-end_read:
-	mutex_unlock(&f->lock);
-	return ret;
-}
-
-static size_t nullfs_f_write(fs_handle_t *h, size_t offset, size_t len, const char* buf) {
-	nullfs_file_t *f = (nullfs_file_t*)h->node->data;
-	mutex_lock(&f->lock);
-
-	size_t ret = 0;
-
-	if (offset + len > f->size) {
-		// resize buffer (zero out new portion)
-		void* new_buffer = malloc(offset + len);
-		if (new_buffer == 0) goto end_write;
-
-		memcpy(new_buffer, f->data, f->size);
-		if (offset > f->size)
-			memset(new_buffer + f->size, 0, offset - f->size);
-
-		if (f->own_data) free(f->data);
-		f->data = new_buffer;
-		f->own_data = true;
-		f->size = offset + len;
-	}
-
-	memcpy(f->data + offset, buf, len);
-	ret = len;
-
-end_write:
-	mutex_unlock(&f->lock);
-	return ret;
-}
 
 static void nullfs_f_close(fs_handle_t *h) {
 	// nothing to do
