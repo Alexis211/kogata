@@ -207,17 +207,12 @@ void v86_ex_handler(registers_t *regs) {
 }
 
 void v86_pf_handler(void* zero, registers_t *regs, void* addr) {
-	if (addr < (void*)V86_STACK_TOP) {
-		pd_map_page(addr, (uint32_t)addr / PAGE_SIZE, true);
-	} else {
-		dbg_printf("Unexpected V86 PF at 0x%p\n", addr);
+	dbg_printf("Unexpected V86 PF at 0x%p\n", addr);
 
-		if (current_thread->user_ex_handler == v86_ex_handler) {
-			// we are in V86 thread
-			v86_exit_thread(false);
-		} else {
-			PANIC("V86 memory access exception.");
-		}
+	if (current_thread == v86_thread) {
+		v86_exit_thread(false);
+	} else {
+		PANIC("V86 memory access exception.");
 	}
 }
 

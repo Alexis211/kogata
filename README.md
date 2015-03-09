@@ -116,18 +116,6 @@ running the tests):
 
 ### Things to design
 
-* Cache architecture :
-  - A RAM file is basically a bunch of pages that contain the data (rather than a segment of
-    malloc()'ed memory)
-  - A framebuffer device is basically a bunch of pages at a fixed hardware location, that cannot
-    grow
-  - In the two previous cases, the pages are never freed : they are not a cache, they are the
-    data itself.
-  - In the case of an on-disk file, the pages are a copy of the file's data that is originally
-    on-disk, and we might want to free these pages even while a process is using them, because
-    we can always reload them from the disk.
-  - An on-disk file with a page cache must be aware of all the places where the page is mapped,
-    so that it can unmap it when reclaiming pages.
 * Reclaiming physical memory :
   - Freeing some cached stuff, ie swapping pages from mmap regions
   - Swapping pages from processes non-mmap regions (ie real data regions)
@@ -142,6 +130,7 @@ running the tests):
 ### Things not sure
 
 * VFS thread safety : is the design correct ? (probably)
+* Cache architecture (called *pager*, after 4.4BSD terminology)
 * Not enough tests!
 
 ### Plans for the later future
