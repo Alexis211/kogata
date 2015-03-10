@@ -25,9 +25,9 @@ typedef struct {
 	framebuffer_info_t geom;
 } fbdev_mode_info_t;
 
+#define IOCTL_FB_GET_INFO			1
+
 #define IOCTL_FBDEV_GET_MODE_INFO	10
 #define IOCTL_FBDEV_SET_MODE		11
-
-#define IOCTL_FB_GET_INFO			12
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

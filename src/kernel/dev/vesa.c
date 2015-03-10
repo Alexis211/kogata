@@ -4,6 +4,7 @@
 
 #include <vfs.h>
 #include <nullfs.h>
+#include <process.h>
 
 #include <dev/vesa.h>
 #include <dev/v86.h>
@@ -366,7 +367,36 @@ void vesa_close(fs_handle_t *f) {
 }
 
 int vesa_ioctl(fs_handle_t *h, int command, void* data) {
-	// TODO
+	vesa_driver_t *d = (vesa_driver_t*)h->node->data;
+
+	if (command == IOCTL_FBDEV_GET_MODE_INFO) {
+		fbdev_mode_info_t *m = (fbdev_mode_info_t*)data;
+
+		if ((void*)m < (void*)K_HIGHHALF_ADDR) probe_for_write(m, sizeof(fbdev_mode_info_t));
+
+		if (m->mode_number >= 0 && m->mode_number < d->nmodes) {
+			memcpy(&m->geom, &d->modes[m->mode_number].info, sizeof(framebuffer_info_t));
+			return 1;
+		}
+	} else if (command == IOCTL_FBDEV_SET_MODE) {
+		fbdev_mode_info_t *m = (fbdev_mode_info_t*)data;
+
+		if ((void*)m < (void*)K_HIGHHALF_ADDR) probe_for_read(m, sizeof(fbdev_mode_info_t));
+
+		if (m->mode_number >= 0 && m->mode_number < d->nmodes) {
+			if (vesa_set_mode(d, m->mode_number)) return 1;
+		}
+	} else if (command == IOCTL_FB_GET_INFO) {
+		if (d->current_mode != -1) {
+			framebuffer_info_t *i = (framebuffer_info_t*)data;
+
+			if ((void*)i < (void*)K_HIGHHALF_ADDR) probe_for_write(i, sizeof(framebuffer_info_t));
+			memcpy(i, &d->modes[d->current_mode].info, sizeof(framebuffer_info_t));
+
+			return 1;
+		}
+	}
+
 	return 0;
 }
 
