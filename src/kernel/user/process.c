@@ -529,7 +529,7 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 	if ((uint32_t)addr & (~PAGE_MASK)) return false;
 	if ((uint32_t)offset & (~PAGE_MASK)) return false;
 
-	int fmode = file_get_mode(h);
+	int fmode = h->mode;
 	if (!(fmode & FM_MMAP) || !(fmode & FM_READ)) return false;
 	if ((mode & MM_WRITE) && !(fmode & FM_WRITE)) return false;
 
@@ -573,7 +573,7 @@ bool mchmap(process_t *proc, void* addr, int mode) {
 	if (r == 0) return false;
 	
 	if (r->file != 0) {
-		if ((mode & MM_WRITE) && !(file_get_mode(r->file) & FM_WRITE)) return false;
+		if ((mode & MM_WRITE) && !(r->file->mode & FM_WRITE)) return false;
 	}
 	r->mode = mode;
 

@@ -9,7 +9,7 @@ OBJ = core/loader.o core/dbglog.o \
 
 LIB = ../common/libc/libc.lib ../common/libkogata/libkogata.lib ../common/libalgo/libalgo.lib
 
-CFLAGS = -I ./include -I ../common/include -DPRNG_INIT_ENTROPY=$(shell date +%N)
+CFLAGS = -I ./include -I ../common/include -DPRNG_INIT_ENTROPY=1$(shell date +%N)
 
 LDFLAGS = -T linker.ld -Xlinker -Map=kernel.map
 

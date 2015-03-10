@@ -94,8 +94,8 @@ bool stat_open(fd_t file, stat_t *s) {
 int ioctl(fd_t file, int command, void* data) {
 	return call(SC_IOCTL, file, command, (uint32_t)data, 0, 0);
 }
-int get_mode(fd_t file) {
-	return call(SC_GET_MODE, file, 0, 0, 0, 0);
+int fctl(fd_t file, int command, void *data) {
+	return call(SC_FCTL, file, command, (uint32_t)data, 0, 0);
 }
 bool select(sel_fd_t* fds, size_t nfds, int timeout) {
 	return call(SC_SELECT, (uint32_t)fds, nfds, timeout, 0, 0);
@@ -105,6 +105,9 @@ fd_pair_t make_channel(bool blocking) {
 	fd_pair_t ret;
 	call(SC_MK_CHANNEL, blocking, (uint32_t)&ret, 0, 0, 0);
 	return ret;
+}
+fd_t make_shm(size_t s) {
+	return call(SC_MK_SHM, s, 0, 0, 0, 0);
 }
 bool gen_token(fd_t file, token_t *tok) {
 	return call(SC_GEN_TOKEN, file, (uint32_t)tok, 0, 0, 0);

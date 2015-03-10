@@ -31,12 +31,13 @@ typedef struct { fd_t a, b; } fd_pair_t;
 #define SC_READDIR		34		// args: fd, ent_no, out dirent_t *data
 #define SC_STAT_OPEN	35		// args: fd, out stat_t *data -- stat on open file handle
 #define SC_IOCTL		36		// args: fd, command, out void* data
-#define SC_GET_MODE		37		// args: fd -- get mode for open file handle
+#define SC_FCTL		37		// args: fd, command, out void* data
 #define SC_SELECT		38		// args: sel_fd_t*, count, timeout
 
 #define SC_MK_CHANNEL	40		// args: blocking?, (int, int)*
-#define SC_GEN_TOKEN	41		// args: fd, token_t*
-#define SC_USE_TOKEN	42		// args: token_t*
+#define SC_MK_SHM		41		// args: size
+#define SC_GEN_TOKEN	42		// args: fd, token_t*
+#define SC_USE_TOKEN	43		// args: token_t*
 
 #define SC_MAKE_FS		50		// args: sc_make_fs_args_t
 #define SC_FS_ADD_SRC	51		// args: fs_name, fs_name_strlen, fd, opts, opts_strlen
@@ -55,6 +56,11 @@ typedef struct { fd_t a, b; } fd_pair_t;
 #define SC_PROC_WAIT	68		// args: pid?, block?, proc_status_t*
 
 #define INVALID_PID 0		// do a wait with this PID to wayt for any child
+
+// operations for fctl
+#define FC_GET_MODE 		1
+#define FC_SET_BLOCKING		2
+#define FC_SET_NONBLOCKING	3
 
 typedef struct {
 	const char* driver;

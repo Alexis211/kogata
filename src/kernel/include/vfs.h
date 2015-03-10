@@ -175,7 +175,6 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode);
 void ref_file(fs_handle_t *file);
 void unref_file(fs_handle_t *file);
 
-int file_get_mode(fs_handle_t *f);
 bool file_stat(fs_handle_t *f, stat_t *st);
 
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf);

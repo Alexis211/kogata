@@ -276,11 +276,21 @@ static uint32_t ioctl_sc(sc_args_t args) {
 	return file_ioctl(h, args.b, data);
 }
 
-static uint32_t get_mode_sc(sc_args_t args) {
+static uint32_t fctl_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return 0;
 
-	return file_get_mode(h);
+	if (args.b == FC_GET_MODE) {
+		return h->mode;
+	} else if (args.b == FC_SET_BLOCKING) {
+		h->mode |= FM_BLOCKING;
+		return 1;
+	} else if (args.b == FC_SET_NONBLOCKING) {
+		h->mode &= ~FM_BLOCKING;
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 static uint32_t select_sc(sc_args_t args) {
@@ -373,6 +383,19 @@ error:
 		if (ch.b) unref_file(ch.b);
 	}
 	return false;
+}
+
+static uint32_t make_shm_sc(sc_args_t args) {
+	fs_handle_t *h = make_shm(args.a);
+	if (h == 0) return 0;
+
+	int fd = proc_add_fd(current_process(), h);
+	if (fd == 0) {
+		unref_file(h);
+		return 0;
+	}
+
+	return fd;
 }
 
 static uint32_t gen_token_sc(sc_args_t args) {
@@ -694,7 +717,7 @@ void setup_syscall_table() {
 	sc_handlers[SC_READDIR] = readdir_sc;
 	sc_handlers[SC_STAT_OPEN] = stat_open_sc;
 	sc_handlers[SC_IOCTL] = ioctl_sc;
-	sc_handlers[SC_GET_MODE] = get_mode_sc;
+	sc_handlers[SC_FCTL] = fctl_sc;
 	sc_handlers[SC_SELECT] = select_sc;
 
 	sc_handlers[SC_MK_CHANNEL] = make_channel_sc;

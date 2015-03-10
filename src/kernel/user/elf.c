@@ -34,7 +34,7 @@ proc_entry_t elf_load(fs_handle_t *f, process_t* process) {
 		if (read_phdr_r != sizeof(elf_phdr_t)) goto error;
 
 		if (phdr.p_type == PT_LOAD) {
-			if ((phdr.p_flags & PF_W) || !(file_get_mode(f) & FM_MMAP)) {
+			if ((phdr.p_flags & PF_W) || !(f->mode & FM_MMAP)) {
 				bool mmap_ok = mmap(process, (void*)phdr.p_vaddr, phdr.p_memsz,
 						((phdr.p_flags & PF_R) ? MM_READ : 0) | MM_WRITE);
 				if (!mmap_ok) goto error;

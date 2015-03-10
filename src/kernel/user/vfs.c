@@ -462,10 +462,6 @@ void unref_file(fs_handle_t *file) {
 	}
 }
 
-int file_get_mode(fs_handle_t *f) {
-	return f->mode;
-}
-
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 	if (!(f->mode & FM_READ)) return 0;
 
