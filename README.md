@@ -98,13 +98,14 @@ running the tests):
 
 ### Files in the repository
 
-    doc/                  documentation (none yet, sorry!)
+    doc/                        documentation (none yet, sorry!)
 	src/
-	src/kernel/           code for the kogata kernel
-	src/common/           code shared between kernel and userspace libs
-	src/lib/              code for userspace libraries
-	src/apps/             userspace binaries
-	src/tests/            test suite
+	src/kernel/                 code for the kogata kernel
+	src/common/                 code shared between kernel and userspace libs
+	src/common/include/proto    datastructures & constants used for system calls
+	src/lib/                    code for userspace libraries
+	src/apps/                   userspace binaries
+	src/tests/                  test suite
 
 ## Roadmap
 

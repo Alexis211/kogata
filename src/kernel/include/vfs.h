@@ -6,7 +6,7 @@
 #include <hashtbl.h>
 #include <mutex.h>
 
-#include <fs.h> 		// common header
+#include <proto/fs.h>
 
 #include <pager.h>
 

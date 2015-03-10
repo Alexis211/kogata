@@ -4,12 +4,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <syscallproto.h>
-#include <mmap.h>
+#include <proto/syscall.h>
+#include <proto/mmap.h>
+#include <proto/fs.h>
+#include <proto/token.h>
 
-#include <fs.h>
 #include <debug.h>
-#include <token.h>
 
 typedef void (*entry_t)(void*);
 

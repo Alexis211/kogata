@@ -1,6 +1,7 @@
 #pragma once
 
-#include <token.h>
+#include <proto/token.h>
+
 #include <vfs.h>
 
 //  ---- Communication channels

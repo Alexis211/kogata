@@ -1,7 +1,7 @@
 #pragma once
 
-#include <proc.h>
-#include <fs.h>
+#include <proto/proc.h>
+#include <proto/fs.h>
 
 typedef struct { fd_t a, b; } fd_pair_t;
 

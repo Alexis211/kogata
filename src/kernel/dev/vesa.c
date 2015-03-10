@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include <framebuffer.h>		// common header
+#include <proto/fb.h>
 
 #include <vfs.h>
 #include <nullfs.h>
@@ -184,9 +184,9 @@ typedef struct {
 	uint8_t memory_model, bank_size, image_pages;
 	uint8_t reserved0;
 
-	uint8_t red_mask, red_position;
-	uint8_t green_mask, green_position;
-	uint8_t blue_mask, blue_position;
+	uint8_t red_mask_sz, red_position;
+	uint8_t green_mask_sz, green_position;
+	uint8_t blue_mask_sz, blue_position;
 	uint8_t rsv_mask, rsv_position;
 	uint8_t directcolor_attributes;
 
@@ -241,6 +241,19 @@ fs_node_ops_t vesa_fs_ops = {
 	.dispose = 0,
 };
 
+static struct fb_memory_model {
+	int bpp, rp, gp, bp, rs, gs, bs, mm;
+} fb_memory_models[8] = {
+	{ 15, 10, 5, 0, 5, 5, 5, FB_MM_RGB16 },
+	{ 16, 10, 5, 0, 5, 5, 5, FB_MM_RGB16 },
+	{ 15, 0, 5, 10, 5, 5, 5, FB_MM_BGR16 },
+	{ 16, 0, 5, 10, 5, 5, 5, FB_MM_BGR16 },
+	{ 24, 16, 8, 0, 8, 8, 8, FB_MM_RGB24 },
+	{ 24, 0, 8, 16, 8, 8, 8, FB_MM_BGR24 },
+	{ 32, 16, 8, 0, 8, 8, 8, FB_MM_RGB32 },
+	{ 32, 0, 8, 16, 8, 8, 8, FB_MM_BGR32 },
+};
+
 void vesa_detect(fs_t *iofs) {
 	if (!v86_begin_session()) return;
 	
@@ -280,13 +293,27 @@ void vesa_detect(fs_t *iofs) {
 		if (!v86_bios_int(0x10) || v86_regs.ax != 0x004F) continue;
 
 		if ((mi->attributes & 0x90) != 0x90) continue;	// not linear framebuffer
-		if (mi->memory_model != 4 && mi->memory_model != 6) continue;
+		if (mi->memory_model != 6) continue;
 
 		int x = mode_data_c;
 		mode_data[x].info.width = mi->Xres;
 		mode_data[x].info.height = mi->Yres;
 		mode_data[x].info.bpp = mi->bpp;
 		mode_data[x].info.pitch = mi->pitch;
+
+		mode_data[x].info.memory_model = 0;
+		for (int j = 0; j < 8; j++) {
+			struct fb_memory_model m = fb_memory_models[j];
+			if (mi->bpp == m.bpp
+					&& mi->red_mask_sz == m.rs && mi->red_position == m.rp
+					&& mi->green_mask_sz == m.gs && mi->green_position == m.gp
+					&& mi->blue_mask_sz == m.bs && mi->blue_position == m.bp)
+				mode_data[x].info.memory_model = m.mm;
+		}
+		if (mode_data[x].info.memory_model == 0) continue;
+
+		dbg_printf("VESA mode: %dx%dx%d (%d)\n", mi->Xres, mi->Yres, mi->bpp, mode_data[x].info.memory_model);
+
 		mode_data[x].phys_fb_addr = (void*)mi->physbase;
 		mode_data[x].vesa_mode_id = *mode;
 		mode_data_c++;

@@ -17,8 +17,8 @@
 #include <vfs.h>
 #include <pager.h>
 
-#include <mmap.h>	// common header for mmaps
-#include <proc.h> 	// common header defining process statuses
+#include <proto/mmap.h>
+#include <proto/proc.h>
 
 #define USERSTACK_ADDR	0xB8000000
 #define USERSTACK_SIZE	0x00020000		// 32 KB - it is allocated on demand so no worries

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <idt.h>
-#include <syscallproto.h>
+#include <proto/syscall.h>
 
 void setup_syscall_table();
 
