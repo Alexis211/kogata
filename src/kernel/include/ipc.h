@@ -14,6 +14,10 @@ typedef struct {
 
 fs_handle_pair_t make_channel(bool blocking);
 
+//  ---- shared memory regions
+
+fs_handle_t* make_shm(size_t size);
+
 //  ---- Tokens for sharing file descriptors between processes
 
 #define TOKEN_LIFETIME 1500000		// in usecs

@@ -227,6 +227,84 @@ void channel_dispose(fs_node_t *n) {
 	free(c);
 }
 
+//  ---- ------ ------
+//  ---- Shared memory
+//  ---- ------ ------
+
+bool shm_open(fs_node_ptr n, int mode);
+void shm_close(fs_handle_t *h);
+bool shm_stat(fs_node_ptr n, stat_t *st);
+void shm_dispose(fs_node_t *n);
+
+fs_node_ops_t shm_ops = {
+	.open = shm_open,
+	.read = fs_read_from_pager,
+	.write = fs_write_to_pager,
+	.readdir = 0,
+	.poll = 0,
+	.close = shm_close,
+	.stat = shm_stat,
+	.ioctl = 0,
+	.walk = 0,
+	.delete = 0,
+	.move = 0,
+	.create = 0,
+	.dispose = shm_dispose,
+};
+
+fs_handle_t* make_shm(size_t size) {
+	fs_node_t *n = 0;
+	fs_handle_t *h = 0;
+
+	n = (fs_node_t*)malloc(sizeof(fs_node_t));
+	if (n == 0) goto error;
+	memset(n, 0, sizeof(fs_node_t));
+
+	h = (fs_handle_t*)malloc(sizeof(fs_handle_t));
+	if (h == 0) goto error;
+
+	n->pager = new_swap_pager(size, false);
+	if (n->pager == 0) goto error;
+
+	n->refs = 1;
+	n->lock = MUTEX_UNLOCKED;
+	n->ops = &shm_ops;
+	n->data = 0;
+
+	h->fs = 0;
+	h->node = n;
+	h->refs = 1;
+	h->mode = FM_READ | FM_WRITE | FM_MMAP;
+
+	return h;
+
+error:
+	if (n && n->pager) delete_pager(n->pager);
+	if (n) free(n);
+	if (h) free(h);
+	return 0;
+}
+
+bool shm_open(fs_node_ptr n, int mode) {
+	int ok_modes = FM_READ | FM_WRITE | FM_MMAP;
+	if (mode & ~ok_modes) return false;
+
+	return true;
+}
+
+void shm_close(fs_handle_t *h) {
+	// nothing to do
+}
+
+bool shm_stat(fs_node_ptr n, stat_t *st) {
+	// TODO
+	return false;
+}
+
+void shm_dispose(fs_node_t *n) {
+	delete_pager(n->pager);
+}
+
 //  ---- ------
 //  ---- Tokens
 //  ---- ------

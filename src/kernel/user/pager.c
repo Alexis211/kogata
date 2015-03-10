@@ -26,7 +26,7 @@ pager_ops_t swap_pager_ops = {
 	.resize = swap_pager_resize,
 };
 
-pager_t *new_swap_pager(size_t size) {
+pager_t *new_swap_pager(size_t size, bool allow_resize) {
 	pager_t *p = (pager_t*)malloc(sizeof(pager_t));
 	if (p == 0) return 0;
 
@@ -37,6 +37,8 @@ pager_t *new_swap_pager(size_t size) {
 	p->size = size;
 	p->lock = MUTEX_UNLOCKED;
 	p->maps = 0;
+
+	p->swap_pager.allow_resize = allow_resize;
 
 	return p;
 
@@ -86,6 +88,8 @@ void swap_page_release(pager_t *p, size_t offset, size_t len) {
 }
 
 bool swap_pager_resize(pager_t *p, size_t new_size) {
+	if (!p->swap_pager.allow_resize) return false;
+
 	// later : remove unused pages in swap file
 
 	return true;

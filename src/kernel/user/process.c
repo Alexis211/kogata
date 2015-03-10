@@ -500,7 +500,7 @@ bool mmap(process_t *proc, void* addr, size_t size, int mode) {
 	r->size = size;
 
 	r->own_pager = true;
-	r->pager = new_swap_pager(size);
+	r->pager = new_swap_pager(size, false);
 	if (r->pager == 0) goto error;
 	r->offset = 0;
 

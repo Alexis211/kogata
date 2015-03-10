@@ -215,8 +215,6 @@ typedef struct {
 //  ---- VESA code
 
 bool vesa_open(fs_node_ptr n, int mode);
-size_t vesa_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
-size_t vesa_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
 void vesa_close(fs_handle_t *f);
 int vesa_ioctl(fs_node_ptr n, int command, void* data);
 bool vesa_stat(fs_node_ptr n, stat_t *st);
@@ -227,8 +225,8 @@ bool vesa_set_mode(vesa_driver_t *d, int n);
 
 fs_node_ops_t vesa_fs_ops = {
 	.open = vesa_open,
-	.read = vesa_read,
-	.write = vesa_write,
+	.read = fs_read_from_pager,
+	.write = fs_write_to_pager,
 	.close = vesa_close,
 	.ioctl = vesa_ioctl,
 	.stat = vesa_stat,
@@ -361,18 +359,6 @@ bool vesa_open(fs_node_ptr n, int mode) {
 	if (mode & ~ok_modes) return false;
 
 	return true;
-}
-
-size_t vesa_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
-	vesa_driver_t *d = (vesa_driver_t*)f->node->data;
-
-	return pager_read(d->pager, offset, len, buf);
-}
-
-size_t vesa_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
-	vesa_driver_t *d = (vesa_driver_t*)f->node->data;
-
-	return pager_write(d->pager, offset, len, buf);
 }
 
 void vesa_close(fs_handle_t *f) {

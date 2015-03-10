@@ -204,7 +204,7 @@ bool nullfs_add_ram_file(fs_t *fs, const char* name, const char* data, size_t in
 	nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
 	if (f == 0) return false;
 	
-	p = new_swap_pager(init_sz);
+	p = new_swap_pager(init_sz, true);
 	if (p == 0) goto error;
 
 	f->ok_modes = ok_modes & (FM_MMAP | FM_TRUNC | FM_READ | FM_WRITE);
@@ -339,7 +339,7 @@ bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
 		nullfs_file_t *f = (nullfs_file_t*)malloc(sizeof(nullfs_file_t));
 		if (f == 0) goto f_error;
 
-		p = new_swap_pager(0);
+		p = new_swap_pager(0, true);
 		if (p == 0) goto f_error;
 
 		f->ok_modes = FM_READ | FM_WRITE | FM_TRUNC | FM_APPEND;

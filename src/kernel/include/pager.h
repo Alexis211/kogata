@@ -33,6 +33,9 @@ typedef struct pager {
 
 	union {
 		struct {
+			bool allow_resize;
+		} swap_pager;
+		struct {
 			fs_node_t* node;
 			vfs_pager_ops_t *ops;
 		} vfs_pager;
@@ -49,7 +52,7 @@ typedef struct pager {
 	user_region_t *maps;
 } pager_t;
 
-pager_t* new_swap_pager(size_t size);
+pager_t* new_swap_pager(size_t size, bool allow_resize);
 pager_t* new_vfs_pager(size_t size, fs_node_t* vfs_node, vfs_pager_ops_t *vfs_ops);
 pager_t* new_device_pager(size_t size, void* phys_offset);
 
