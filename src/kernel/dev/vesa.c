@@ -221,6 +221,8 @@ void vesa_close(fs_handle_t *f);
 int vesa_ioctl(fs_node_ptr n, int command, void* data);
 bool vesa_stat(fs_node_ptr n, stat_t *st);
 
+void vesa_init_driver(fs_t *iofs, vesa_mode_t *mode_data, int nmodes);
+void vesa_clear(vesa_driver_t *d);
 bool vesa_set_mode(vesa_driver_t *d, int n);
 
 fs_node_ops_t vesa_fs_ops = {
@@ -293,8 +295,11 @@ void vesa_detect(fs_t *iofs) {
 end_detect:
 	v86_end_session();
 
-	if (mode_data == 0) return;
+	if (mode_data != 0) vesa_init_driver(iofs,mode_data, mode_data_c);
+}
 
+
+void vesa_init_driver(fs_t *iofs, vesa_mode_t *mode_data, int mode_data_c) {
 	vesa_driver_t *d = (vesa_driver_t*)malloc(sizeof(vesa_driver_t));
 	if (d == 0) goto fail_setup;
 
@@ -364,6 +369,55 @@ bool vesa_stat(fs_node_ptr n, stat_t *st) {
 	return true;
 }
 
+void vesa_clear(vesa_driver_t *d) {
+	if (d->current_mode == -1) return;
+
+	vesa_mode_t *mode = &d->modes[d->current_mode];
+	size_t fb_size = mode->info.pitch * mode->info.width;
+
+	void* region = 0;
+	void* buffer = 0;
+
+	region = region_alloc(fb_size, "VESA");
+	if (!region) goto end;
+
+	bool ok = true;
+	for (void* x = region; x < region + fb_size; x += PAGE_SIZE) {
+		void* paddr = mode->phys_fb_addr + (x - region);
+		if (!pd_map_page(x, (uint32_t)paddr / PAGE_SIZE, true)) ok = false;
+	}
+	if(!ok) goto end;
+
+	memset(region, 255, fb_size);
+
+	buffer = malloc(kogata_logo.width * kogata_logo.height * kogata_logo.bytes_per_pixel);
+	if (!buffer) goto end;
+
+	KOGATA_LOGO_RUN_LENGTH_DECODE(buffer,
+		kogata_logo.rle_pixel_data,
+		kogata_logo.width * kogata_logo.height,
+		kogata_logo.bytes_per_pixel);
+
+	int tly = (mode->info.height / 2) - (kogata_logo.height / 2);
+	int tlx = (mode->info.width / 2) - (kogata_logo.width / 2);
+	int mbpp = (mode->info.bpp / 8);
+
+	for (unsigned l = 0; l < kogata_logo.height; l++) {
+		memcpy(region + (tly + l) * mode->info.pitch + tlx * mbpp,
+			buffer + kogata_logo.width * l * kogata_logo.bytes_per_pixel,
+			kogata_logo.width * kogata_logo.bytes_per_pixel);
+	}
+
+end:
+	if (buffer) free(buffer);
+	if (region) {
+		for (void* x = region; x < region + fb_size; x += PAGE_SIZE) {
+			pd_unmap_page(x);
+		}
+		region_free(region);
+	}
+}
+
 bool vesa_set_mode(vesa_driver_t *d, int n) {
 	ASSERT(n >= 0 && n < d->nmodes);
 
@@ -383,42 +437,7 @@ bool vesa_set_mode(vesa_driver_t *d, int n) {
 		d->current_mode = n;
 		change_device_pager(d->pager, fb_size, d->modes[n].phys_fb_addr);
 
-		// clear screen & put kogata logo
-		void* region = region_alloc(fb_size, "VESA");
-		if (region) {
-			bool ok = true;
-			for (void* x = region; x < region + fb_size; x += PAGE_SIZE) {
-				void* paddr = d->modes[n].phys_fb_addr + (x - region);
-				if (!pd_map_page(x, (uint32_t)paddr / PAGE_SIZE, true)) ok = false;
-			}
-			if (ok) {
-				memset(region, 255, fb_size);
-
-				void* buffer = malloc(kogata_logo.width * kogata_logo.height * kogata_logo.bytes_per_pixel);
-				if (buffer) {
-					KOGATA_LOGO_RUN_LENGTH_DECODE(buffer,
-						kogata_logo.rle_pixel_data,
-						kogata_logo.width * kogata_logo.height,
-						kogata_logo.bytes_per_pixel);
-
-					int tly = (d->modes[n].info.height / 2) - (kogata_logo.height / 2);
-					int tlx = (d->modes[n].info.width / 2) - (kogata_logo.width / 2);
-					int mbpp = (d->modes[n].info.bpp / 8);
-
-					for (unsigned l = 0; l < kogata_logo.height; l++) {
-						memcpy(region + (tly + l) * d->modes[n].info.pitch + tlx * mbpp,
-							buffer + kogata_logo.width * l * kogata_logo.bytes_per_pixel,
-							kogata_logo.width * kogata_logo.bytes_per_pixel);
-					}
-
-					free(buffer);
-				}
-			}
-			for (void* x = region; x < region + fb_size; x += PAGE_SIZE) {
-				pd_unmap_page(x);
-			}
-			region_free(region);
-		}
+		vesa_clear(d);
 	}
 
 	return ok;
