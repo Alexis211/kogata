@@ -654,6 +654,7 @@ typedef struct {
 	uint32_t block_size;		// ATA: 512, ATAPI: 2048
 	uint8_t device;
 	uint8_t type;
+	mutex_t lock;
 } ide_vfs_dev_t;
 
 bool ide_vfs_open(fs_node_t *n, int mode);
@@ -688,6 +689,7 @@ void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {
 	d->device = device;
 	d->type = c->devices[device].type;
 	d->block_size = (d->type == IDE_ATAPI ? 2048 : 512);
+	d->lock = MUTEX_UNLOCKED;
 
 	char name[40];
 
@@ -734,10 +736,17 @@ size_t ide_vfs_read(fs_handle_t *h, size_t offset, size_t len, char* buf) {
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;
 
-	uint8_t err = ide_read_sectors(d->c, d->device, offset / d->block_size, len / d->block_size, buf);
-	if (err != 0) return 0;
+	size_t ret = 0;
+	mutex_lock(&d->lock);
 
-	return len;
+	uint8_t err = ide_read_sectors(d->c, d->device, offset / d->block_size, len / d->block_size, buf);
+	if (err != 0) goto end;
+
+	ret = len;
+
+end:
+	mutex_unlock(&d->lock);
+	return ret;
 }
 
 size_t ide_vfs_write(fs_handle_t *h, size_t offset, size_t len, const char* buf) {
@@ -745,11 +754,19 @@ size_t ide_vfs_write(fs_handle_t *h, size_t offset, size_t len, const char* buf)
 
 	if (offset % d->block_size != 0) return 0;
 	if (len % d->block_size != 0) return 0;
-uint8_t err = ide_write_sectors(d->c, d->device,
-		offset / d->block_size, len / d->block_size, (char*)buf);
-	if (err != 0) return 0;
 
-	return len;
+	size_t ret = 0;
+	mutex_lock(&d->lock);
+
+	uint8_t err = ide_write_sectors(d->c, d->device,
+			offset / d->block_size, len / d->block_size, (char*)buf);
+	if (err != 0) goto end;
+
+	ret = len;
+
+end:
+	mutex_unlock(&d->lock);
+	return ret;
 }
 
 int ide_vfs_ioctl(fs_handle_t *h, int command, void* data) {

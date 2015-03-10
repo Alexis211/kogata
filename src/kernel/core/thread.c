@@ -124,6 +124,8 @@ void run_scheduler() {
 	}
 	current_thread = dequeue_thread();
 
+	/*dbg_printf("[0x%p]\n", current_thread);*/
+
 	if (current_thread != 0) {
 		thread_t *ptr = current_thread;
 		prng_add_entropy((uint8_t*)&ptr, sizeof(ptr));

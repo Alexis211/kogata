@@ -11,7 +11,7 @@
 int main(int argc, char **argv) {
 	dbg_print("[giosrv] Starting up.\n");
 
-	fd_t fbdev = open("io:/display/vesa", FM_READ | FM_WRITE | FM_MMAP);
+	fd_t fbdev = open("io:/display/vesa", FM_IOCTL | FM_READ | FM_WRITE | FM_MMAP);
 	if (fbdev == 0) PANIC("Could not open fbdev");
 
 	framebuffer_info_t i;

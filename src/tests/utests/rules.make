@@ -3,7 +3,7 @@ LIB = ../../../lib/libkogata/libkogata.lib ../../../common/libc/libc.lib
 OBJ = test.o
 
 CFLAGS = -I . -I ../../../common/include -I ../../../lib/include -DBUILD_USER_TEST
-LDFLAGS = -T ../../../apps/linker.ld -Xlinker -Map=init.map
+LDFLAGS = -T ../../../sysbin/linker.ld -Xlinker -Map=init.map
 
 OUT = init.bin
 

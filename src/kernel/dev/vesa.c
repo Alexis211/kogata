@@ -356,7 +356,7 @@ fail_setup:
 }
 
 bool vesa_open(fs_node_t *n, int mode) {
-	int ok_modes = FM_READ | FM_WRITE | FM_MMAP;
+	int ok_modes = FM_READ | FM_WRITE | FM_MMAP | FM_IOCTL;
 	if (mode & ~ok_modes) return false;
 
 	return true;

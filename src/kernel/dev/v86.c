@@ -117,6 +117,8 @@ void v86_run_bios_int(uint32_t int_no) {
 }
 
 void v86_thread_main(void* z) {
+	enter_critical(CL_NOSWITCH);
+
 	if (z) v86_retval = true;
 	wait_on(current_thread);
 
