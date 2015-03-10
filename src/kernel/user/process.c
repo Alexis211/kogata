@@ -161,13 +161,26 @@ void current_process_exit(int status, int exit_code) {
 		free(d);
 	}
 
+	process_t *p = current_process();
+
+	mutex_lock(&p->lock);
+	if (p->status == PS_EXITING) {
+		mutex_unlock(&p->lock);
+		exit();
+	}
+
+	p->status = PS_EXITING;
+
 	exit_data_t *d = (exit_data_t*)malloc(sizeof(exit_data_t));
 
-	d->proc = current_process();;
+	d->proc = p;
 	d->status = status;
 	d->exit_code = exit_code;
 
-	worker_push(process_exit_v, d);
+	while (!worker_push(process_exit_v, d)) yield();
+
+	mutex_unlock(&p->lock);
+
 	exit();
 }
 
@@ -184,7 +197,7 @@ void process_exit(process_t *p, int status, int exit_code) {
 
 	mutex_lock(&p->lock);
 
-	ASSERT(p->status == PS_RUNNING || p->status == PS_LOADING);
+	ASSERT(p->status == PS_RUNNING || p->status == PS_LOADING || p->status == PS_EXITING);
 	p->status = status;
 	p->exit_code = exit_code;
 
@@ -450,6 +463,8 @@ int proc_add_fd(process_t *p, fs_handle_t *f) {
 }
 
 bool proc_add_fd_as(process_t *p, fs_handle_t *f, int fd) {
+	if (fd <= 0) return false;
+
 	if (hashtbl_find(p->files, (void*)fd) != 0) return false;
 
 	if (fd >= p->next_fd) p->next_fd = fd + 1;

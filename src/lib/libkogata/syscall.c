@@ -182,7 +182,7 @@ bool bind_make_fs(pid_t pid, const char* name, const char* driver, fd_t source, 
 	return call(SC_BIND_MAKE_FS, (uint32_t)&args, 0, 0, 0, 0);
 }
 bool bind_fd(pid_t pid, fd_t new_fd, fd_t fd) {
-	return call(SC_BIND_FD, new_fd, fd, 0, 0, 0);
+	return call(SC_BIND_FD, pid, new_fd, fd, 0, 0);
 }
 bool proc_exec(pid_t pid, const char* file) {
 	return call(SC_PROC_EXEC, pid, (uint32_t)file, strlen(file), 0, 0);

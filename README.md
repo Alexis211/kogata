@@ -104,7 +104,8 @@ running the tests):
 	src/common/                 code shared between kernel and userspace libs
 	src/common/include/proto    datastructures & constants used for system calls
 	src/lib/                    code for userspace libraries
-	src/apps/                   userspace binaries
+	src/lib/include/proto		definition of IPC protocols used in the system
+	src/sysbin/                 userspace system binaries
 	src/tests/                  test suite
 
 ## Roadmap

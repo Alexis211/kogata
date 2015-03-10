@@ -8,23 +8,29 @@ fi
 
 # Copy system files to CDROM
 
-cp src/kernel/kernel.bin cdrom; strip cdrom/kernel.bin
-cp src/apps/init/init.bin cdrom; strip cdrom/init.bin
+cp src/kernel/kernel.bin cdrom/boot; strip cdrom/boot/kernel.bin
+cp src/sysbin/init/init.bin cdrom/boot; strip cdrom/boot/init.bin
+
+mkdir -p cdrom/sys/bin
+cp src/sysbin/giosrv/giosrv.bin cdrom/sys/bin
+cp src/sysbin/login/login.bin cdrom/sys/bin
+
+for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
 cp README.md cdrom
 
 # Setup config files
+
+mkdir -p cdrom/config/default
+
+echo "root:/sys" > cdrom/config/default/sysdir
 
 cat > cdrom/boot/grub/menu.lst <<EOF
 timeout 10
 default 0
 
 title   kogata OS
-kernel  /kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/init.bin
-
-title   kogata OS without root
-kernel  /kernel.bin init=io:/mod/init.bin
-module  /init.bin
+kernel  /boot/kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/boot/init.bin config=default
 EOF
 
 # Generate CDROm image

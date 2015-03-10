@@ -5,8 +5,8 @@ LIB = ../../lib/libkogata/libkogata.lib ../../common/libc/libc.lib
 
 CFLAGS = -I ./include -I ../../common/include -I ../../lib/include
 
-LDFLAGS = -T ../linker.ld -Xlinker -Map=init.map
+LDFLAGS = -T ../linker.ld -Xlinker -Map=login.map
 
-OUT = init.bin
+OUT = login.bin
 
 include ../../rules.make

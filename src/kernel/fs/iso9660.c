@@ -186,8 +186,6 @@ bool iso9660_dir_walk(fs_node_t *n, const char* search_for, struct fs_node *node
 
 	size_t filename_len = strlen(search_for);
 
-	dbg_printf("Looking up %s...\n", search_for);
-
 	size_t dr_len = 0;
 	for (size_t pos = 0; pos < node->dr.size.lsb; pos += dr_len) {
 		union {
@@ -206,11 +204,13 @@ bool iso9660_dir_walk(fs_node_t *n, const char* search_for, struct fs_node *node
 		if (node->fs->use_lowercase) convert_dr_to_lowercase(dr);
 
 		char* name = dr->name;
-		size_t len = dr->name_len - 2;
+		size_t len = dr->name_len;
+		if (!(dr->flags & ISO9660_DR_FLAG_DIR)) len -= 2;
 
-		if (name[len] != ';') continue;
+		if (!(dr->flags & ISO9660_DR_FLAG_DIR) && name[len] != ';') continue;
+		if (name[len-1] == '.') len--;	// file with no extension
+
 		if (len != filename_len) continue;
-		
 		if (strncmp(name, search_for, len) == 0) {
 			// Found it !
 			iso9660_node_t *n = (iso9660_node_t*)malloc(sizeof(iso9660_node_t));
@@ -309,9 +309,11 @@ bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d) {
 		if (node->fs->use_lowercase) convert_dr_to_lowercase(dr);
 
 		char* name = dr->name;
-		size_t len = dr->name_len - 2;
+		size_t len = dr->name_len;
+		if (!(dr->flags & ISO9660_DR_FLAG_DIR)) len -= 2;
 
-		if (name[len] != ';') continue;
+		if (!(dr->flags & ISO9660_DR_FLAG_DIR) && name[len] != ';') continue;
+		if (name[len-1] == '.') len--;	// file with no extension
 		
 		if (idx == ent_no) {
 			// Found the node we are interested in
