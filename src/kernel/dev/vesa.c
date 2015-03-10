@@ -214,10 +214,10 @@ typedef struct {
 
 //  ---- VESA code
 
-bool vesa_open(fs_node_ptr n, int mode);
+bool vesa_open(fs_node_t *n, int mode);
 void vesa_close(fs_handle_t *f);
-int vesa_ioctl(fs_node_ptr n, int command, void* data);
-bool vesa_stat(fs_node_ptr n, stat_t *st);
+int vesa_ioctl(fs_handle_t *n, int command, void* data);
+bool vesa_stat(fs_node_t *n, stat_t *st);
 
 void vesa_init_driver(fs_t *iofs, vesa_mode_t *mode_data, int nmodes);
 void vesa_clear(vesa_driver_t *d);
@@ -354,7 +354,7 @@ fail_setup:
 	if (mode_data) free(mode_data);
 }
 
-bool vesa_open(fs_node_ptr n, int mode) {
+bool vesa_open(fs_node_t *n, int mode) {
 	int ok_modes = FM_READ | FM_WRITE | FM_MMAP;
 	if (mode & ~ok_modes) return false;
 
@@ -365,13 +365,13 @@ void vesa_close(fs_handle_t *f) {
 	// nothing to do
 }
 
-int vesa_ioctl(fs_node_ptr n, int command, void* data) {
+int vesa_ioctl(fs_handle_t *h, int command, void* data) {
 	// TODO
 	return 0;
 }
 
-bool vesa_stat(fs_node_ptr n, stat_t *st) {
-	vesa_driver_t *d = (vesa_driver_t*)d;
+bool vesa_stat(fs_node_t *n, stat_t *st) {
+	vesa_driver_t *d = (vesa_driver_t*)n->data;
 	
 	framebuffer_info_t *i = (d->current_mode == -1 ? 0 : &d->modes[d->current_mode].info);
 

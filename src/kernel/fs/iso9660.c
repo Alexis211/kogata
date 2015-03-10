@@ -6,15 +6,15 @@
 bool iso9660_make(fs_handle_t *source, const char* opts, fs_t *t);
 void iso9660_fs_shutdown(fs_ptr f);
 
-bool iso9660_node_stat(fs_node_ptr n, stat_t *st);
+bool iso9660_node_stat(fs_node_t *n, stat_t *st);
 void iso9660_node_dispose(fs_node_t *n);
 void iso9660_node_close(fs_handle_t *h);
 
-bool iso9660_dir_open(fs_node_ptr n, int mode);
+bool iso9660_dir_open(fs_node_t *n, int mode);
 bool iso9660_dir_walk(fs_node_t* n, const char* file, struct fs_node *node_d);
 bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d);
 
-bool iso9660_file_open(fs_node_ptr n, int mode);
+bool iso9660_file_open(fs_node_t *n, int mode);
 
 size_t iso9660_node_read(fs_node_t *n, size_t offset, size_t len, char* buf);
 
@@ -156,8 +156,8 @@ static void dr_stat(iso9660_dr_t *dr, stat_t *st) {
 
 //  ---- The actual code
 
-bool iso9660_node_stat(fs_node_ptr n, stat_t *st) {
-	iso9660_node_t *node = (iso9660_node_t*)n;
+bool iso9660_node_stat(fs_node_t *n, stat_t *st) {
+	iso9660_node_t *node = (iso9660_node_t*)n->data;
 
 	dr_stat(&node->dr, st);
 	return true;
@@ -175,7 +175,7 @@ void iso9660_node_close(fs_handle_t *h) {
 	// nothing to do
 }
 
-bool iso9660_dir_open(fs_node_ptr n, int mode) {
+bool iso9660_dir_open(fs_node_t *n, int mode) {
 	if (mode != FM_READDIR) return false;
 
 	return true;
@@ -238,7 +238,7 @@ bool iso9660_dir_walk(fs_node_t *n, const char* search_for, struct fs_node *node
 	return false;	// not found
 }
 
-bool iso9660_file_open(fs_node_ptr n, int mode) {
+bool iso9660_file_open(fs_node_t *n, int mode) {
 	int ok_modes = FM_READ | FM_MMAP;
 	
 	if (mode & ~ok_modes) return false;

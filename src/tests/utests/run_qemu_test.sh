@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $1 = 'watchdog' ]; then
+if [ "$1" = "watchdog" ]; then
 	sleep 3 &
 	PID=$!
 	echo $PID > pid2

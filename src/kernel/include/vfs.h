@@ -80,20 +80,20 @@ typedef struct fs_handle {
 //	- delete() is not expected to delete recursively : it should fail on a non-empty directory
 
 typedef struct fs_node_ops {
-	bool (*open)(fs_node_ptr n, int mode);
+	bool (*open)(fs_node_t *n, int mode);
 	size_t (*read)(fs_handle_t *h, size_t offset, size_t len, char* buf);
 	size_t (*write)(fs_handle_t *h, size_t offset, size_t len, const char* buf);
 	bool (*readdir)(fs_handle_t *h, size_t ent_no, dirent_t *d);
 	int (*poll)(fs_handle_t *h, void** out_wait_obj);
 	void (*close)(fs_handle_t *h);
 
-	bool (*stat)(fs_node_ptr n, stat_t *st);
-	int (*ioctl)(fs_node_ptr n, int command, void* data);
+	bool (*stat)(fs_node_t *n, stat_t *st);
+	int (*ioctl)(fs_handle_t *h, int command, void* data);
 
 	bool (*walk)(fs_node_t *n, const char* file, struct fs_node *node_d);
-	bool (*delete)(fs_node_ptr n, const char* file);
-	bool (*move)(fs_node_ptr n, const char* old_name, struct fs_node *new_parent, const char *new_name);
-	bool (*create)(fs_node_ptr n, const char* name, int type);	// create sub-node in directory
+	bool (*delete)(fs_node_t *n, const char* file);
+	bool (*move)(fs_node_t *n, const char* old_name, struct fs_node *new_parent, const char *new_name);
+	bool (*create)(fs_node_t *n, const char* name, int type);	// create sub-node in directory
 	void (*dispose)(fs_node_t *n);
 } fs_node_ops_t;
 

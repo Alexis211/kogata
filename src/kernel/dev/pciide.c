@@ -656,12 +656,12 @@ typedef struct {
 	uint8_t type;
 } ide_vfs_dev_t;
 
-bool ide_vfs_open(fs_node_ptr n, int mode);
-bool ide_vfs_stat(fs_node_ptr n, stat_t *st);
+bool ide_vfs_open(fs_node_t *n, int mode);
+bool ide_vfs_stat(fs_node_t *n, stat_t *st);
 
 size_t ide_vfs_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
 size_t ide_vfs_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
-int ide_vfs_ioctl(fs_node_ptr f, int command, void* data);
+int ide_vfs_ioctl(fs_handle_t *f, int command, void* data);
 void ide_vfs_close(fs_handle_t *f);
 
 fs_node_ops_t ide_vfs_node_ops = {
@@ -707,8 +707,8 @@ void ide_register_device(ide_controller_t *c, uint8_t device, fs_t *iofs) {
 	}
 }
 
-bool ide_vfs_open(fs_node_ptr n, int mode) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)n;
+bool ide_vfs_open(fs_node_t *n, int mode) {
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)n->data;
 
 	int ok_modes = (FM_READ
 				| (d->type == IDE_ATA ? FM_WRITE : 0) 
@@ -718,8 +718,8 @@ bool ide_vfs_open(fs_node_ptr n, int mode) {
 	return true;
 }
 
-bool ide_vfs_stat(fs_node_ptr n, stat_t *st) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)n;
+bool ide_vfs_stat(fs_node_t *n, stat_t *st) {
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)n->data;
 
 	st->type = FT_BLOCKDEV | FT_DEV;
 	st->access = (d->type == IDE_ATA ? FM_WRITE : 0) | FM_READ | FM_IOCTL;
@@ -752,8 +752,8 @@ uint8_t err = ide_write_sectors(d->c, d->device,
 	return len;
 }
 
-int ide_vfs_ioctl(fs_node_ptr f, int command, void* data) {
-	ide_vfs_dev_t *d = (ide_vfs_dev_t*)f;
+int ide_vfs_ioctl(fs_handle_t *h, int command, void* data) {
+	ide_vfs_dev_t *d = (ide_vfs_dev_t*)h->node->data;
 
 	int ret = 0;
 

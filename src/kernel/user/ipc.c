@@ -12,8 +12,8 @@
 static size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
 static size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
 static int channel_poll(fs_handle_t *c, void** out_wait_obj);
-static bool channel_open(fs_node_ptr c, int mode);
-static bool channel_stat(fs_node_ptr c, stat_t *st);
+static bool channel_open(fs_node_t *c, int mode);
+static bool channel_stat(fs_node_t *c, stat_t *st);
 static void channel_close(fs_handle_t *c);
 static void channel_dispose(fs_node_t *c);
 
@@ -189,15 +189,15 @@ int channel_poll(fs_handle_t *h, void** out_wait_obj) {
 	return ret;
 }
 
-bool channel_open(fs_node_ptr ch, int mode) {
+bool channel_open(fs_node_t *ch, int mode) {
 	int ok_modes = FM_READ | FM_WRITE | FM_BLOCKING;
 
 	if (mode & ~ok_modes) return false;
 	return true;
 }
 
-bool channel_stat(fs_node_ptr ch, stat_t *st) {
-	channel_t *c = (channel_t*)ch;
+bool channel_stat(fs_node_t *ch, stat_t *st) {
+	channel_t *c = (channel_t*)ch->data;
 
 	mutex_lock(&c->lock);
 
@@ -231,9 +231,9 @@ void channel_dispose(fs_node_t *n) {
 //  ---- Shared memory
 //  ---- ------ ------
 
-bool shm_open(fs_node_ptr n, int mode);
+bool shm_open(fs_node_t *n, int mode);
 void shm_close(fs_handle_t *h);
-bool shm_stat(fs_node_ptr n, stat_t *st);
+bool shm_stat(fs_node_t *n, stat_t *st);
 void shm_dispose(fs_node_t *n);
 
 fs_node_ops_t shm_ops = {
@@ -285,7 +285,7 @@ error:
 	return 0;
 }
 
-bool shm_open(fs_node_ptr n, int mode) {
+bool shm_open(fs_node_t *n, int mode) {
 	int ok_modes = FM_READ | FM_WRITE | FM_MMAP;
 	if (mode & ~ok_modes) return false;
 
@@ -296,9 +296,12 @@ void shm_close(fs_handle_t *h) {
 	// nothing to do
 }
 
-bool shm_stat(fs_node_ptr n, stat_t *st) {
-	// TODO
-	return false;
+bool shm_stat(fs_node_t *n, stat_t *st) {
+	st->size = n->pager->size;
+	st->type = FT_REGULAR;
+	st->access = FM_READ | FM_WRITE | FM_MMAP;
+
+	return true;
 }
 
 void shm_dispose(fs_node_t *n) {

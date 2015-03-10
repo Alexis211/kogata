@@ -1,5 +1,6 @@
 #include <sys.h>
 #include <dbglog.h>
+#include <thread.h>
 
 
 // Kernel panic and kernel assert failure

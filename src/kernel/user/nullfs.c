@@ -7,29 +7,29 @@
 #include <pager.h>
 
 // nullfs driver
-static bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *d);
+bool nullfs_fs_make(fs_handle_t *source, const char* opts, fs_t *d);
 
 // nullfs fs_t
-static void nullfs_fs_shutdown(fs_ptr fs);
+void nullfs_fs_shutdown(fs_ptr fs);
 
 // nullfs directory node
-static bool nullfs_d_open(fs_node_ptr n, int mode);
-static bool nullfs_d_stat(fs_node_ptr n, stat_t *st);
-static bool nullfs_d_walk(fs_node_t *n, const char* file, struct fs_node *node_d);
-static bool nullfs_d_delete(fs_node_ptr n, const char* file);
-static bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name);
-static bool nullfs_d_create(fs_node_ptr n, const char* file, int type);
-static void nullfs_d_dispose(fs_node_t *n);
-static bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d);
-static void nullfs_d_close(fs_handle_t *f);
+bool nullfs_d_open(fs_node_t *n, int mode);
+bool nullfs_d_stat(fs_node_t *n, stat_t *st);
+bool nullfs_d_walk(fs_node_t *n, const char* file, struct fs_node *node_d);
+bool nullfs_d_delete(fs_node_t *n, const char* file);
+bool nullfs_d_move(fs_node_t *n, const char* old_name, fs_node_t *new_parent, const char *new_name);
+bool nullfs_d_create(fs_node_t *n, const char* file, int type);
+void nullfs_d_dispose(fs_node_t *n);
+bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d);
+void nullfs_d_close(fs_handle_t *f);
 
 // nullfs ram file node
-static bool nullfs_f_open(fs_node_ptr n, int mode);
-static bool nullfs_f_stat(fs_node_ptr n, stat_t *st);
-static void nullfs_f_dispose(fs_node_t *n);
-static size_t nullfs_f_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
-static size_t nullfs_f_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
-static void nullfs_f_close(fs_handle_t *f);
+bool nullfs_f_open(fs_node_t *n, int mode);
+bool nullfs_f_stat(fs_node_t *n, stat_t *st);
+void nullfs_f_dispose(fs_node_t *n);
+size_t nullfs_f_read(fs_handle_t *f, size_t offset, size_t len, char* buf);
+size_t nullfs_f_write(fs_handle_t *f, size_t offset, size_t len, const char* buf);
+void nullfs_f_close(fs_handle_t *f);
 
 // VTables that go with it
 static fs_driver_ops_t nullfs_driver_ops = {
@@ -226,14 +226,14 @@ error:
 
 //   -- Directory node --
 
-bool nullfs_d_open(fs_node_ptr n, int mode) {
+bool nullfs_d_open(fs_node_t *n, int mode) {
 	if (mode != FM_READDIR) return false;
 
 	return true;
 }
 
-bool nullfs_d_stat(fs_node_ptr n, stat_t *st) {
-	nullfs_dir_t* d = (nullfs_dir_t*)n;
+bool nullfs_d_stat(fs_node_t *n, stat_t *st) {
+	nullfs_dir_t* d = (nullfs_dir_t*)n->data;
 
 	mutex_lock(&d->lock);
 
@@ -270,8 +270,8 @@ bool nullfs_d_walk(fs_node_t *n, const char* file, struct fs_node *node_d) {
 	return true;
 }
 
-bool nullfs_d_delete(fs_node_ptr n, const char* file) {
-	nullfs_dir_t* d = (nullfs_dir_t*)n;
+bool nullfs_d_delete(fs_node_t *n, const char* file) {
+	nullfs_dir_t* d = (nullfs_dir_t*)n->data;
 
 	mutex_lock(&d->lock);
 
@@ -321,14 +321,14 @@ error:
 	return false;
 }
 
-bool nullfs_d_move(fs_node_ptr n, const char* old_name, fs_node_t *new_parent, const char *new_name) {
+bool nullfs_d_move(fs_node_t *n, const char* old_name, fs_node_t *new_parent, const char *new_name) {
 	dbg_printf("Not implemented: move in nullfs. Failing potentially valid move request.\n");
 
 	return false; //TODO
 }
 
-bool nullfs_d_create(fs_node_ptr n, const char* file, int type) {
-	nullfs_dir_t *d = (nullfs_dir_t*)n;
+bool nullfs_d_create(fs_node_t *n, const char* file, int type) {
+	nullfs_dir_t *d = (nullfs_dir_t*)n->data;
 	nullfs_item_t *i = 0;
 
 	if (type == FT_REGULAR) {
@@ -434,12 +434,15 @@ bool nullfs_d_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
 
 			strncpy(d->name, i->name, DIR_MAX);
 			d->name[DIR_MAX-1] = 0;
-			if (i->ops->stat) {
-				i->ops->stat(i->data, &d->st);
-			} else {
-				// no stat operation : should we do something else ?
-				memset(&d->st, 0, sizeof(stat_t));
-			}
+
+			// dirty hack so that we can stat (TODO do this better)
+			fs_node_t n;
+			memset(&n, 0, sizeof(fs_node_t));
+			n.fs = f->node->fs;
+			n.ops = i->ops;
+			n.data = i->data;
+			n.pager = i->pager;
+			n.ops->stat(&n, &d->st);
 
 			break;
 		}
@@ -457,8 +460,8 @@ void nullfs_d_close(fs_handle_t *f) {
 
 //   -- File node --
 
-bool nullfs_f_open(fs_node_ptr n, int mode) {
-	nullfs_file_t *f = (nullfs_file_t*)n;
+bool nullfs_f_open(fs_node_t *n, int mode) {
+	nullfs_file_t *f = (nullfs_file_t*)n->data;
 
 	if (mode & ~f->ok_modes) return false;
 
@@ -474,8 +477,8 @@ bool nullfs_f_open(fs_node_ptr n, int mode) {
 	return true;
 }
 
-bool nullfs_f_stat(fs_node_ptr n, stat_t *st) {
-	nullfs_file_t *f = (nullfs_file_t*)n;
+bool nullfs_f_stat(fs_node_t *n, stat_t *st) {
+	nullfs_file_t *f = (nullfs_file_t*)n->data;
 	mutex_lock(&f->lock);
 
 	st->type = FT_REGULAR;
@@ -492,7 +495,7 @@ void nullfs_f_dispose(fs_node_t *n) {
 
 //   -- File handle --
 
-static void nullfs_f_close(fs_handle_t *h) {
+void nullfs_f_close(fs_handle_t *h) {
 	// nothing to do
 }
 

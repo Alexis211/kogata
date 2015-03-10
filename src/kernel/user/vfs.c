@@ -303,7 +303,7 @@ bool fs_create(fs_t *fs, const char* file, int type) {
 	if (n == 0) return false;
 
 	mutex_lock(&n->lock);
-	bool ret = n->ops->create && n->ops->create(n->data, name, type);
+	bool ret = n->ops->create && n->ops->create(n, name, type);
 	mutex_unlock(&n->lock);
 
 	unref_fs_node(n);
@@ -324,7 +324,7 @@ bool fs_delete(fs_t *fs, const char* file) {
 	}
 
 	mutex_lock(&n->lock);
-	bool ret = n->ops->delete && n->ops->delete(n->data, name);
+	bool ret = n->ops->delete && n->ops->delete(n, name);
 	mutex_unlock(&n->lock);
 
 	unref_fs_node(n);
@@ -366,7 +366,7 @@ bool fs_move(fs_t *fs, const char* from, const char* to) {
 			goto unlock_end;
 		}
 			
-		ret = old_parent->ops->move(old_parent->data, old_name, new_parent, new_name);
+		ret = old_parent->ops->move(old_parent, old_name, new_parent, new_name);
 
 		if (ret) {
 			// adjust node parameters
@@ -399,7 +399,7 @@ bool fs_stat(fs_t *fs, const char* file, stat_t *st) {
 	if (n == 0) return false;
 
 	mutex_lock(&n->lock);
-	bool ret = n->ops->stat && n->ops->stat(n->data, st);
+	bool ret = n->ops->stat && n->ops->stat(n, st);
 	mutex_unlock(&n->lock);
 
 	unref_fs_node(n);
@@ -428,7 +428,7 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	fs_handle_t *h = (fs_handle_t*)malloc(sizeof(fs_handle_t));
 	if (h == 0) goto error;
 
-	bool open_ok = n->ops->open(n->data, mode);
+	bool open_ok = n->ops->open(n, mode);
 	if (!open_ok) goto error;
 
 	h->refs = 1;
@@ -483,7 +483,7 @@ size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
 }
 
 bool file_stat(fs_handle_t *f, stat_t *st) {
-	return f->node->ops->stat && f->node->ops->stat(f->node->data, st);
+	return f->node->ops->stat && f->node->ops->stat(f->node, st);
 }
 
 int file_ioctl(fs_handle_t *f, int command, void* data) {
@@ -491,7 +491,7 @@ int file_ioctl(fs_handle_t *f, int command, void* data) {
 
 	if (f->node->ops->ioctl == 0) return -1;
 
-	return f->node->ops->ioctl(f->node->data, command, data);
+	return f->node->ops->ioctl(f, command, data);
 }
 
 bool file_readdir(fs_handle_t *f, size_t ent_no, dirent_t *d) {
