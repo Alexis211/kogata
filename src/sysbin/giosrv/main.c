@@ -9,7 +9,7 @@
 #include <gip.h>
 
 typedef struct {
-	framebuffer_info_t mode;
+	fb_info_t mode;
 	fd_t fd;
 } giosrv_t;
 

@@ -17,6 +17,9 @@ cp src/sysbin/login/login.bin cdrom/sys/bin
 
 for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
+mkdir -p cdrom/sys/fonts
+cp res/fonts/*.bf cdrom/sys/fonts
+
 cp README.md cdrom
 
 # Setup config files

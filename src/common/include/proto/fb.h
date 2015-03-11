@@ -18,11 +18,17 @@ typedef struct {
 	uint32_t pitch;		// bytes per line
 	uint32_t bpp;
 	uint32_t memory_model;
-} framebuffer_info_t;
+} fb_info_t;
+
+typedef struct {
+	uint32_t x, y;
+	uint32_t w, h;
+} fb_region_t;
+
 
 typedef struct {
 	int mode_number;
-	framebuffer_info_t geom;
+	fb_info_t geom;
 } fbdev_mode_info_t;
 
 #define IOCTL_FB_GET_INFO			1

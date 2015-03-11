@@ -6,7 +6,7 @@
 #include <gip.h>
 
 typedef struct {
-	framebuffer_info_t mode;
+	fb_info_t mode;
 
 	size_t fb_size;
 	void* map;
@@ -71,7 +71,7 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 
 	c->fd = use_token(&m->tok);
 	if (c->fd != 0) {
-		memcpy(&c->mode, &m->geom, sizeof(framebuffer_info_t));
+		memcpy(&c->mode, &m->geom, sizeof(fb_info_t));
 
 		dbg_printf("[login] Got buffer on FD %d, %dx%dx%d\n",
 			c->fd, c->mode.width, c->mode.height, c->mode.bpp);

@@ -199,7 +199,7 @@ typedef struct {
 //  ---- VESA driver data structures
 
 typedef struct {
-	framebuffer_info_t info;
+	fb_info_t info;
 	uint16_t vesa_mode_id;
 	void* phys_fb_addr;
 } vesa_mode_t;
@@ -375,7 +375,7 @@ int vesa_ioctl(fs_handle_t *h, int command, void* data) {
 		if ((void*)m < (void*)K_HIGHHALF_ADDR) probe_for_write(m, sizeof(fbdev_mode_info_t));
 
 		if (m->mode_number >= 0 && m->mode_number < d->nmodes) {
-			memcpy(&m->geom, &d->modes[m->mode_number].info, sizeof(framebuffer_info_t));
+			memcpy(&m->geom, &d->modes[m->mode_number].info, sizeof(fb_info_t));
 			return 1;
 		}
 	} else if (command == IOCTL_FBDEV_SET_MODE) {
@@ -388,10 +388,10 @@ int vesa_ioctl(fs_handle_t *h, int command, void* data) {
 		}
 	} else if (command == IOCTL_FB_GET_INFO) {
 		if (d->current_mode != -1) {
-			framebuffer_info_t *i = (framebuffer_info_t*)data;
+			fb_info_t *i = (fb_info_t*)data;
 
-			if ((void*)i < (void*)K_HIGHHALF_ADDR) probe_for_write(i, sizeof(framebuffer_info_t));
-			memcpy(i, &d->modes[d->current_mode].info, sizeof(framebuffer_info_t));
+			if ((void*)i < (void*)K_HIGHHALF_ADDR) probe_for_write(i, sizeof(fb_info_t));
+			memcpy(i, &d->modes[d->current_mode].info, sizeof(fb_info_t));
 
 			return 1;
 		}
@@ -403,7 +403,7 @@ int vesa_ioctl(fs_handle_t *h, int command, void* data) {
 bool vesa_stat(fs_node_t *n, stat_t *st) {
 	vesa_driver_t *d = (vesa_driver_t*)n->data;
 	
-	framebuffer_info_t *i = (d->current_mode == -1 ? 0 : &d->modes[d->current_mode].info);
+	fb_info_t *i = (d->current_mode == -1 ? 0 : &d->modes[d->current_mode].info);
 
 	st->type = FT_DEV | FT_FRAMEBUFFER;
 	st->size = (i ? i->width * i->pitch : 0);

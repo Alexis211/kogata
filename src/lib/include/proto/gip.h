@@ -104,15 +104,15 @@ typedef struct {
 
 typedef struct {
 	token_t tok;
-	framebuffer_info_t geom;
+	fb_info_t geom;
 } gip_buffer_info_msg;
 
 typedef struct {
-	framebuffer_info_t geom;
+	fb_info_t geom;
 } gip_mode_info_msg;
 
 typedef struct {
-	uint32_t x, y, w, h;
+	fb_region_t region;
 } gip_buffer_damage_msg;
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
