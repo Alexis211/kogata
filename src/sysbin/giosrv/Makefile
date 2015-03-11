@@ -1,7 +1,7 @@
 
 OBJ = main.o
 
-LIB = ../../lib/libkogata/libkogata.lib ../../common/libc/libc.lib
+LIB = ../../lib/libkogata/libkogata.lib
 
 CFLAGS = -I ./include -I ../../common/include -I ../../lib/include
 

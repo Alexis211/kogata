@@ -1,6 +1,7 @@
-OBJ = start.o malloc.o debug.o syscall.o user_region.o
+OBJ = start.o malloc.o debug.o syscall.o user_region.o \
+	mainloop.o gip.o
 
-LIB = ../../common/libkogata/libkogata.lib
+LIB = ../../common/libkogata/libkogata.lib ../../common/libalgo/libalgo.lib ../../common/libc/libc.lib
 
 CFLAGS = -I ../include -I ../../common/include
 

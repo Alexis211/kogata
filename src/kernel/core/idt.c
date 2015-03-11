@@ -122,7 +122,7 @@ void idt_irq_handler(registers_t *regs) {
 	if (regs->err_code == 0) {
 		irq0_handler(regs, st);
 	} else {
-		dbg_printf("irq%d.", regs->err_code);
+		/*dbg_printf("irq%d.", regs->err_code);*/
 
 		if (irq_handlers[regs->err_code] != 0) {
 			irq_handlers[regs->err_code](regs);

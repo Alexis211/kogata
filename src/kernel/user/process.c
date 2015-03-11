@@ -726,7 +726,7 @@ void probe_for_read(const void* addr, size_t len) {
 	process_t *proc = current_process();
 	user_region_t *r = find_user_region(proc, addr);
 	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_READ)) {
-		dbg_printf("Access violation on read at 0x%p len 0x%p in process %d : exiting.\n",
+		dbg_printf("Access violation (kernel reading user data) at 0x%p len 0x%p in process %d : exiting.\n",
 			addr, len, proc->pid);
 		current_process_exit(PS_FAILURE, FAIL_SC_SEGFAULT);
 	}
@@ -736,7 +736,7 @@ void probe_for_write(const void* addr, size_t len) {
 	process_t *proc = current_process();
 	user_region_t *r = find_user_region(proc, addr);
 	if (r == 0 || addr + len > r->addr + r->size || !(r->mode & MM_WRITE)) {
-		dbg_printf("Access violation on write at 0x%p len 0x%p in process %d : exiting.\n",
+		dbg_printf("Access violation (kernel writing user data) at 0x%p len 0x%p in process %d : exiting.\n",
 			addr, len, proc->pid);
 		current_process_exit(PS_FAILURE, FAIL_SC_SEGFAULT);
 	}

@@ -140,7 +140,7 @@ void launch_login() {
 	ok = bind_fs(login_pid, "config", "config");
 	if (!ok) PANIC("[init] Could not bind config:/ to login");
 
-	ok = bind_fd(login_pid, 1, root_gip_chan.a);
+	ok = bind_fd(login_pid, 1, root_gip_chan.b);
 	if (!ok) PANIC("[init] Could not bind root GIP channel FD to login");
 
 	ok = proc_exec(login_pid, "sys:/bin/login.bin");
