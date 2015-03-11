@@ -19,7 +19,6 @@ void resume_context(saved_context_t *ctx);
 thread_t *current_thread = 0;
 
 static hashtbl_t *waiters = 0;			// threads waiting on a ressource
-STATIC_MUTEX(waiters_mutex);
 
 // ====================== //
 // THE PROGRAMMABLE TIMER //
@@ -44,6 +43,8 @@ void set_pit_frequency(uint32_t freq) {
 int enter_critical(int level) {
 	asm volatile("cli");
 
+	/*dbg_printf(" >%d< ", level);*/
+
 	if (current_thread == 0) return CL_EXCL;
 
 	int prev_level = current_thread->critical_level;
@@ -56,6 +57,8 @@ int enter_critical(int level) {
 
 void exit_critical(int prev_level) {
 	asm volatile("cli");
+
+	/*dbg_printf(" <%d> ", prev_level);*/
 
 	if (current_thread == 0) return;
 
@@ -117,6 +120,8 @@ void run_scheduler() {
 	// At this point, interrupts are disabled
 	// This function is expected NEVER TO RETURN
 
+	thread_t *prev_thread = current_thread;
+
 	if (current_thread != 0 && current_thread->state == T_STATE_RUNNING) {
 		current_thread->last_ran = get_kernel_time();
 		if (current_thread->proc) current_thread->proc->last_ran = current_thread->last_ran;
@@ -124,7 +129,7 @@ void run_scheduler() {
 	}
 	current_thread = dequeue_thread();
 
-	/*dbg_printf("[0x%p]\n", current_thread);*/
+	if (current_thread != prev_thread) dbg_printf("[0x%p]\n", current_thread);
 
 	if (current_thread != 0) {
 		thread_t *ptr = current_thread;
@@ -221,11 +226,10 @@ void delete_thread(thread_t *t) {
 // SETUP CODE //
 // ========== //
 
-void irq0_handler(registers_t *regs, int crit_level) {
+void irq0_handler(registers_t *regs) {
 	notify_time_pass(1000000 / TASK_SWITCH_FREQUENCY);
-
-	exit_critical(crit_level);
-
+}
+void threading_irq0_handler() {
 	if (current_thread != 0 && current_thread->critical_level == CL_USER) {
 		save_context_and_enter_scheduler(&current_thread->ctx);
 	}
@@ -235,7 +239,7 @@ void threading_setup(entry_t cont, void* arg) {
 	ASSERT(waiters != 0);
 
 	set_pit_frequency(TASK_SWITCH_FREQUENCY);
-	// no need to set irq0 handler
+	idt_set_irq_handler(IRQ0, &irq0_handler);
 
 	thread_t *t = new_thread(cont, arg);
 	ASSERT(t != 0);
@@ -265,7 +269,8 @@ void start_thread(thread_t *t) {
 }
 
 void yield() {
-	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
+	ASSERT(current_thread != 0);
+	ASSERT(current_thread->critical_level != CL_EXCL);
 
 	save_context_and_enter_scheduler(&current_thread->ctx);
 }
@@ -275,10 +280,11 @@ bool wait_on(void* x) {
 }
 
 bool wait_on_many(void** x, size_t n) {
-	ASSERT(current_thread != 0 && current_thread->critical_level != CL_EXCL);
+	ASSERT(current_thread != 0);
+	ASSERT(current_thread->critical_level != CL_EXCL);
 	ASSERT(n > 0);
 
-	mutex_lock(&waiters_mutex);
+	int st = enter_critical(CL_NOINT);
 
 	//  ---- Check we can wait on all the requested objects
 	bool ok = true;
@@ -291,34 +297,34 @@ bool wait_on_many(void** x, size_t n) {
 			}
 		} else if (prev_th != (void*)1) {
 			ok = false;
+			break;
 		}
 	}
 	if (!ok) {
-		mutex_unlock(&waiters_mutex);
+		exit_critical(st);
 		return false;
 	}
 
 	//  ---- Set ourselves as the waiting thread for all the requested objets
-	int st = enter_critical(CL_NOSWITCH);
 
+	dbg_printf("Wait on many: ");
 	for (size_t i = 0; i < n; i++) {
 		ASSERT(hashtbl_change(waiters, x[i], current_thread));
+		dbg_printf("0x%p (0x%p) ", x[i], hashtbl_find(waiters, x[i]));
 	}
+	dbg_printf("\n");
 
 	//  ---- Go to sleep
-	mutex_unlock(&waiters_mutex);
 
 	current_thread->state = T_STATE_PAUSED;
 	save_context_and_enter_scheduler(&current_thread->ctx);
 
 	//  ---- Remove ourselves from the list
-	mutex_lock(&waiters_mutex);
 
 	for (size_t i = 0; i < n; i++) {
 		ASSERT(hashtbl_change(waiters, x[i], (void*)1));
 	}
 
-	mutex_unlock(&waiters_mutex);
 	exit_critical(st);
 
 	//  ---- Check that we weren't waked up because of a kill request
@@ -368,14 +374,16 @@ void exit() {
 }
 
 bool resume_on(void* x) {
+
 	thread_t *thread;
 
 	bool ret = false;
 
-	mutex_lock(&waiters_mutex);
 	int st = enter_critical(CL_NOINT);
 
 	thread = hashtbl_find(waiters, x);
+
+	dbg_printf("Resume on 0x%p : 0x%p\n", x, thread);
 
 	if (thread != 0 && thread != (void*)1) {
 		if (thread->state == T_STATE_PAUSED) {
@@ -387,7 +395,6 @@ bool resume_on(void* x) {
 		}
 	}
 
-	mutex_unlock(&waiters_mutex);
 	exit_critical(st);
 
 	return ret;

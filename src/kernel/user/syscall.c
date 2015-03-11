@@ -311,7 +311,7 @@ static uint32_t select_sc(sc_args_t args) {
 
 	bool ret = false;
 
-	int st = enter_critical(CL_NOSWITCH);
+	int st = enter_critical(CL_NOINT);
 
 	while (true) {
 		//  ---- Poll FDs, if any is ok then return it
@@ -328,10 +328,10 @@ static uint32_t select_sc(sc_args_t args) {
 
 		uint64_t time = get_kernel_time();
 
-		//  ---- If none of the handles given is a valid handle, return false
-		if (n_wait_objs == 0) break;
 		//  ---- If any is ok, return true
 		if (ret) break;
+		//  ---- If none of the handles given is a valid handle, return false
+		if (n_wait_objs == 0) break;
 		//  ---- If the timeout is over, return false
 		if (timeout >= 0 && time - select_begin_time >= (uint64_t)timeout) break;
 

@@ -88,12 +88,14 @@ void mainloop_run() {
 		}
 
 		//  ---- Do the select
+		dbg_printf("(mainloop) begin select\n");
 		bool ok = select(sel_arg, nfds, -1);
 		if (!ok) {
 			dbg_printf("(mainloop) Failed to select.\n");
 			free(sel_arg);
 			return;
 		}
+		dbg_printf("(mainloop) end select\n");
 		
 		{	// Parse result
 			int i = 0;
@@ -105,6 +107,7 @@ void mainloop_run() {
 					fd->rd_buf_filled +=
 						read(fd->fd, 0, fd->rd_buf_expect_size - fd->rd_buf_filled, fd->rd_buf + fd->rd_buf_filled);
 					if (fd->rd_buf_filled == fd->rd_buf_expect_size) {
+						dbg_printf("(mainloop) finish read %d\n", fd->rd_buf_expect_size);
 						fd->rd_buf_filled = 0;
 						ASSERT(fd->rd_on_full != 0);
 						fd->rd_on_full(fd);
@@ -116,6 +119,7 @@ void mainloop_run() {
 					fd->wr_bufs[0].written += write(fd->fd, 0, remain_size, write_ptr);
 
 					if (fd->wr_bufs[0].written == fd->wr_bufs[0].size) {
+						dbg_printf("(mainloop) finish write %d\n", fd->wr_bufs[0].size);
 						if (fd->wr_bufs[0].must_free) free(fd->wr_bufs[0].buf);
 						for (int i = 1; i < MAINLOOP_MAX_WR_BUFS; i++) {
 							fd->wr_bufs[i-1] = fd->wr_bufs[i];

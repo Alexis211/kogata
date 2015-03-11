@@ -15,6 +15,8 @@ typedef struct {
 } loginc_t;
 
 void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m);
+void c_key_down(gip_handler_t *s, gip_msg_header *p);
+void c_key_up(gip_handler_t *s, gip_msg_header *p);
 void c_unknown_msg(gip_handler_t *s, gip_msg_header *p);
 void c_fd_error(gip_handler_t *s);
 
@@ -32,6 +34,8 @@ gip_handler_callbacks_t loginc_cb = {
 	.buffer_info = c_buffer_info,
 	.mode_info = 0,
 	.buffer_damage = 0,
+	.key_down = c_key_down,
+	.key_up = c_key_up,
 	.unknown_msg = c_unknown_msg,
 	.fd_error = c_fd_error,
 };
@@ -96,6 +100,12 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 		}
 
 	}
+}
+
+void c_key_down(gip_handler_t *s, gip_msg_header *p) {
+}
+
+void c_key_up(gip_handler_t *s, gip_msg_header *p) {
 }
 
 void c_unknown_msg(gip_handler_t *s, gip_msg_header *p) {

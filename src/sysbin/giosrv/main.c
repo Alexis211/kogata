@@ -39,9 +39,12 @@ gip_handler_callbacks_t giosrv_cb = {
 	.buffer_damage = 0,
 	.unknown_msg = unknown_msg,
 	.fd_error = fd_error,
+	.key_down = 0,
+	.key_up = 0,
 };
 
 giosrv_t srv;
+gip_handler_t *gipsrv;
 
 //  ---- KBD listener
 
@@ -80,11 +83,11 @@ int main(int argc, char **argv) {
 	dbg_printf("[giosrv] Running on FB %dx%d\n", srv.mode.width, srv.mode.height);
 
 	//  ---- GIP server setup
-	gip_handler_t *h = new_gip_handler(&giosrv_cb, &srv);
-	ASSERT(h != 0);
+	gipsrv = new_gip_handler(&giosrv_cb, &srv);
+	ASSERT(gipsrv != 0);
 
-	h->mainloop_item.fd = 1;
-	mainloop_add_fd(&h->mainloop_item);
+	gipsrv->mainloop_item.fd = 1;
+	mainloop_add_fd(&gipsrv->mainloop_item);
 
 	//  ---- Enter main loop
 	mainloop_run();
@@ -153,7 +156,11 @@ void fd_error(gip_handler_t *h) {
 }
 
 void kbd_handle_event(mainloop_fd_t *fd) {
-	// TODO
+	gip_msg_header m;
+	m.arg = kbd.ev.scancode;
+	m.code = (kbd.ev.type == KBD_EVENT_KEYPRESS ? GIPN_KEY_DOWN : GIPN_KEY_UP);
+
+	gip_notify(gipsrv, &m, 0);
 }
 
 void kbd_on_error(mainloop_fd_t *fd) {

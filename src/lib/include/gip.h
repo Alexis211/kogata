@@ -16,7 +16,8 @@ typedef struct {
 	noarg_gip_callback_t
 		reset, initiate, ok, failure,
 		enable_features, disable_features,
-		query_mode, set_mode, switch_buffer;
+		query_mode, set_mode, switch_buffer,
+		key_down, key_up;
 	void (*buffer_info)(gip_handler_t *s, gip_msg_header *m, gip_buffer_info_msg *i);
 	void (*mode_info)(gip_handler_t *s, gip_msg_header *m, gip_mode_info_msg *i);
 	void (*buffer_damage)(gip_handler_t *s, gip_msg_header *m, gip_buffer_damage_msg *i);

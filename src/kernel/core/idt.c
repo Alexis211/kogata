@@ -91,6 +91,7 @@ static isr_handler_t ex_handlers[32] = {0};
 
 /*	Called in interrupt.s when an exception fires (interrupt 0 to 31) */
 void idt_ex_handler(registers_t *regs) {
+	dbg_printf("Ex handler: %d\n", regs->int_no);
 	if (ex_handlers[regs->int_no] != 0) {
 		ex_handlers[regs->int_no](regs);
 	} else {
@@ -114,21 +115,21 @@ void idt_ex_handler(registers_t *regs) {
 void idt_irq_handler(registers_t *regs) {
 	int st = enter_critical(CL_EXCL);	// if someone tries to yield(), an assert will fail
 
+	dbg_printf("irq%d.", regs->err_code);
+
 	if (regs->err_code > 7) {
 		outb(0xA0, 0x20);
 	}
 	outb(0x20, 0x20);
 
+	if (irq_handlers[regs->err_code] != 0) {
+		irq_handlers[regs->err_code](regs);
+	}
+
+	exit_critical(st);
+
 	if (regs->err_code == 0) {
-		irq0_handler(regs, st);
-	} else {
-		/*dbg_printf("irq%d.", regs->err_code);*/
-
-		if (irq_handlers[regs->err_code] != 0) {
-			irq_handlers[regs->err_code](regs);
-		}
-
-		exit_critical(st);
+		threading_irq0_handler();
 	}
 
 	// maybe exit

@@ -49,21 +49,24 @@ void worker_thread(void* x) {
 
 	while (true) {
 		mutex_lock(&tasks_mutex);
-		worker_task_t *t = btree_upper(tasks, &zero64);
-		next_task_time = (t == 0 ? UINT64_MAX : t->time);
-		if (t != 0 && t->time <= time) {
-			btree_remove_v(tasks, &t->time, t);
+
+		worker_task_t *next_task = btree_upper(tasks, &zero64);
+		next_task_time = (next_task == 0 ? UINT64_MAX : next_task->time);
+
+		if (next_task != 0 && next_task->time <= time) {
+			btree_remove_v(tasks, &next_task->time, next_task);
 		} else {
-			t = 0;
+			next_task = 0;
 		}
+
 		mutex_unlock(&tasks_mutex);
 		
-		if (t != 0) {
-			prng_add_entropy((uint8_t*)&t, sizeof(t));
+		if (next_task != 0) {
+			prng_add_entropy((uint8_t*)&next_task, sizeof(next_task));
 
 			// do task :-)
-			t->fun(t->data);
-			free(t);
+			next_task->fun(next_task->data);
+			free(next_task);
 		} else {
 			ASSERT(wait_on(current_thread));
 		}
@@ -79,10 +82,11 @@ bool worker_push_in(int usecs, entry_t fun, void* data) {
 	t->data = data;
 
 	mutex_lock(&tasks_mutex);
+
 	btree_add(tasks, &t->time, t);
-	mutex_unlock(&tasks_mutex);
-	
 	if (t->time < next_task_time) next_task_time = t->time;
+
+	mutex_unlock(&tasks_mutex);
 
 	return true;
 }
@@ -95,6 +99,7 @@ void notify_time_pass(int usecs) {
 	time += usecs;
 	if (next_task_time <= time) {
 		for (int i = 0; i < nworkers; i++) {
+			if (workers[i] == 0) continue;
 			if (resume_on(workers[i])) break;
 		}
 	}

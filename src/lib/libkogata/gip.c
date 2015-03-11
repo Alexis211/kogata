@@ -167,6 +167,10 @@ void giph_msg_header(mainloop_fd_t *fd) {
 		mainloop_expect(fd, &h->mode_info_msg_buf, sizeof(gip_mode_info_msg), giph_mode_info);
 	} else if (code == GIPN_BUFFER_DAMAGE) {
 		mainloop_expect(fd, &h->buffer_damage_msg_buf, sizeof(gip_buffer_damage_msg), giph_buffer_damage);
+	} else if (code == GIPN_KEY_DOWN) {
+		use_cb = h->cb->key_down;
+	} else if (code == GIPN_KEY_UP) {
+		use_cb = h->cb->key_up;
 	} else {
 		use_cb = h->cb->unknown_msg;
 	}

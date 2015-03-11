@@ -46,7 +46,7 @@ thread_t *new_thread(entry_t entry, void* data);	// thread is PAUSED, and must b
 void start_thread(thread_t *t);
 void delete_thread(thread_t *t);
 
-void irq0_handler(registers_t *regs, int crit_level);
+void threading_irq0_handler();
 
 extern thread_t *current_thread;
 

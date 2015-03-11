@@ -105,7 +105,7 @@ size_t pckbd_read(fs_handle_t *h, size_t offset, size_t len, char *buf) {
 }
 
 int pckbd_poll(fs_handle_t *h, void** out_wait_obj) {
-	*out_wait_obj = &pckbd_buf;
+	if (out_wait_obj) *out_wait_obj = &pckbd_buf;
 
 	return (pckbd_buf_used > 0 ? SEL_READ : 0);
 }
