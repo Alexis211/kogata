@@ -74,6 +74,9 @@ fs_node_ops_t pckbd_ops = {
 };
 
 void pckbd_setup(fs_t *iofs) {
+	uint8_t a = 0, b = 0;
+	while ((a = inb(0x60)) != b) b = a;
+
 	idt_set_irq_handler(IRQ1, &irq1_handler);
 
 	nullfs_add_node(iofs, "/input/pckbd", 0, &pckbd_ops, 0);

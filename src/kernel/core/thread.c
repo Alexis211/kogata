@@ -120,7 +120,7 @@ void run_scheduler() {
 	// At this point, interrupts are disabled
 	// This function is expected NEVER TO RETURN
 
-	thread_t *prev_thread = current_thread;
+	/*thread_t *prev_thread = current_thread;*/
 
 	if (current_thread != 0 && current_thread->state == T_STATE_RUNNING) {
 		current_thread->last_ran = get_kernel_time();
@@ -129,7 +129,7 @@ void run_scheduler() {
 	}
 	current_thread = dequeue_thread();
 
-	if (current_thread != prev_thread) dbg_printf("[0x%p]\n", current_thread);
+	/*if (current_thread != prev_thread) dbg_printf("[0x%p]\n", current_thread);*/
 
 	if (current_thread != 0) {
 		thread_t *ptr = current_thread;
@@ -146,7 +146,7 @@ void run_scheduler() {
 	}
 }
 
-static void run_thread(void (*entry)(void*), void* data) {
+void run_thread(void (*entry)(void*), void* data) {
 	ASSERT(current_thread->state == T_STATE_RUNNING);
 
 	dbg_printf("Begin thread 0x%p (in process %d)\n",
@@ -209,6 +209,10 @@ thread_t *new_thread(entry_t entry, void* data) {
 	t->proc = 0;
 	t->next_in_proc = 0;
 	t->user_ex_handler = 0;
+
+	t->waiting_on = 0;
+	t->n_waiting_on = 0;
+	t->next_waiter = 0;
 
 	return t;
 }
@@ -285,11 +289,11 @@ bool wait_on_many(void** x, size_t n) {
 
 	//  ---- Set ourselves as the waiting thread for all the requested objets
 
-	dbg_printf("Wait on many:");
-	for (size_t i = 0; i < n; i++) {
-		dbg_printf(" 0x%p", x[i]);
-	}
-	dbg_printf("\n");
+	/*dbg_printf("Wait on many:");*/
+	/*for (size_t i = 0; i < n; i++) {*/
+		/*dbg_printf(" 0x%p", x[i]);*/
+	/*}*/
+	/*dbg_printf("\n");*/
 
 	current_thread->waiting_on = x;
 	current_thread->n_waiting_on = n;
@@ -310,8 +314,12 @@ bool wait_on_many(void** x, size_t n) {
 	if (waiters == current_thread) {
 		waiters = current_thread->next_waiter;
 	} else {
+		ASSERT(waiters != 0);
 		for (thread_t *w = waiters; w->next_waiter != 0; w = w->next_waiter) {
-			if (w->next_waiter == current_thread) w->next_waiter = current_thread->next_waiter;
+			if (w->next_waiter == current_thread) {
+				w->next_waiter = current_thread->next_waiter;
+				break;
+			}
 		}
 	}
 
@@ -368,12 +376,12 @@ bool resume_on(void* x) {
 
 	int st = enter_critical(CL_NOINT);
 
-	dbg_printf("Resume on 0x%p:", x);
+	/*dbg_printf("Resume on 0x%p:", x);*/
 
 	for (thread_t *t = waiters; t != 0; t = t->next_waiter) {
 		for (int i = 0; i < t->n_waiting_on; i++) {
 			if (t->waiting_on[i] == x) {
-				dbg_printf(" 0x%p", t);
+				/*dbg_printf(" 0x%p", t);*/
 
 				if (t->state == T_STATE_PAUSED) {
 					t->state = T_STATE_RUNNING;
@@ -386,6 +394,7 @@ bool resume_on(void* x) {
 			}
 		}
 	}
+	/*dbg_printf("\n");*/
 
 	exit_critical(st);
 

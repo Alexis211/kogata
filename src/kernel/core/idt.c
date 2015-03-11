@@ -91,7 +91,8 @@ static isr_handler_t ex_handlers[32] = {0};
 
 /*	Called in interrupt.s when an exception fires (interrupt 0 to 31) */
 void idt_ex_handler(registers_t *regs) {
-	dbg_printf("ex%d.", regs->int_no);
+	/*dbg_printf("ex%d.", regs->int_no);*/
+
 	if (ex_handlers[regs->int_no] != 0) {
 		ex_handlers[regs->int_no](regs);
 	} else {
@@ -115,7 +116,7 @@ void idt_ex_handler(registers_t *regs) {
 void idt_irq_handler(registers_t *regs) {
 	int st = enter_critical(CL_EXCL);	// if someone tries to yield(), an assert will fail
 
-	dbg_printf("irq%d.", regs->err_code);
+	if (regs->err_code != 0) dbg_printf("irq%d.", regs->err_code);
 
 	if (regs->err_code > 7) {
 		outb(0xA0, 0x20);
@@ -278,15 +279,8 @@ void dbg_dump_registers(registers_t *regs) {
 	dbg_printf("| EIP: 0x%p   CS : 0x%p   DS : 0x%p   SS : 0x%p\n", regs->eip, regs->cs, regs->ds, regs->ss);
 	dbg_printf("| EFl: 0x%p   I# : 0x%p   Err: 0x%p\n", regs->eflags, regs->int_no, regs->err_code);
 	dbg_printf("- Stack trace:\n");
-
-	uint32_t ebp = regs->ebp, eip = regs->eip;
-	int i = 0;
-	while (ebp >= K_HIGHHALF_ADDR && eip >= K_HIGHHALF_ADDR && i++ < 10) {
-		dbg_printf("| 0x%p	EIP: 0x%p\n", ebp, eip);
-		uint32_t *d = (uint32_t*)ebp;
-		ebp = d[0];
-		eip = d[1];
-	}
+	
+	kernel_stacktrace(regs->ebp, regs->eip);
 
 	dbg_printf("\\\n");
 }

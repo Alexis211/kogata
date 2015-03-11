@@ -9,15 +9,15 @@
 
 #include <hashtbl.h>
 
-static size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
-static size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
-static int channel_poll(fs_handle_t *c, void** out_wait_obj);
-static bool channel_open(fs_node_t *c, int mode);
-static bool channel_stat(fs_node_t *c, stat_t *st);
-static void channel_close(fs_handle_t *c);
-static void channel_dispose(fs_node_t *c);
+size_t channel_read(fs_handle_t *c, size_t offset, size_t len, char* buf);
+size_t channel_write(fs_handle_t *c, size_t offset, size_t len, const char* buf);
+int channel_poll(fs_handle_t *c, void** out_wait_obj);
+bool channel_open(fs_node_t *c, int mode);
+bool channel_stat(fs_node_t *c, stat_t *st);
+void channel_close(fs_handle_t *c);
+void channel_dispose(fs_node_t *c);
 
-static fs_node_ops_t channel_ops = {
+fs_node_ops_t channel_ops = {
 	.read = channel_read,
 	.write = channel_write,
 	.close = channel_close,
@@ -323,7 +323,7 @@ typedef struct {
 
 static token_table_entry_t *expired_token = 0;
 
-static void token_expiration_check(void* x) {
+void token_expiration_check(void* x) {
 	mutex_lock(&token_table_mutex);
 
 	do {

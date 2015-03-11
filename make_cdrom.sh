@@ -9,6 +9,7 @@ fi
 # Copy system files to CDROM
 
 cp src/kernel/kernel.bin cdrom/boot; strip cdrom/boot/kernel.bin
+cp src/kernel/kernel.map cdrom/boot
 cp src/sysbin/init/init.bin cdrom/boot; strip cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
@@ -34,6 +35,7 @@ default 0
 
 title   kogata OS
 kernel  /boot/kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/boot/init.bin config=default
+module  /boot/kernel.map
 EOF
 
 # Generate CDROm image

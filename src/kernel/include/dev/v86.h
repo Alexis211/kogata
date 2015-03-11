@@ -17,10 +17,10 @@ typedef uint32_t v86_farptr_t;
 #define V86_SEG_OF_LIN(x)  ((size_t)(x) >> 4)
 #define V86_OFF_OF_LIN(x)  ((size_t)(x) & 0x0F)
 #define V86_LIN_OF_SEG_OFF(seg, off)   ((((size_t)(seg)) << 4) + ((size_t)(off)))
-inline void* v86_lin_of_fp(v86_farptr_t x) {
+static inline void* v86_lin_of_fp(v86_farptr_t x) {
 	return (void*)V86_LIN_OF_SEG_OFF(x>>16, x & 0xFFFF);
 }
-inline v86_farptr_t v86_fp_of_lin(void* p) {
+static inline v86_farptr_t v86_fp_of_lin(void* p) {
 	return (V86_SEG_OF_LIN(p) << 16) | V86_OFF_OF_LIN(p);
 }
 

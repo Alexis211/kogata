@@ -248,6 +248,12 @@ fs_t *setup_iofs(multiboot_info_t *mbd) {
 		ASSERT(nullfs_add_ram_file(iofs, name,
 					(char*)mods[i].mod_start,
 					len, FM_READ | FM_MMAP));
+
+		if (strncmp(modname, "kernel.map", 10) == 0) {
+			// remark: load_kernel_symbol_map modifies the data region,
+			// which is not a problem because nullfs_add_ram_file copied the thing already
+			load_kernel_symbol_map((char*)mods[i].mod_start, len);
+		}
 	}
 
 	return iofs;

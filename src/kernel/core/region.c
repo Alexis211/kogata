@@ -35,13 +35,13 @@ STATIC_MUTEX(ra_mutex);	// region allocator mutex
 // HELPER FUNCTIONS FOR THE MANIPULATION OF THE REGION LISTS //
 // ========================================================= //
 
-static void add_unused_descriptor(descriptor_t *d) {
+void add_unused_descriptor(descriptor_t *d) {
 	n_unused_descriptors++;
 	d->unused_descriptor.next = first_unused_descriptor;
 	first_unused_descriptor = d;
 }
 
-static descriptor_t *get_unused_descriptor() {
+descriptor_t *get_unused_descriptor() {
 	descriptor_t *r = first_unused_descriptor;
 	if (r != 0) {
 		first_unused_descriptor = r->unused_descriptor.next;
@@ -50,7 +50,7 @@ static descriptor_t *get_unused_descriptor() {
 	return r;
 }
 
-static void remove_free_region(descriptor_t *d) {
+void remove_free_region(descriptor_t *d) {
 	if (first_free_region_by_size == d) {
 		first_free_region_by_size = d->free.next_by_size;
 	} else {
@@ -73,7 +73,7 @@ static void remove_free_region(descriptor_t *d) {
 	}
 }
 
-static void add_free_region(descriptor_t *d) {
+void add_free_region(descriptor_t *d) {
 	/*dbg_printf("Add free region 0x%p - 0x%p\n", d->free.addr, d->free.size + d->free.addr);*/
 	// Find position of region in address-ordered list
 	// Possibly concatenate free region
@@ -155,7 +155,7 @@ static void add_free_region(descriptor_t *d) {
 	}
 }
 
-static descriptor_t *find_used_region(void* addr) {
+descriptor_t *find_used_region(void* addr) {
 	for (descriptor_t *i = first_used_region; i != 0; i = i->used.next_by_addr) {
 		if (addr >= i->used.i.addr && addr < i->used.i.addr + i->used.i.size) return i;
 		if (i->used.i.addr > addr) break;
@@ -163,7 +163,7 @@ static descriptor_t *find_used_region(void* addr) {
 	return 0;
 }
 
-static void add_used_region(descriptor_t *d) {
+void add_used_region(descriptor_t *d) {
 	descriptor_t *i = first_used_region;
 	ASSERT(i->used.i.addr < d->used.i.addr);	// first region by address is never free
 
@@ -180,7 +180,7 @@ static void add_used_region(descriptor_t *d) {
 	ASSERT(false);
 }
 
-static void remove_used_region(descriptor_t *d) {
+void remove_used_region(descriptor_t *d) {
 	if (first_used_region == d) {
 		first_used_region = d->used.next_by_addr;
 	} else {
@@ -220,7 +220,7 @@ void region_allocator_init(void* kernel_data_end) {
 	first_used_region = u0;
 }
 
-static void region_free_inner(void* addr) {
+void region_free_inner(void* addr) {
 	descriptor_t *d = find_used_region(addr);
 	if (d == 0) return;
 
@@ -237,7 +237,7 @@ void region_free(void* addr) {
 	mutex_unlock(&ra_mutex);
 }
 
-static void* region_alloc_inner(size_t size, char* type, bool use_reserve) {
+void* region_alloc_inner(size_t size, char* type, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
 	for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.first_bigger) {

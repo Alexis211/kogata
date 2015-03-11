@@ -81,7 +81,7 @@ error:
 	return 0;
 }
 
-static void run_user_code(void* param) {
+void run_user_code(void* param) {
 	setup_data_t *d = (setup_data_t*)param;
 
 	void* esp = d->sp;
@@ -490,7 +490,7 @@ void proc_close_fd(process_t *p, int fd) {
 // USER MEMORY REGION MANAGEMENT //
 // ============================= //
 
-static user_region_t *find_user_region(process_t *proc, const void* addr) {
+user_region_t *find_user_region(process_t *proc, const void* addr) {
 	user_region_t *r = (user_region_t*)btree_lower(proc->regions_idx, addr);
 	if (r == 0) return 0;
 

@@ -45,12 +45,12 @@ struct mem_allocator {
 // Helper functions for the manipulation of lists //
 // ============================================== //
 
-static void add_free_descriptor(mem_allocator_t *a, descriptor_t *c) {
+void add_free_descriptor(mem_allocator_t *a, descriptor_t *c) {
 	c->next_free = a->first_free_descriptor;
 	a->first_free_descriptor = c;
 }
 
-static descriptor_t *take_descriptor(mem_allocator_t *a) {
+descriptor_t *take_descriptor(mem_allocator_t *a) {
 	if (a->first_free_descriptor == 0) {
 		void* p = a->alloc_fun(PAGE_SIZE);
 		if (p == 0) return 0;
@@ -119,7 +119,7 @@ mem_allocator_t* create_slab_allocator(const slab_type_t *types, page_alloc_fun_
 	return a;
 }
 
-static void stack_and_destroy_regions(page_free_fun_t ff, region_t *r) {
+void stack_and_destroy_regions(page_free_fun_t ff, region_t *r) {
 	if (r == 0) return;
 	void* addr = r->region_addr;
 	ASSERT(r != r->next_region);
@@ -151,53 +151,57 @@ void destroy_slab_allocator(mem_allocator_t *a) {
 void* slab_alloc(mem_allocator_t* a, size_t sz) {
 	for (int i = 0; a->types[i].obj_size != 0; i++) {
 		const size_t obj_size = a->types[i].obj_size;
-		if (sz <= obj_size) {
-			// find a cache with free space
-			cache_t *fc = a->slabs[i].first_cache;
-			while (fc != 0 && fc->n_free_objs == 0) {
-				ASSERT(fc->first_free_obj == 0); // make sure n_free == 0 iff no object in the free stack
-				fc = fc->next_cache;
-			}
-			// if none found, try to allocate a new one
-			if (fc == 0) {
-				descriptor_t *fcd = take_descriptor(a);
-				if (fcd == 0) return 0;
 
-				fc = &fcd->c;
-				ASSERT((descriptor_t*)fc == fcd);
+		if (sz > obj_size) continue;
 
-				const size_t cache_size = a->types[i].pages_per_cache * PAGE_SIZE;
-				fc->region_addr = a->alloc_fun(cache_size);
-				if (fc->region_addr == 0) {
-					add_free_descriptor(a, fcd);
-					return 0;
-				}
-
-				fc->n_free_objs = 0;
-				fc->first_free_obj = 0;
-				for (void* p = fc->region_addr; p + obj_size <= fc->region_addr + cache_size; p += obj_size) {
-					object_t *x = (object_t*)p;
-					x->next = fc->first_free_obj;
-					fc->first_free_obj = x;
-					fc->n_free_objs++;
-				}
-				ASSERT(fc->n_free_objs == cache_size / obj_size);
-
-				fc->next_cache = a->slabs[i].first_cache;
-				a->slabs[i].first_cache = fc;
-			}
-			// allocate on fc
-			ASSERT(fc != 0 && fc->n_free_objs > 0);
-
-			object_t *x = fc->first_free_obj;
-			fc->first_free_obj = x->next;
-			fc->n_free_objs--;
-
-			ASSERT((fc->n_free_objs == 0) == (fc->first_free_obj == 0));
-
-			// TODO : if fc is full, put it at the end
-			return x;
+		// find a cache with free space
+		cache_t *fc = a->slabs[i].first_cache;
+		while (fc != 0 && fc->n_free_objs == 0) {
+			// make sure n_free == 0 iff no object in the free stack
+			ASSERT((fc->first_free_obj == 0) == (fc->n_free_objs == 0));
+			fc = fc->next_cache;
 		}
+		// if none found, try to allocate a new one
+		if (fc == 0) {
+			descriptor_t *fcd = take_descriptor(a);
+			if (fcd == 0) return 0;
+
+			fc = &fcd->c;
+			ASSERT((descriptor_t*)fc == fcd);
+
+			const size_t cache_size = a->types[i].pages_per_cache * PAGE_SIZE;
+			fc->region_addr = a->alloc_fun(cache_size);
+			if (fc->region_addr == 0) {
+				add_free_descriptor(a, fcd);
+				return 0;
+			}
+
+			fc->n_free_objs = 0;
+			fc->first_free_obj = 0;
+			for (void* p = fc->region_addr; p + obj_size <= fc->region_addr + cache_size; p += obj_size) {
+				object_t *x = (object_t*)p;
+				x->next = fc->first_free_obj;
+				fc->first_free_obj = x;
+				fc->n_free_objs++;
+			}
+			ASSERT(fc->n_free_objs == cache_size / obj_size);
+
+			fc->next_cache = a->slabs[i].first_cache;
+			a->slabs[i].first_cache = fc;
+		}
+		// allocate on fc
+		ASSERT(fc != 0);
+		ASSERT(fc->n_free_objs > 0);
+		ASSERT(fc->first_free_obj != 0);
+
+		object_t *x = fc->first_free_obj;
+		fc->first_free_obj = x->next;
+		fc->n_free_objs--;
+
+		ASSERT((fc->n_free_objs == 0) == (fc->first_free_obj == 0));
+
+		// TODO : if fc is full, put it at the end
+		return x;
 	}
 
 	// otherwise directly allocate using a->alloc_fun

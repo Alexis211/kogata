@@ -92,4 +92,7 @@ static inline void invlpg(void* addr) {
 #define ALIGN4_DOWN(x)	(((size_t)x)&MASK4)
 
 
+void load_kernel_symbol_map(char* text, size_t len);
+void kernel_stacktrace(uint32_t ebp, uint32_t eip);
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

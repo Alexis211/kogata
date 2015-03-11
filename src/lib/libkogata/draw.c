@@ -63,7 +63,7 @@ color_t g_color_rgb(fb_t *f, uint8_t r, uint8_t g, uint8_t b) {
 
 //  ---- Plot
 
-inline void g_plot24(uint8_t* p, color_t c) {
+static inline void g_plot24(uint8_t* p, color_t c) {
 	p[0] = c & 0xFF;
 	p[1] = (c >> 8) & 0xFF;
 	p[2] = (c >> 16) & 0xFF;

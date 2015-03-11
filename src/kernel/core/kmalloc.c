@@ -8,7 +8,7 @@
 #include <region.h>
 #include <freemem.h>
 
-static void* page_alloc_fun_for_kmalloc(size_t bytes) {
+void* page_alloc_fun_for_kmalloc(size_t bytes) {
 	void* addr = region_alloc(bytes, "Core kernel heap");
 	if (addr == 0) return 0;
 
@@ -59,7 +59,7 @@ void kmalloc_setup() {
 										region_free_unmap_free);
 }
 
-static void* malloc0(size_t sz) {
+void* malloc0(size_t sz) {
 	void* res = 0;
 
 	mutex_lock(&malloc_mutex);

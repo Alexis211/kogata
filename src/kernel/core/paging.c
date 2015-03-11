@@ -68,7 +68,6 @@ void page_fault_handler(registers_t *regs) {
 		if ((size_t)vaddr < PAGE_SIZE) {
 			dbg_printf("Null pointer dereference in kernel code (0x%p)\n", vaddr);
 			dbg_dump_registers(regs);
-			dbg_print_region_info();
 			PANIC("Null pointer dereference in kernel code.");
 		} else if ((size_t)vaddr < K_HIGHHALF_ADDR) {
 			if (pd->user_pfh == 0) {
@@ -110,7 +109,6 @@ void page_fault_handler(registers_t *regs) {
 
 			dbg_printf("Kernel pagefault in region with no handler at 0x%p (%s region)\n", vaddr, region);
 			dbg_dump_registers(regs);
-			dbg_print_region_info();
 			PANIC("Unhandled kernel space page fault");
 		}
 	}
