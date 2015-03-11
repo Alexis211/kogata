@@ -208,11 +208,10 @@ thread_t *new_thread(entry_t entry, void* data) {
 	return t;
 }
 
-static void delete_thread(thread_t *t) {
-	dbg_printf("Deleting thread 0x%p\n", t);
+void delete_thread(thread_t *t) {
+	ASSERT(t->state == T_STATE_FINISHED);
 
-	if (t->proc != 0)
-		process_thread_deleted(t);
+	dbg_printf("Deleting thread 0x%p\n", t);
 
 	region_free_unmap_free(t->stack_region->addr);
 	free(t);
@@ -340,8 +339,16 @@ void usleep(int usecs) {
 }
 
 void exit() {
-	void delete_thread_v(void* v) {
-		delete_thread((thread_t*)v);
+	void exit_cleanup_task(void* v) {
+		thread_t *t = (thread_t*)v;
+
+		if (t->proc == 0) {
+			// stand alone thread, can be deleted safely
+			delete_thread(t);
+		} else {
+			// call specific routine from process code
+			process_thread_exited(t);
+		}
 	}
 
 	int st = enter_critical(CL_NOSWITCH);
@@ -351,9 +358,9 @@ void exit() {
 
 	dbg_printf("Thread 0x%p exiting.\n", current_thread);
 
-	worker_push(delete_thread_v, current_thread);
-	current_thread->state = T_STATE_FINISHED;
+	worker_push(exit_cleanup_task, current_thread);
 
+	current_thread->state = T_STATE_FINISHED;
 	exit_critical(st);
 
 	yield();	// expected never to return!

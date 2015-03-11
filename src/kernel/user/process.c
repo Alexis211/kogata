@@ -161,25 +161,13 @@ void current_process_exit(int status, int exit_code) {
 		free(d);
 	}
 
-	process_t *p = current_process();
-
-	mutex_lock(&p->lock);
-	if (p->status == PS_EXITING) {
-		mutex_unlock(&p->lock);
-		exit();
-	}
-
-	p->status = PS_EXITING;
-
 	exit_data_t *d = (exit_data_t*)malloc(sizeof(exit_data_t));
 
-	d->proc = p;
+	d->proc = current_process();;
 	d->status = status;
 	d->exit_code = exit_code;
 
 	while (!worker_push(process_exit_v, d)) yield();
-
-	mutex_unlock(&p->lock);
 
 	exit();
 }
@@ -197,17 +185,21 @@ void process_exit(process_t *p, int status, int exit_code) {
 
 	mutex_lock(&p->lock);
 
-	ASSERT(p->status == PS_RUNNING || p->status == PS_LOADING || p->status == PS_EXITING);
+	if (!(p->status == PS_RUNNING || p->status == PS_LOADING)) {
+		mutex_unlock(&p->lock);
+		return;
+	}
+
 	p->status = status;
 	p->exit_code = exit_code;
 
 	// neutralize the process
 	while (p->threads != 0) {
 		thread_t *t = p->threads;
-		p->threads = p->threads->next_in_proc;
+		p->threads = t->next_in_proc;
 
-		t->proc = 0;		// we don't want process_thread_deleted to be called
 		kill_thread(t);
+		delete_thread(t);
 	}
 
 	// terminate all the children as well and free associated process_t structures
@@ -259,26 +251,35 @@ void process_exit(process_t *p, int status, int exit_code) {
 	mutex_unlock(&p->lock);
 }
 
-void process_thread_deleted(thread_t *t) {
+void process_thread_exited(thread_t *t) {
 	process_t *p = t->proc;
+
+	if (p->status != PS_RUNNING) return;
 
 	mutex_lock(&p->lock);
 
-	if (p->threads == t) {
-		p->threads = t->next_in_proc;
-	} else {
-		for (thread_t *it = p->threads; it != 0; it = it->next_in_proc) {
-			if (it->next_in_proc == t) {
-				it->next_in_proc = t->next_in_proc;
-				break;
+	if (p->status == PS_RUNNING) {
+		if (p->threads == t) {
+			p->threads = t->next_in_proc;
+		} else {
+			for (thread_t *it = p->threads; it != 0; it = it->next_in_proc) {
+				if (it->next_in_proc == t) {
+					it->next_in_proc = t->next_in_proc;
+					break;
+				}
 			}
+		}
+
+		delete_thread(t);
+
+		if (p->threads == 0) {
+			mutex_unlock(&p->lock);
+			process_exit(p, PS_FINISHED, 0);
+			return;
 		}
 	}
 
 	mutex_unlock(&p->lock);
-
-	if (p->threads == 0 && p->status == PS_RUNNING)
-		process_exit(p, PS_FINISHED, 0);
 }
 
 // =========================== //

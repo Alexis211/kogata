@@ -44,6 +44,7 @@ typedef void (*entry_t)(void*);
 void threading_setup(entry_t cont, void* data);		// never returns
 thread_t *new_thread(entry_t entry, void* data);	// thread is PAUSED, and must be started with start_thread
 void start_thread(thread_t *t);
+void delete_thread(thread_t *t);
 
 void irq0_handler(registers_t *regs, int crit_level);
 

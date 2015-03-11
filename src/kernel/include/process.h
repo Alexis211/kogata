@@ -84,7 +84,7 @@ void process_exit(process_t *p, int status, int exit_code);		// exit specified p
 void current_process_exit(int status, int exit_code);
 
 bool process_new_thread(process_t *p, proc_entry_t entry, void* sp);
-void process_thread_deleted(thread_t *t);		// called by threading code when a thread exits
+void process_thread_exited(thread_t *t);		// called by threading code when a thread exits
 
 process_t *process_find_child(process_t *p, int pid);
 void process_get_status(process_t *p, proc_status_t *st);

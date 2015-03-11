@@ -20,6 +20,12 @@ int main(int argc, char **argv) {
 	ASSERT(r == 1);
 	dbg_printf("[giosrv] Running on FB %dx%d\n", i.width, i.height);
 
+	void* fb_map = region_alloc(i.height * i.pitch, "Framebuffer");
+	ASSERT(fb_map != 0);
+
+	ASSERT(mmap_file(fbdev, 0, fb_map, i.height * i.pitch, MM_READ | MM_WRITE));
+	memset(fb_map, 0, i.height * i.pitch);
+
 	while(true);	// nothing to do
 
 	return 0;
