@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdio.h>
 
 #include <proto/font_file.h>
@@ -270,14 +269,8 @@ ascii_bitmap_font_header h = {
 };
 
 int main() {
-	FILE *f = fopen("default.bf", "wb");
-	if (f == 0) {
-		fprintf(stderr, "Could not open default.bf\n");
-		exit(1);
-	}
-
-	fwrite(&h, 1, sizeof(h), f);
-	fwrite(font_data, 256, 16, f);
+	fwrite(&h, 1, sizeof(h), stdout);
+	fwrite(font_data, 256, 16, stdout);
 
 	return 0;
 }

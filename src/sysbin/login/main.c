@@ -5,6 +5,7 @@
 
 #include <gip.h>
 #include <draw.h>
+#include <keyboard.h>
 
 typedef struct {
 	fb_info_t mode;
@@ -40,8 +41,12 @@ gip_handler_callbacks_t loginc_cb = {
 	.fd_error = c_fd_error,
 };
 
+keyboard_t *kb;
+
 int main(int argc, char **argv) {
 	dbg_print("[login] Starting up.\n");
+
+	kb = init_keyboard();
 
 	loginc_t loginc;
 	memset(&loginc, 0, sizeof(loginc));
@@ -103,9 +108,12 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 }
 
 void c_key_down(gip_handler_t *s, gip_msg_header *p) {
+	keyboard_press(kb, p->arg);
 }
 
 void c_key_up(gip_handler_t *s, gip_msg_header *p) {
+	key_t k = keyboard_release(kb, p->arg);
+	if (k.chr) dbg_printf("%c", k.chr);
 }
 
 void c_unknown_msg(gip_handler_t *s, gip_msg_header *p) {

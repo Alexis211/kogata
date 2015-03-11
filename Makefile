@@ -1,7 +1,7 @@
 DIRS = src/common/libkogata src/common/libc src/common/libalgo \
 	src/kernel src/lib/libkogata \
 	src/sysbin/init src/sysbin/giosrv src/sysbin/login \
-	res/fonts
+	res/fonts res/keymaps
 
 all:
 	for dir in $(DIRS); do \

@@ -36,7 +36,8 @@ typedef struct {
 #define KBD_CODE_RCTRL		157
 #define KBD_CODE_LALT		56
 #define KBD_CODE_RALT		184
-#define KBD_CODE_SUPER		219
+#define KBD_CODE_LSUPER		219
+#define KBD_CODE_RSUPER		220
 #define KBD_CODE_MENU		221
 #define KBD_CODE_TAB		15
 #define KBD_CODE_INS		210
@@ -54,5 +55,22 @@ typedef struct {
 #define KBD_CODE_F10		68
 #define KBD_CODE_F11		87
 #define KBD_CODE_F12		88
+
+#define KBD_CODE_NUMLOCK	69
+#define KBD_CODE_SCRLLOCK	70
+#define KBD_CODE_PRTSCN		183
+#define KBD_CODE_SYSREQ		84
+
+#define KBD_CODE_KPHOME		71
+#define KBD_CODE_KPUP		72
+#define KBD_CODE_KPPGUP		73
+#define KBD_CODE_KPLEFT		75
+#define KBD_CODE_KP5		76
+#define KBD_CODE_KPRIGHT	77
+#define KBD_CODE_KPEND		79
+#define KBD_CODE_KPDOWN		80
+#define KBD_CODE_KPPGDOWN	81
+#define KBD_CODE_KPINS		82
+#define KBD_CODE_KPDEL		83
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

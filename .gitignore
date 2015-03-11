@@ -8,7 +8,9 @@ tags
 *.lib
 *.map
 *.log
+
 *.bf
+*.km
 
 *.iso
 cdrom/

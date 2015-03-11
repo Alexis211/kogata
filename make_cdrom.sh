@@ -15,11 +15,15 @@ cp src/sysbin/init/init.bin cdrom/boot; strip cdrom/boot/init.bin
 mkdir -p cdrom/sys/bin
 cp src/sysbin/giosrv/giosrv.bin cdrom/sys/bin
 cp src/sysbin/login/login.bin cdrom/sys/bin
-
 for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
 mkdir -p cdrom/sys/fonts
 cp res/fonts/*.bf cdrom/sys/fonts
+cp res/fonts/muazzam.bf cdrom/sys/fonts/default.bf
+
+mkdir -p cdrom/sys/keymaps
+cp res/keymaps/*.km cdrom/sys/keymaps
+cp res/keymaps/fr.km cdrom/sys/keymaps/default.km
 
 cp README.md cdrom
 
@@ -38,7 +42,7 @@ kernel  /boot/kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/boot/init.b
 module  /boot/kernel.map
 EOF
 
-# Generate CDROm image
+# Generate CDROM image
 
 genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot \
 	-boot-load-size 4 -boot-info-table -input-charset ascii \

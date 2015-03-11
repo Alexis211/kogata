@@ -239,12 +239,10 @@ font_t *g_load_ascii_bitmap_font(fd_t f) {
 	if (font == 0) goto error;
 	memset(font, 0, sizeof(font_t));
 
-
 	font->type = FONT_ASCII_BITMAP;
 	font->ascii_bitmap.cw = h.cw;
 	font->ascii_bitmap.ch = h.ch;
 	font->ascii_bitmap.nchars = h.nchars;
-
 
 	font->ascii_bitmap.data = (uint8_t*)malloc(h.ch * h.nchars);
 	if (font->ascii_bitmap.data == 0) goto error;

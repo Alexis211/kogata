@@ -116,7 +116,7 @@ void idt_ex_handler(registers_t *regs) {
 void idt_irq_handler(registers_t *regs) {
 	int st = enter_critical(CL_EXCL);	// if someone tries to yield(), an assert will fail
 
-	if (regs->err_code != 0) dbg_printf("irq%d.", regs->err_code);
+	/*if (regs->err_code != 0) dbg_printf("irq%d.", regs->err_code);*/
 
 	if (regs->err_code > 7) {
 		outb(0xA0, 0x20);
