@@ -1,10 +1,15 @@
 CC=gcc
 CFLAGS=-I../../src/lib/include -std=c11
 
+all: fr.km
+
 %.km: %.c
 	$(CC) $(CFLAGS) -o $<.bin $<
 	./$<.bin > $@
 	rm $<.bin
 
-all: fr.km
+clean:
+	rm *.km || exit 0
+
+rebuild: clean all
 

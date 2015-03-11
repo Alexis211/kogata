@@ -3,6 +3,8 @@ CFLAGS=-I../../src/lib/include -std=c11
 AS=nasm
 ASFLAGS=-fbin
 
+all: pcvga.bf muazzam.bf
+
 %.bf: %.c
 	$(CC) $(CFLAGS) -o $<.bin $<
 	./$<.bin > $@
@@ -11,8 +13,7 @@ ASFLAGS=-fbin
 %.bf: %.s
 	$(AS) $(ASFLAGS) -o $@ $<
 
-all: pcvga.bf muazzam.bf
-
 clean:
 	rm *.bf || exit 0
 
+rebuild: clean all

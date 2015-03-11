@@ -16,10 +16,12 @@ int main(int argc, char **argv) {
 
 	dirent_t x;
 	size_t ent_no = 0;
-	ASSERT (readdir(f, ent_no++, &x));
+	while (ent_no < 2) {
+		ASSERT (readdir(f, ent_no++, &x));
 
-	ASSERT(!strcmp(x.name, "init.bin"));
-	ASSERT(x.st.type == FT_REGULAR);
+		ASSERT((!strcmp(x.name, "init.bin")) || (!strcmp(x.name, "kernel.map")));
+		ASSERT(x.st.type == FT_REGULAR);
+	}
 
 	ASSERT(!readdir(f, ent_no++, &x));
 	close(f);

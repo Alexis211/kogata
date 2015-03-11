@@ -1,4 +1,4 @@
-LIB = ../../../lib/libkogata/libkogata.lib ../../../common/libc/libc.lib
+LIB = ../../../lib/libkogata/libkogata.lib
 
 OBJ = test.o
 

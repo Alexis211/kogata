@@ -9,7 +9,7 @@ if [ "$1" = "watchdog" ]; then
 	exit 0
 fi
 
-(qemu-system-i386 -kernel ../../../kernel/kernel.bin  -append 'init=io:/mod/init.bin' -initrd init.bin -serial stdio -m 16 -display none & echo $! >pid &
+(qemu-system-i386 -kernel ../../../kernel/kernel.bin  -append 'init=io:/mod/init.bin' -initrd 'init.bin,../../../kernel/kernel.map' -serial stdio -m 16 -display none & echo $! >pid &
  $0 watchdog) \
 	| tee >(grep -m 1 "TEST-" >result; kill -INT `cat pid`; kill -TERM `cat pid2`) \
 

@@ -165,9 +165,12 @@ descriptor_t *find_used_region(void* addr) {
 
 void add_used_region(descriptor_t *d) {
 	descriptor_t *i = first_used_region;
+	ASSERT(i != 0);
 	ASSERT(i->used.i.addr < d->used.i.addr);	// first region by address is never free
 
 	while (i != 0) {
+		ASSERT(i != d);
+		ASSERT(i->used.i.addr != d->used.i.addr);
 		ASSERT(i->used.i.addr < d->used.i.addr);
 		if (i->used.next_by_addr == 0 || i->used.next_by_addr->used.i.addr > d->used.i.addr) {
 			d->used.next_by_addr = i->used.next_by_addr;
