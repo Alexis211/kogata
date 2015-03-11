@@ -209,13 +209,7 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	mutex_lock(&pdd->mutex);
 
 	if (!(pd->page[pt] & PTE_PRESENT)) {
-		uint32_t new_pt_frame;
-		int tries = 0;
-		while ((new_pt_frame = frame_alloc(1)) == 0 && (tries++) < 3) {
-			mutex_unlock(&pdd->mutex);
-			free_some_memory();
-			mutex_lock(&pdd->mutex);
-		}
+		uint32_t new_pt_frame = frame_alloc(1);
 		if (new_pt_frame == 0) {
 			mutex_unlock(&pdd->mutex);
 			return false;

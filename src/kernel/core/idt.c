@@ -91,7 +91,7 @@ static isr_handler_t ex_handlers[32] = {0};
 
 /*	Called in interrupt.s when an exception fires (interrupt 0 to 31) */
 void idt_ex_handler(registers_t *regs) {
-	dbg_printf("Ex handler: %d\n", regs->int_no);
+	dbg_printf("ex%d.", regs->int_no);
 	if (ex_handlers[regs->int_no] != 0) {
 		ex_handlers[regs->int_no](regs);
 	} else {

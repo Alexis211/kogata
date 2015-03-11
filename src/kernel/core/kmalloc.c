@@ -16,7 +16,10 @@ static void* page_alloc_fun_for_kmalloc(size_t bytes) {
 	for (void* i = addr; i < addr + bytes; i += PAGE_SIZE) {
 		int f = frame_alloc(1);
 		if (f == 0) goto failure;
-		if (!pd_map_page(i, f, true)) goto failure;
+		if (!pd_map_page(i, f, true)) {
+			frame_free(f, 1);
+			goto failure;
+		}
 	}
 
 	return addr;
@@ -29,6 +32,7 @@ failure:
 			frame_free(f, 1);
 		}
 	}
+	region_free(addr);
 	return 0;
 }
 

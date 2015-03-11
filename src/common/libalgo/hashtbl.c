@@ -93,10 +93,10 @@ bool hashtbl_add(hashtbl_t *ht, void* key, void* v) {
 	hashtbl_item_t *i = (hashtbl_item_t*)malloc(sizeof(hashtbl_item_t));
 	if (i == 0) return false;	// OOM
 
-	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
-
 	// make sure item is not already present
 	hashtbl_remove(ht, key);
+
+	size_t slot = SLOT_OF_HASH(ht->hf(key), ht->size);
 
 	i->key = key;
 	i->val = v;

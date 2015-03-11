@@ -18,7 +18,7 @@ void resume_context(saved_context_t *ctx);
 
 thread_t *current_thread = 0;
 
-static hashtbl_t *waiters = 0;			// threads waiting on a ressource
+static thread_t *waiters = 0;
 
 // ====================== //
 // THE PROGRAMMABLE TIMER //
@@ -235,9 +235,6 @@ void threading_irq0_handler() {
 	}
 }
 void threading_setup(entry_t cont, void* arg) {
-	waiters = create_hashtbl(id_key_eq_fun, id_hash_fun, 0);
-	ASSERT(waiters != 0);
-
 	set_pit_frequency(TASK_SWITCH_FREQUENCY);
 	idt_set_irq_handler(IRQ0, &irq0_handler);
 
@@ -286,33 +283,19 @@ bool wait_on_many(void** x, size_t n) {
 
 	int st = enter_critical(CL_NOINT);
 
-	//  ---- Check we can wait on all the requested objects
-	bool ok = true;
-	for (size_t i = 0; ok && i < n; i++) {
-		void* prev_th = hashtbl_find(waiters, x[i]);
-		if (prev_th == 0) {
-			bool add_ok = hashtbl_add(waiters, x[i], (void*)1);
-			if (!add_ok) {
-				ok = false;
-			}
-		} else if (prev_th != (void*)1) {
-			ok = false;
-			break;
-		}
-	}
-	if (!ok) {
-		exit_critical(st);
-		return false;
-	}
-
 	//  ---- Set ourselves as the waiting thread for all the requested objets
 
-	dbg_printf("Wait on many: ");
+	dbg_printf("Wait on many:");
 	for (size_t i = 0; i < n; i++) {
-		ASSERT(hashtbl_change(waiters, x[i], current_thread));
-		dbg_printf("0x%p (0x%p) ", x[i], hashtbl_find(waiters, x[i]));
+		dbg_printf(" 0x%p", x[i]);
 	}
 	dbg_printf("\n");
+
+	current_thread->waiting_on = x;
+	current_thread->n_waiting_on = n;
+
+	current_thread->next_waiter = waiters;
+	waiters = current_thread;
 
 	//  ---- Go to sleep
 
@@ -321,8 +304,15 @@ bool wait_on_many(void** x, size_t n) {
 
 	//  ---- Remove ourselves from the list
 
-	for (size_t i = 0; i < n; i++) {
-		ASSERT(hashtbl_change(waiters, x[i], (void*)1));
+	current_thread->waiting_on = 0;
+	current_thread->n_waiting_on = 0;
+
+	if (waiters == current_thread) {
+		waiters = current_thread->next_waiter;
+	} else {
+		for (thread_t *w = waiters; w->next_waiter != 0; w = w->next_waiter) {
+			if (w->next_waiter == current_thread) w->next_waiter = current_thread->next_waiter;
+		}
 	}
 
 	exit_critical(st);
@@ -374,24 +364,26 @@ void exit() {
 }
 
 bool resume_on(void* x) {
-
-	thread_t *thread;
-
 	bool ret = false;
 
 	int st = enter_critical(CL_NOINT);
 
-	thread = hashtbl_find(waiters, x);
+	dbg_printf("Resume on 0x%p:", x);
 
-	dbg_printf("Resume on 0x%p : 0x%p\n", x, thread);
+	for (thread_t *t = waiters; t != 0; t = t->next_waiter) {
+		for (int i = 0; i < t->n_waiting_on; i++) {
+			if (t->waiting_on[i] == x) {
+				dbg_printf(" 0x%p", t);
 
-	if (thread != 0 && thread != (void*)1) {
-		if (thread->state == T_STATE_PAUSED) {
-			thread->state = T_STATE_RUNNING;
+				if (t->state == T_STATE_PAUSED) {
+					t->state = T_STATE_RUNNING;
 
-			enqueue_thread(thread, false);
+					enqueue_thread(t, false);
 
-			ret = true;
+					ret = true;
+				}
+				break;
+			}
 		}
 	}
 

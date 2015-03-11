@@ -36,6 +36,10 @@ typedef struct thread {
 	struct thread *next_in_queue;
 	struct thread *next_in_proc;
 
+	void** waiting_on;
+	int n_waiting_on;
+	struct thread *next_waiter;
+
 	bool must_exit;
 } thread_t;
 

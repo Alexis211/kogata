@@ -16,7 +16,7 @@ typedef uint32_t (*syscall_handler_t)(sc_args_t);
 
 static syscall_handler_t sc_handlers[SC_MAX] = { 0 };
 
-static char* sc_copy_string(const char* addr, size_t slen) {
+char* sc_copy_string(const char* addr, size_t slen) {
 	probe_for_read(addr, slen);
 
 	char* buf = malloc(slen+1);
@@ -28,7 +28,7 @@ static char* sc_copy_string(const char* addr, size_t slen) {
 	return buf;
 }
 
-static char* sc_copy_string_x(uint32_t s, uint32_t slen) {
+char* sc_copy_string_x(uint32_t s, uint32_t slen) {
 	return sc_copy_string((const char*)s, slen);
 }
 
@@ -38,7 +38,7 @@ static char* sc_copy_string_x(uint32_t s, uint32_t slen) {
 
 //  ---- Related to the current process's execution
 
-static uint32_t exit_sc(sc_args_t args) {
+uint32_t exit_sc(sc_args_t args) {
 	dbg_printf("Proc %d exit with code %d\n", current_process()->pid, args.a);
 
 	current_process_exit(PS_FINISHED, args.a);
@@ -46,17 +46,17 @@ static uint32_t exit_sc(sc_args_t args) {
 	return 0;
 }
 
-static uint32_t yield_sc(sc_args_t args) {
+uint32_t yield_sc(sc_args_t args) {
 	yield();
 	return 0;
 }
 
-static uint32_t usleep_sc(sc_args_t args) {
+uint32_t usleep_sc(sc_args_t args) {
 	usleep(args.a);
 	return 0;
 }
 
-static uint32_t dbg_print_sc(sc_args_t args) {
+uint32_t dbg_print_sc(sc_args_t args) {
 	char* msg = sc_copy_string_x(args.a, args.b);
 	if (msg == 0) return -1;
 
@@ -70,22 +70,22 @@ static uint32_t dbg_print_sc(sc_args_t args) {
 	return 0;
 }
 
-static uint32_t new_thread_sc(sc_args_t args) {
+uint32_t new_thread_sc(sc_args_t args) {
 	return process_new_thread(current_process(), (proc_entry_t)args.a, (void*)args.b);
 }
 
-static uint32_t exit_thread_sc(sc_args_t args) {
+uint32_t exit_thread_sc(sc_args_t args) {
 	exit();
 	return 0;
 }
 
 //  ---- Memory management related
 
-static uint32_t mmap_sc(sc_args_t args) {
+uint32_t mmap_sc(sc_args_t args) {
 	return mmap(current_process(), (void*)args.a, args.b, args.c);
 }
 
-static uint32_t mmap_file_sc(sc_args_t args) {
+uint32_t mmap_file_sc(sc_args_t args) {
 	int fd = args.a;
 	fs_handle_t *h = proc_read_fd(current_process(), fd);
 	if (h == 0) return false;
@@ -93,17 +93,17 @@ static uint32_t mmap_file_sc(sc_args_t args) {
 	return mmap_file(current_process(), h, args.b, (void*)args.c, args.d, args.e);
 }
 
-static uint32_t mchmap_sc(sc_args_t args) {
+uint32_t mchmap_sc(sc_args_t args) {
 	return mchmap(current_process(), (void*)args.a, args.b);
 }
 
-static uint32_t munmap_sc(sc_args_t args) {
+uint32_t munmap_sc(sc_args_t args) {
 	return munmap(current_process(), (void*)args.a);
 }
 
 //  ---- Accessing the VFS - filesystems
 
-static uint32_t create_sc(sc_args_t args) {
+uint32_t create_sc(sc_args_t args) {
 	bool ret = false;
 
 	char* fn = sc_copy_string_x(args.a, args.b);
@@ -125,7 +125,7 @@ end_create:
 	return ret;
 }
 
-static uint32_t delete_sc(sc_args_t args) {
+uint32_t delete_sc(sc_args_t args) {
 	bool ret = false;
 
 	char* fn = sc_copy_string_x(args.a, args.b);
@@ -147,7 +147,7 @@ end_del:
 	return ret;
 }
 
-static uint32_t move_sc(sc_args_t args) {
+uint32_t move_sc(sc_args_t args) {
 	bool ret = false;
 
 	char *fn_a = sc_copy_string_x(args.a, args.b),
@@ -177,7 +177,7 @@ end_move:
 	return ret;
 }
 
-static uint32_t stat_sc(sc_args_t args) {
+uint32_t stat_sc(sc_args_t args) {
 	bool ret = false;
 
 	char* fn = sc_copy_string_x(args.a, args.b);
@@ -202,7 +202,7 @@ end_stat:
 
 //  ---- Accessing the VFS - files
 
-static uint32_t open_sc(sc_args_t args) {
+uint32_t open_sc(sc_args_t args) {
 	int ret = 0;
 
 	char* fn = sc_copy_string_x(args.a, args.b);
@@ -228,12 +228,12 @@ end_open:
 	return ret;
 }
 
-static uint32_t close_sc(sc_args_t args) {
+uint32_t close_sc(sc_args_t args) {
 	proc_close_fd(current_process(), args.a);
 	return 0;
 }
 
-static uint32_t read_sc(sc_args_t args) {
+uint32_t read_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return 0;
 
@@ -243,7 +243,7 @@ static uint32_t read_sc(sc_args_t args) {
 	return file_read(h, args.b, len, data);
 }
 
-static uint32_t write_sc(sc_args_t args) {
+uint32_t write_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return 0;
 
@@ -253,7 +253,7 @@ static uint32_t write_sc(sc_args_t args) {
 	return file_write(h, args.b, len, data);
 }
 
-static uint32_t readdir_sc(sc_args_t args) {
+uint32_t readdir_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return false;
 
@@ -262,7 +262,7 @@ static uint32_t readdir_sc(sc_args_t args) {
 	return file_readdir(h, args.b, o);
 }
 
-static uint32_t stat_open_sc(sc_args_t args) {
+uint32_t stat_open_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return false;
 
@@ -271,7 +271,7 @@ static uint32_t stat_open_sc(sc_args_t args) {
 	return file_stat(h, o);
 }
 
-static uint32_t ioctl_sc(sc_args_t args) {
+uint32_t ioctl_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return -1;
 
@@ -280,7 +280,7 @@ static uint32_t ioctl_sc(sc_args_t args) {
 	return file_ioctl(h, args.b, data);
 }
 
-static uint32_t fctl_sc(sc_args_t args) {
+uint32_t fctl_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return 0;
 
@@ -297,7 +297,7 @@ static uint32_t fctl_sc(sc_args_t args) {
 	}
 }
 
-static uint32_t select_sc(sc_args_t args) {
+uint32_t select_sc(sc_args_t args) {
 	sel_fd_t *fds = (sel_fd_t*)args.a;
 	size_t n = args.b;
 	int timeout = args.c;
@@ -351,7 +351,7 @@ static uint32_t select_sc(sc_args_t args) {
 
 //  ---- IPC
 
-static uint32_t make_channel_sc(sc_args_t args) {
+uint32_t make_channel_sc(sc_args_t args) {
 	// messy messy messy
 
 	bool blocking = (args.a != 0);
@@ -389,7 +389,7 @@ error:
 	return false;
 }
 
-static uint32_t make_shm_sc(sc_args_t args) {
+uint32_t make_shm_sc(sc_args_t args) {
 	fs_handle_t *h = make_shm(args.a);
 	if (h == 0) return 0;
 
@@ -402,7 +402,7 @@ static uint32_t make_shm_sc(sc_args_t args) {
 	return fd;
 }
 
-static uint32_t gen_token_sc(sc_args_t args) {
+uint32_t gen_token_sc(sc_args_t args) {
 	fs_handle_t *h = proc_read_fd(current_process(), args.a);
 	if (h == 0) return false;
 
@@ -412,7 +412,7 @@ static uint32_t gen_token_sc(sc_args_t args) {
 	return gen_token_for(h, tok);
 }
 
-static uint32_t use_token_sc(sc_args_t args) {
+uint32_t use_token_sc(sc_args_t args) {
 	token_t *tok = (token_t*)args.a;
 	probe_for_read(tok, sizeof(token_t));
 
@@ -430,7 +430,7 @@ static uint32_t use_token_sc(sc_args_t args) {
 
 //  ---- Managing file systems
 
-static uint32_t make_fs_sc(sc_args_t args) {
+uint32_t make_fs_sc(sc_args_t args) {
 	sc_make_fs_args_t *a = (sc_make_fs_args_t*)args.a;
 	probe_for_read(a, sizeof(sc_make_fs_args_t));
 
@@ -477,7 +477,7 @@ end_mk_fs:
 	return ok;
 }
 
-static uint32_t fs_add_src_sc(sc_args_t args) {
+uint32_t fs_add_src_sc(sc_args_t args) {
 	bool ok = false;
 
 	char* opts = 0;
@@ -503,7 +503,7 @@ end_add_src:
 	return ok;
 }
 
-static uint32_t fs_subfs_sc(sc_args_t args) {
+uint32_t fs_subfs_sc(sc_args_t args) {
 	sc_subfs_args_t *a = (sc_subfs_args_t*)args.a;
 	probe_for_read(a, sizeof(sc_subfs_args_t));
 
@@ -547,7 +547,7 @@ end_subfs:
 	return ok;
 }
 
-static uint32_t rm_fs_sc(sc_args_t args) {
+uint32_t rm_fs_sc(sc_args_t args) {
 	char* fs_name = sc_copy_string_x(args.a, args.b);
 	if (fs_name == 0) return false;
 
@@ -558,14 +558,14 @@ static uint32_t rm_fs_sc(sc_args_t args) {
 
 //  ---- Spawning new processes & giving them ressources
 
-static uint32_t new_proc_sc(sc_args_t args) {
+uint32_t new_proc_sc(sc_args_t args) {
 	process_t *new_proc = new_process(current_process());
 	if (new_proc == 0) return 0;
 
 	return new_proc->pid;
 }
 
-static uint32_t bind_fs_sc(sc_args_t args) {
+uint32_t bind_fs_sc(sc_args_t args) {
 	bool ok = false;
 
 	char* old_name = 0;
@@ -594,7 +594,7 @@ end_bind_fs:
 	return ok;
 }
 
-static uint32_t bind_fd_sc(sc_args_t args) {
+uint32_t bind_fd_sc(sc_args_t args) {
 	bool ok = false;
 
 	fs_handle_t *h = 0;
@@ -613,7 +613,7 @@ end_bind_fd:
 	return ok;
 }
 
-static uint32_t proc_exec_sc(sc_args_t args) {
+uint32_t proc_exec_sc(sc_args_t args) {
 	bool ok = false;
 
 	process_t *p = 0;
@@ -650,7 +650,7 @@ end_exec:
 	return ok;
 }
 
-static uint32_t proc_status_sc(sc_args_t args) {
+uint32_t proc_status_sc(sc_args_t args) {
 	proc_status_t *st = (proc_status_t*)args.b;
 	probe_for_write(st, sizeof(proc_status_t));
 
@@ -661,7 +661,7 @@ static uint32_t proc_status_sc(sc_args_t args) {
 	return true;
 }
 
-static uint32_t proc_kill_sc(sc_args_t args) {
+uint32_t proc_kill_sc(sc_args_t args) {
 	proc_status_t *st = (proc_status_t*)args.b;
 	probe_for_write(st, sizeof(proc_status_t));
 
@@ -674,7 +674,7 @@ static uint32_t proc_kill_sc(sc_args_t args) {
 	return true;
 }
 
-static uint32_t proc_wait_sc(sc_args_t args) {
+uint32_t proc_wait_sc(sc_args_t args) {
 	proc_status_t *st = (proc_status_t*)args.c;
 	probe_for_write(st, sizeof(proc_status_t));
 
