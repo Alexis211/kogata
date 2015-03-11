@@ -4,14 +4,12 @@
 #include <debug.h>
 
 #include <gip.h>
+#include <draw.h>
 
 typedef struct {
 	fb_info_t mode;
-
-	size_t fb_size;
-	void* map;
-
 	fd_t fd;
+	fb_t *fb;
 
 	uint32_t sv_features, cl_features;
 } loginc_t;
@@ -63,10 +61,13 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 
 	loginc_t *c = (loginc_t*)s->data;
 
-	if (c->fd != 0) close(c->fd);
-	if (c->map != 0) {
-		munmap(c->map);
-		region_free(c->map);
+	if (c->fb != 0) {
+		g_delete_fb(c->fb);
+		c->fb = 0;
+	}
+	if (c->fd != 0) {
+		close(c->fd);
+		c->fd = 0;
 	}
 
 	c->fd = use_token(&m->tok);
@@ -76,19 +77,24 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 		dbg_printf("[login] Got buffer on FD %d, %dx%dx%d\n",
 			c->fd, c->mode.width, c->mode.height, c->mode.bpp);
 
-		c->fb_size = c->mode.pitch * c->mode.height;
+		c->fb = g_fb_from_file(c->fd, &m->geom);
+		if (c->fb != 0) {
+			color_t black = g_color_rgb(c->fb, 0, 0, 0);
+			color_t grey = g_color_rgb(c->fb, 128, 128, 128);
+			g_fillrect(c->fb, 0, 0, m->geom.width, m->geom.height, black);
+			g_fillrect(c->fb, 50, 50, 50, 50, grey);
 
-		c->map = region_alloc(c->fb_size, "Framebuffer");
-		if (c->map != 0) {
-			bool ok = mmap_file(c->fd, 0, c->map, c->fb_size, MM_READ | MM_WRITE);
-			if (ok) {
-				memset(c->map, 0, c->fb_size);
+			font_t *f = g_load_font("default");
+			if (f != 0) {
+				g_write(c->fb, 50, 100, "Hello, world!", f, grey);
+				g_free_font(f);
 			} else {
-				dbg_printf("[login] Could not mmap buffer.\n");
-				region_free(c->map);
-				c->map = 0;
+				dbg_printf("Could not load font 'default'\n");
 			}
+		} else {
+			dbg_printf("Could not open framebuffer file %d\n", c->fd);
 		}
+
 	}
 }
 

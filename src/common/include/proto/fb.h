@@ -5,12 +5,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define FB_MM_RGB16		1		// 2 bytes (16 bits) per pixel, blue 0-4, green 5-9, red 10-14
-#define FB_MM_BGR16		2		// 2 bytes (16 bits) per pixel, red 0-4, green 5-9, blue 10-14
-#define FB_MM_RGB24		3		// 3 bytes (24 bits) per pixel, blue 0-7, green 8-15, red 16-23
-#define FB_MM_BGR24		4		// 3 bytes (24 bits) per pixel, red 0-7, green 8-15, blue 16-23
-#define FB_MM_RGB32		5		// 4 bytes (32 bits) per pixel, blue 0-7, green 8-15, red 16-23
-#define FB_MM_BGR32		6		// 4 bytes (32 bits) per pixel, red 0-7, green 8-15, blue 16-23
+#define FB_MM_RGB15		1		// 15 bits per pixel, blue 0-4, green 5-9, red 10-14
+#define FB_MM_BGR15		2		// 15 bits per pixel, red 0-4, green 5-9, blue 10-14
+#define FB_MM_RGB16		3		// 2 bytes (16 bits) per pixel, blue 0-4, green 5-9, red 10-14
+#define FB_MM_BGR16		4		// 2 bytes (16 bits) per pixel, red 0-4, green 5-9, blue 10-14
+#define FB_MM_RGB24		5		// 3 bytes (24 bits) per pixel, blue 0-7, green 8-15, red 16-23
+#define FB_MM_BGR24		6		// 3 bytes (24 bits) per pixel, red 0-7, green 8-15, blue 16-23
+#define FB_MM_RGB32		7		// 4 bytes (32 bits) per pixel, blue 0-7, green 8-15, red 16-23
+#define FB_MM_BGR32		8		// 4 bytes (32 bits) per pixel, red 0-7, green 8-15, blue 16-23
 #define FB_MM_GREY8		10		// 1 byte (8 bits) per pixel greyscale
 
 typedef struct {

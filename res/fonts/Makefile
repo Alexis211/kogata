@@ -1,5 +1,8 @@
+CC=gcc
+CFLAGS=-I../../src/lib/include -std=c11
+
 %.bf: %.c
-	gcc -o $<.bin $<
+	$(CC) $(CFLAGS) -o $<.bin $<
 	./$<.bin > $@
 	rm $<.bin
 

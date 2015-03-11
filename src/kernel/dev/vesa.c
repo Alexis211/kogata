@@ -243,9 +243,9 @@ fs_node_ops_t vesa_fs_ops = {
 static struct fb_memory_model {
 	int bpp, rp, gp, bp, rs, gs, bs, mm;
 } fb_memory_models[8] = {
-	{ 15, 10, 5, 0, 5, 5, 5, FB_MM_RGB16 },
+	{ 15, 10, 5, 0, 5, 5, 5, FB_MM_RGB15 },
+	{ 15, 0, 5, 10, 5, 5, 5, FB_MM_BGR15 },
 	{ 16, 10, 5, 0, 5, 5, 5, FB_MM_RGB16 },
-	{ 15, 0, 5, 10, 5, 5, 5, FB_MM_BGR16 },
 	{ 16, 0, 5, 10, 5, 5, 5, FB_MM_BGR16 },
 	{ 24, 16, 8, 0, 8, 8, 8, FB_MM_RGB24 },
 	{ 24, 0, 8, 16, 8, 8, 8, FB_MM_BGR24 },
@@ -443,12 +443,29 @@ void vesa_clear(vesa_driver_t *d) {
 
 	int tly = (mode->info.height / 2) - (kogata_logo.height / 2);
 	int tlx = (mode->info.width / 2) - (kogata_logo.width / 2);
-	int mbpp = (mode->info.bpp / 8);
 
-	for (unsigned l = 0; l < kogata_logo.height; l++) {
-		memcpy(region + (tly + l) * mode->info.pitch + tlx * mbpp,
-			buffer + kogata_logo.width * l * kogata_logo.bytes_per_pixel,
-			kogata_logo.width * kogata_logo.bytes_per_pixel);
+	if (mode->info.bpp == 24) {
+		for (unsigned l = 0; l < kogata_logo.height; l++) {
+			memcpy(region + (tly + l) * mode->info.pitch + tlx * 3,
+				buffer + kogata_logo.width * l * kogata_logo.bytes_per_pixel,
+				kogata_logo.width * kogata_logo.bytes_per_pixel);
+		}
+	} else if (mode->info.bpp == 32) {
+		for (unsigned l = 0; l < kogata_logo.height; l++) {
+			uint32_t *p = (uint32_t*)(region + (tly + l) * mode->info.pitch + tlx * 4);
+			uint8_t *r = (uint8_t*)(buffer + kogata_logo.width * l * kogata_logo.bytes_per_pixel);
+			for (unsigned c = 0; c < kogata_logo.width; c++) {
+				p[c] = r[3*c] | (r[3*c+1] << 8) | (r[3*c+2] <<16);
+			}
+		}
+	} else if (mode->info.bpp == 15 || mode->info.bpp == 16) {
+		for (unsigned l = 0; l < kogata_logo.height; l++) {
+			uint16_t *p = (uint16_t*)(region + (tly + l) * mode->info.pitch + tlx * 2);
+			uint8_t *r = (uint8_t*)(buffer + kogata_logo.width * l * kogata_logo.bytes_per_pixel);
+			for (unsigned c = 0; c < kogata_logo.width; c++) {
+				p[c] = (r[3*c]/8) | ((r[3*c+1]/8) << 5) | ((r[3*c+2]/8) <<10);
+			}
+		}
 	}
 
 end:

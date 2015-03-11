@@ -103,14 +103,17 @@ void disable_features(gip_handler_t *h, gip_msg_header *p) {
 
 void query_mode(gip_handler_t *h, gip_msg_header *p) {
 	// TODO
+	gip_reply_fail(h, p);
 }
 
 void set_mode(gip_handler_t *h, gip_msg_header *p) {
 	// TODO
+	gip_reply_fail(h, p);
 }
 
 void unknown_msg(gip_handler_t *h, gip_msg_header *p) {
 	// TODO
+	gip_reply_fail(h, p);
 }
 
 void fd_error(gip_handler_t *h) {
