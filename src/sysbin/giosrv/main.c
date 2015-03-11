@@ -6,7 +6,11 @@
 #include <debug.h>
 #include <user_region.h>
 
+#include <proto/keyboard.h>
+
 #include <gip.h>
+
+//  ---- GIP server
 
 typedef struct {
 	fb_info_t mode;
@@ -37,24 +41,52 @@ gip_handler_callbacks_t giosrv_cb = {
 	.fd_error = fd_error,
 };
 
+giosrv_t srv;
+
+//  ---- KBD listener
+
+typedef struct {
+	fd_t fd;
+	kbd_event_t ev;
+} kbd_listner_t;
+
+kbd_listner_t kbd;
+
+void kbd_handle_event(mainloop_fd_t *fd);
+void kbd_on_error(mainloop_fd_t *fd);
+
 int main(int argc, char **argv) {
 	dbg_print("[giosrv] Starting up.\n");
 
-	giosrv_t srv;
+	//  ---- Keyboard setup
+	kbd.fd = open("io:/input/pckbd", FM_READ);
+	if (kbd.fd == 0) PANIC("Could not open keyboard");
 
+	mainloop_fd_t kh;
+	memset(&kh, 0, sizeof(kh));
+
+	kh.fd = kbd.fd;
+	kh.on_error = kbd_on_error;
+	mainloop_expect(&kh, &kbd.ev, sizeof(kbd_event_t), kbd_handle_event);
+
+	mainloop_add_fd(&kh);
+
+	//  ---- VESA setup
 	srv.fd = open("io:/display/vesa", FM_IOCTL | FM_READ | FM_WRITE | FM_MMAP);
 	if (srv.fd == 0) PANIC("Could not open fbdev");
-
 
 	int r = ioctl(srv.fd, IOCTL_FB_GET_INFO, &srv.mode);
 	ASSERT(r == 1);
 	dbg_printf("[giosrv] Running on FB %dx%d\n", srv.mode.width, srv.mode.height);
 
+	//  ---- GIP server setup
 	gip_handler_t *h = new_gip_handler(&giosrv_cb, &srv);
 	ASSERT(h != 0);
 
 	h->mainloop_item.fd = 1;
 	mainloop_add_fd(&h->mainloop_item);
+
+	//  ---- Enter main loop
 	mainloop_run();
 
 	dbg_printf("[giosrv] Main loop exited, terminating.\n");
@@ -117,6 +149,14 @@ void unknown_msg(gip_handler_t *h, gip_msg_header *p) {
 }
 
 void fd_error(gip_handler_t *h) {
+	// TODO
+}
+
+void kbd_handle_event(mainloop_fd_t *fd) {
+	// TODO
+}
+
+void kbd_on_error(mainloop_fd_t *fd) {
 	// TODO
 }
 

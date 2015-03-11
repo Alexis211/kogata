@@ -25,6 +25,7 @@
 
 #include <prng.h>
 
+#include <dev/pckbd.h>
 #include <dev/pci.h>
 #include <dev/pciide.h>
 #include <dev/vesa.h>
@@ -150,9 +151,10 @@ void kernel_init_stage2(void* data) {
 	TEST_PLACEHOLDER_AFTER_DEVFS;
 
 	// Scan for devices
+	pckbd_setup(iofs);
+	vesa_detect(iofs);
 	pci_setup();
 	pciide_detect(iofs);
-	vesa_detect(iofs);
 
 	// Register FS drivers
 	register_iso9660_driver();

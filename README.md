@@ -112,7 +112,7 @@ running the tests):
 
 ### Plans for soon
 
-* Write device drivers : VESA, keyboard, FAT (or EXT2 ?)
+* Write device drivers : keyboard, FAT (or EXT2 ?)
 * Work on userland : init, terminal emulator, shell
 * GUI server with help from kernel for framebuffer management
 
