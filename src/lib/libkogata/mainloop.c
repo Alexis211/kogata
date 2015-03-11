@@ -99,12 +99,14 @@ void mainloop_run() {
 			int i = 0;
 			for (mainloop_fd_t *fd = mainloop_fds; fd != 0 && !mainloop_fds_change; fd = fd->next) {
 				if (sel_arg[i].got_flags & SEL_ERROR) {
+					ASSERT(fd->on_error != 0);
 					fd->on_error(fd);
 				} else if ((sel_arg[i].got_flags & SEL_READ) && fd->rd_buf != 0) {
 					fd->rd_buf_filled +=
 						read(fd->fd, 0, fd->rd_buf_expect_size - fd->rd_buf_filled, fd->rd_buf + fd->rd_buf_filled);
 					if (fd->rd_buf_filled == fd->rd_buf_expect_size) {
 						fd->rd_buf_filled = 0;
+						ASSERT(fd->rd_on_full != 0);
 						fd->rd_on_full(fd);
 					}
 				} else if ((sel_arg[i].got_flags & SEL_WRITE) && fd->wr_bufs[0].buf != 0) {
@@ -118,7 +120,7 @@ void mainloop_run() {
 						for (int i = 1; i < MAINLOOP_MAX_WR_BUFS; i++) {
 							fd->wr_bufs[i-1] = fd->wr_bufs[i];
 						}
-						memset(&fd->wr_bufs[MAINLOOP_MAX_WR_BUFS-1].buf, 0, sizeof(mainloop_wr_buf_t));
+						fd->wr_bufs[MAINLOOP_MAX_WR_BUFS-1].buf = 0;
 					}
 				}
 				i++;

@@ -123,30 +123,34 @@ bool gip_notify(gip_handler_t *h, gip_msg_header *msg, void* msg_data) {
 
 //  ---- Message handlers
 
-void giph_got_reply(gip_handler_t *h, gip_msg_header *msg) {
+void giph_got_reply(gip_handler_t *h, gip_msg_header *msg, void* msg_data) {
 	gip_cmd_t *c = (gip_cmd_t*)hashtbl_find(h->requests_in_progress, (void*)msg->req_id);;
 	if (c != 0) {
-		c->cb(h, msg, c->data);
+		ASSERT(c->cb != 0);
+		c->cb(h, msg, msg_data, c->data);
 		hashtbl_remove(h->requests_in_progress, (void*)msg->req_id);
 	}
 }
 
 void giph_msg_header(mainloop_fd_t *fd) {
 	gip_handler_t *h = (gip_handler_t*)fd->data;
+	ASSERT(fd == &h->mainloop_item);
 
 	int code = h->msg_buf.code;
+	dbg_printf("Got GIP header, code %d\n", code);
+
 	noarg_gip_callback_t use_cb = 0;
 	if (code ==	GIPC_RESET) {
 		use_cb = h->cb->reset;
 	} else if (code == GIPR_INITIATE) {
 		use_cb = h->cb->initiate;
-		giph_got_reply(h, &h->msg_buf);
+		giph_got_reply(h, &h->msg_buf, 0);
 	} else if (code == GIPR_OK) {
 		use_cb = h->cb->ok;
-		giph_got_reply(h, &h->msg_buf);
+		giph_got_reply(h, &h->msg_buf, 0);
 	} else if (code == GIPR_FAILURE) {
 		use_cb = h->cb->failure;
-		giph_got_reply(h, &h->msg_buf);
+		giph_got_reply(h, &h->msg_buf, 0);
 	} else if (code == GIPC_ENABLE_FEATURES) {
 		use_cb = h->cb->enable_features;
 	} else if (code == GIPC_DISABLE_FEATURES) {
@@ -161,8 +165,6 @@ void giph_msg_header(mainloop_fd_t *fd) {
 		mainloop_expect(fd, &h->buffer_info_msg_buf, sizeof(gip_buffer_info_msg), giph_buffer_info);
 	} else if (code == GIPR_MODE_INFO) {
 		mainloop_expect(fd, &h->mode_info_msg_buf, sizeof(gip_mode_info_msg), giph_mode_info);
-		// this is a reply but we cannot call giph_got_reply immediately since more data is needed
-		// giph_got_reply(h, id);
 	} else if (code == GIPN_BUFFER_DAMAGE) {
 		mainloop_expect(fd, &h->buffer_damage_msg_buf, sizeof(gip_buffer_damage_msg), giph_buffer_damage);
 	} else {
@@ -184,8 +186,7 @@ void giph_mode_info(mainloop_fd_t *fd) {
 	gip_handler_t *h = (gip_handler_t*)fd->data;
 
 	if (h->cb->mode_info) h->cb->mode_info(h, &h->msg_buf, &h->mode_info_msg_buf);
-
-	// call giph_got_reply with more data ?
+	giph_got_reply(h, &h->msg_buf, &h->mode_info_msg_buf);
 
 	mainloop_expect(&h->mainloop_item, &h->msg_buf, sizeof(gip_msg_header), giph_msg_header);
 }

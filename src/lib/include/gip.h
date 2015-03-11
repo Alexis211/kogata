@@ -10,7 +10,7 @@
 typedef struct gip_handler gip_handler_t;
 
 typedef void (*noarg_gip_callback_t)(gip_handler_t *s, gip_msg_header *m);
-typedef void (*gip_reply_callback_t)(gip_handler_t *s, gip_msg_header *m, void* data);
+typedef void (*gip_reply_callback_t)(gip_handler_t *s, gip_msg_header *m, void* msg_data, void* cb_data);
 
 typedef struct {
 	noarg_gip_callback_t

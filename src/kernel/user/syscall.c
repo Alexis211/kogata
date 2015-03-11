@@ -60,7 +60,11 @@ static uint32_t dbg_print_sc(sc_args_t args) {
 	char* msg = sc_copy_string_x(args.a, args.b);
 	if (msg == 0) return -1;
 
-	dbg_print(msg);
+	if (strchr(msg, '\n')) {
+		dbg_printf("[%d] %s", current_process()->pid, msg);
+	} else {
+		dbg_print(msg);
+	}
 
 	free(msg);
 	return 0;

@@ -11,7 +11,6 @@
 typedef struct {
 	framebuffer_info_t mode;
 	fd_t fd;
-	uint32_t features;
 } giosrv_t;
 
 void reset(gip_handler_t *s, gip_msg_header *p);
@@ -72,17 +71,16 @@ void send_buffer_info(gip_handler_t *h, giosrv_t *s) {
 
 	msg_data.geom = s->mode;
 	if (!gen_token(s->fd, &msg_data.tok)) {
-		dbg_printf("Could not generate token for buffer_info_msg.\n");
+		dbg_printf("[giosrv] Could not generate token for buffer_info_msg.\n");
 	} else {
-		dbg_printf("Token: %x %x\n", ((uint32_t*)&msg_data.tok)[0], ((uint32_t*)&msg_data.tok)[1]);
+		dbg_printf("[giosrv] Generated token: %x %x\n",
+			((uint32_t*)&msg_data.tok)[0], ((uint32_t*)&msg_data.tok)[1]);
 		gip_notify(h, &msg, &msg_data);
 	}
 }
 
 void reset(gip_handler_t *h, gip_msg_header *p) {
 	giosrv_t *s = (giosrv_t*)h->data;
-
-	s->features = 0;
 
 	//  ---- Send initiate message
 	gip_msg_header msg = {
