@@ -61,7 +61,7 @@ void delete_hashtbl(hashtbl_t *ht) {
 	free(ht);
 }
 
-static void hashtbl_check_size(hashtbl_t *ht) {
+void hashtbl_check_size(hashtbl_t *ht) {
 	size_t nsize = 0;
 	if (4 * ht->nitems < ht->size) nsize = ht->size / 2;
 	if (4 * ht->nitems > 3 * ht->size) nsize = ht->size * 2;

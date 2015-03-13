@@ -11,6 +11,8 @@ static const uint32_t a = 16807;
 static const uint32_t m = 0x7FFFFFFF;
 
 uint16_t prng_word() {
+	int st = enter_critical(CL_NOINT);
+
 	if (++n >= 100) {
 		n = 0;
 		if (entropy_count) {
@@ -18,7 +20,12 @@ uint16_t prng_word() {
 		}
 	}
 	x = (x * a) % m;
-	return x & 0xFFFF;
+
+	uint16_t ret = x & 0xFFFF;
+
+	exit_critical(st);
+
+	return ret;
 }
 
 void prng_bytes(uint8_t* out, size_t nbytes) {

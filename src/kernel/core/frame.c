@@ -53,6 +53,7 @@ uint32_t frame_alloc(size_t n) {
 				nused_frames += n;
 
 				mutex_unlock(&frame_allocator_mutex);
+				/*dbg_printf("AF 0x%p\n", i * 32 + j);*/
 				return i * 32 + j;
 			}
 		}
@@ -65,6 +66,7 @@ void frame_free(uint32_t base, size_t n) {
 	mutex_lock(&frame_allocator_mutex);
 
 	for (size_t i = 0; i < n; i++) {
+		/*dbg_printf("FF 0x%p\n", base + i);*/
 		uint32_t idx = INDEX_FROM_BIT(base + i);
 		uint32_t ofs = OFFSET_FROM_BIT(base + i);
 		if (frame_bitset[idx] & (0x1 << ofs)) {

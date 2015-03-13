@@ -43,8 +43,6 @@ void set_pit_frequency(uint32_t freq) {
 int enter_critical(int level) {
 	asm volatile("cli");
 
-	/*dbg_printf(" >%d< ", level);*/
-
 	if (current_thread == 0) return CL_EXCL;
 
 	int prev_level = current_thread->critical_level;
@@ -52,18 +50,20 @@ int enter_critical(int level) {
 	
 	if (current_thread->critical_level < CL_NOINT) asm volatile("sti");
 
+	/*dbg_printf(" >%d< ", current_thread->critical_level);*/
+
 	return prev_level;
 }
 
 void exit_critical(int prev_level) {
 	asm volatile("cli");
 
-	/*dbg_printf(" <%d> ", prev_level);*/
-
 	if (current_thread == 0) return;
 
 	if (prev_level < current_thread->critical_level) current_thread->critical_level = prev_level;
 	if (current_thread->critical_level < CL_NOINT) asm volatile("sti");
+
+	/*dbg_printf(" <%d> ", current_thread->critical_level);*/
 }
 
 // ================== //
@@ -315,12 +315,15 @@ bool wait_on_many(void** x, size_t n) {
 		waiters = current_thread->next_waiter;
 	} else {
 		ASSERT(waiters != 0);
+		bool deleted = false;
 		for (thread_t *w = waiters; w->next_waiter != 0; w = w->next_waiter) {
 			if (w->next_waiter == current_thread) {
 				w->next_waiter = current_thread->next_waiter;
+				deleted = true;
 				break;
 			}
 		}
+		ASSERT(deleted);
 	}
 
 	exit_critical(st);

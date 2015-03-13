@@ -3,7 +3,6 @@
 #include <idt.h>
 #include <dbglog.h>
 #include <region.h>
-#include <mutex.h>
 #include <thread.h>
 #include <malloc.h>
 #include <freemem.h>
@@ -25,8 +24,6 @@ struct page_directory {
 
 	user_pf_handler_t user_pfh;
 	void* user_pfh_data;
-
-	mutex_t mutex;
 };
 
 
@@ -60,6 +57,11 @@ void page_fault_handler(registers_t *regs) {
 			ASSERT(current_thread->user_ex_handler != 0);
 			current_thread->user_ex_handler(regs);
 		} else {
+			if (pd->user_pfh == 0) {
+				dbg_printf("Error: usermode page fault on PD with no user PFH.\n");
+				dbg_printf("PD: 0x%p, kernel PD: 0x%p\n", get_current_pagedir(), get_kernel_pagedir());
+				PANIC("Un-handlable usermode PF.\n");
+			}
 			ASSERT(pd->user_pfh != 0);
 			pd->user_pfh(pd->user_pfh_data, regs, vaddr);
 		}
@@ -122,7 +124,6 @@ void paging_setup(void* kernel_data_end) {
 
 	// setup kernel_pd_d structure
 	kernel_pd_d.phys_addr = (size_t)&kernel_pd - K_HIGHHALF_ADDR;
-	kernel_pd_d.mutex = MUTEX_UNLOCKED;
 
 	// setup kernel_pt0
 	ASSERT(PAGE_OF_ADDR(K_HIGHHALF_ADDR) == 0);	// kernel is 4M-aligned
@@ -201,15 +202,15 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 	
 	bool on_kernel_pd = (size_t)vaddr >= K_HIGHHALF_ADDR || current_thread == 0;
 	
-	pagedir_t *pdd = (on_kernel_pd ? &kernel_pd_d : current_thread->current_pd_d);
+	// pagedir_t *pdd = (on_kernel_pd ? &kernel_pd_d : current_thread->current_pd_d);
 	pagetable_t *pd = (on_kernel_pd ? &kernel_pd : current_pd);
 
-	mutex_lock(&pdd->mutex);
+	int st = enter_critical(CL_NOINT);
 
 	if (!(pd->page[pt] & PTE_PRESENT)) {
 		uint32_t new_pt_frame = frame_alloc(1);
 		if (new_pt_frame == 0) {
-			mutex_unlock(&pdd->mutex);
+			exit_critical(st);
 			return false;
 		}
 
@@ -227,7 +228,7 @@ bool pd_map_page(void* vaddr, uint32_t frame_id, bool rw) {
 			| (rw ? PTE_RW : 0);
 	invlpg(vaddr);
 
-	mutex_unlock(&pdd->mutex);
+	exit_critical(st);
 	return true;
 } 
 
@@ -236,7 +237,6 @@ void pd_unmap_page(void* vaddr) {
 	uint32_t page = PAGE_OF_ADDR(vaddr);
 
 	pagetable_t *pd = ((size_t)vaddr >= K_HIGHHALF_ADDR ? &kernel_pd : current_pd);
-	// no need to lock the PD's mutex
 
 	if (!(pd->page[pt] & PTE_PRESENT)) return;
 	if (!(current_pt[pt].page[page] & PTE_PRESENT)) return;
@@ -270,7 +270,6 @@ pagedir_t *create_pagedir(user_pf_handler_t pf, void* pfd) {
 	if (!map_ok) goto error;
 
 	pd->phys_addr = pd_phys * PAGE_SIZE;
-	pd->mutex = MUTEX_UNLOCKED;
 
 	pd->user_pfh = pf;
 	pd->user_pfh_data = pfd;

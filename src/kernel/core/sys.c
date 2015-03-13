@@ -71,7 +71,7 @@ void load_kernel_symbol_map(char* text, size_t len) {
 
 void kernel_stacktrace(uint32_t ebp, uint32_t eip) {
 	int i = 0;
-	while (ebp >= K_HIGHHALF_ADDR && eip >= K_HIGHHALF_ADDR && i++ < 10) {
+	while (ebp >= K_HIGHHALF_ADDR && eip >= K_HIGHHALF_ADDR) {
 		char* sym = 0;
 		if (kernel_symbol_map != 0) sym = btree_lower(kernel_symbol_map, (void*)eip);
 
@@ -80,6 +80,10 @@ void kernel_stacktrace(uint32_t ebp, uint32_t eip) {
 		uint32_t *d = (uint32_t*)ebp;
 		ebp = d[0];
 		eip = d[1];
+		if (i++ == 20) {
+			dbg_printf("| ...");
+			break;
+		}
 	}
 }
 

@@ -175,6 +175,7 @@ void* slab_alloc(mem_allocator_t* a, size_t sz) {
 				add_free_descriptor(a, fcd);
 				return 0;
 			}
+			/*dbg_printf("New cache 0x%p\n", fc->region_addr);*/
 
 			fc->n_free_objs = 0;
 			fc->first_free_obj = 0;
@@ -195,6 +196,7 @@ void* slab_alloc(mem_allocator_t* a, size_t sz) {
 		ASSERT(fc->first_free_obj != 0);
 
 		object_t *x = fc->first_free_obj;
+		/*dbg_printf("Alloc 0x%p\n", x);*/
 		fc->first_free_obj = x->next;
 		fc->n_free_objs--;
 
@@ -226,7 +228,6 @@ void* slab_alloc(mem_allocator_t* a, size_t sz) {
 }
 
 void slab_free(mem_allocator_t* a, void* addr) {
-
 	for (int i = 0; a->types[i].obj_size != 0; i++) {
 		size_t region_size = PAGE_SIZE * a->types[i].pages_per_cache;
 		for (cache_t *r = a->slabs[i].first_cache; r != 0; r = r->next_cache) {

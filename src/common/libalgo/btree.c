@@ -56,18 +56,18 @@ size_t btree_count(btree_t *i) {
 // TREE ROTATIONS //
 // ============== //
 
-static int height(btree_item_t *i) {
+static inline int height(btree_item_t *i) {
 	if (i == 0) return 0;
 	return i->height;
 }
 
-static void recalc_height(btree_item_t *i) {
+void btree_recalc_height(btree_item_t *i) {
 	if (i == 0) return;
 
 	i->height = MAX(height(i->left), height(i->right)) + 1;
 }
 
-static btree_item_t* rotate_left(btree_item_t *i) {
+btree_item_t* btree_rotate_left(btree_item_t *i) {
 	// I(X(a, b), Y) -> a X b I Y -> X(a, I(b, Y))
 
 	btree_item_t *x = i->left;
@@ -77,13 +77,13 @@ static btree_item_t* rotate_left(btree_item_t *i) {
 	x->right = i;
 	i->left = b;
 
-	recalc_height(i);
-	recalc_height(x);
+	btree_recalc_height(i);
+	btree_recalc_height(x);
 
 	return x;
 }
 
-static btree_item_t* rotate_right(btree_item_t *i) {
+btree_item_t* btree_rotate_right(btree_item_t *i) {
 	// I(X, Y(a,b)) -> X I a Y b -> Y(I(X, a), b)
 
 	btree_item_t *y = i->right;
@@ -93,20 +93,20 @@ static btree_item_t* rotate_right(btree_item_t *i) {
 	y->left = i;
 	i->right = a;
 
-	recalc_height(i);
-	recalc_height(y);
+	btree_recalc_height(i);
+	btree_recalc_height(y);
 
 	return y;
 }
 
-static btree_item_t* equilibrate(btree_item_t *i) {
+btree_item_t* btree_equilibrate(btree_item_t *i) {
 	if (i == 0) return 0;
 
 	while (height(i->left) - height(i->right) >= 2)
-		i = rotate_left(i);
+		i = btree_rotate_left(i);
 
 	while (height(i->right) - height(i->left) >= 2)
-		i = rotate_right(i);
+		i = btree_rotate_right(i);
 	
 	return i;
 }
@@ -124,9 +124,9 @@ bool btree_add(btree_t *t, void* key, void* val) {
 		} else {
 			root->right = insert(t, root->right, i);
 		}
-		recalc_height(root);
+		btree_recalc_height(root);
 
-		return equilibrate(root);
+		return btree_equilibrate(root);
 	}
 
 	btree_item_t *x = (btree_item_t*)malloc(sizeof(btree_item_t));
@@ -135,7 +135,7 @@ bool btree_add(btree_t *t, void* key, void* val) {
 	x->key = key;
 	x->val = val;
 	x->left = x->right = 0;
-	recalc_height(x);
+	btree_recalc_height(x);
 
 	t->root = insert(t, t->root, x);
 	t->nitems++;
@@ -151,8 +151,8 @@ void btree_remove(btree_t *t, const void* key) {
 			return i->right;
 		} else {
 			i->left = extract_smallest(i->left, out_smallest);
-			recalc_height(i);
-			return equilibrate(i);
+			btree_recalc_height(i);
+			return btree_equilibrate(i);
 		}
 	}
 
@@ -162,10 +162,10 @@ void btree_remove(btree_t *t, const void* key) {
 		int c = t->cf(key, i->key);
 		if (c < 0) {
 			i->left = remove_aux(t, i->left, key);
-			return equilibrate(i);
+			return btree_equilibrate(i);
 		} else if (c > 0) {
 			i->right = remove_aux(t, i->right, key);
-			return equilibrate(i);
+			return btree_equilibrate(i);
 		} else {
 			// remove item i
 
@@ -178,8 +178,8 @@ void btree_remove(btree_t *t, const void* key) {
 				new_i->left = i->left;
 				new_i->right = new_i_right;
 
-				recalc_height(new_i);
-				new_i = equilibrate(new_i);
+				btree_recalc_height(new_i);
+				new_i = btree_equilibrate(new_i);
 			}
 
 			if (t->releasef) t->releasef(i->key, i->val);
@@ -201,8 +201,8 @@ void btree_remove_v(btree_t *t, const void* key, const void* val) {
 			return i->right;
 		} else {
 			i->left = extract_smallest(i->left, out_smallest);
-			recalc_height(i);
-			return equilibrate(i);
+			btree_recalc_height(i);
+			return btree_equilibrate(i);
 		}
 	}
 
@@ -212,10 +212,10 @@ void btree_remove_v(btree_t *t, const void* key, const void* val) {
 		int c = t->cf(key, i->key);
 		if (c < 0) {
 			i->left = remove_aux(t, i->left, key, val);
-			return equilibrate(i);
+			return btree_equilibrate(i);
 		} else if (c > 0) {
 			i->right = remove_aux(t, i->right, key, val);
-			return equilibrate(i);
+			return btree_equilibrate(i);
 		} else if (i->val == val) {
 			// remove item i
 
@@ -228,8 +228,8 @@ void btree_remove_v(btree_t *t, const void* key, const void* val) {
 				new_i->left = i->left;
 				new_i->right = new_i_right;
 
-				recalc_height(new_i);
-				new_i = equilibrate(new_i);
+				btree_recalc_height(new_i);
+				new_i = btree_equilibrate(new_i);
 			}
 
 			if (t->releasef) t->releasef(i->key, i->val);
@@ -240,8 +240,8 @@ void btree_remove_v(btree_t *t, const void* key, const void* val) {
 		} else {
 			i->left = remove_aux(t, i->left, key, val);
 			i->right = remove_aux(t, i->right, key, val);
-			recalc_height(i);
-			return equilibrate(i);
+			btree_recalc_height(i);
+			return btree_equilibrate(i);
 		}
 	}
 
