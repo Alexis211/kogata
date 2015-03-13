@@ -85,7 +85,7 @@ int key_chr(keyboard_t *kb, int k) {
 			return kb->km.mod[k];
 		}
 	} else if ((kb->status & KBD_CAPS) && (kb->status & KBD_SHIFT)) {
-			return kb->km.normal[k];
+			return kb->km.shiftcaps[k];
 	} else if (kb->status & KBD_SHIFT) {
 			return kb->km.shift[k];
 	} else if (kb->status & KBD_CAPS) {
@@ -95,7 +95,7 @@ int key_chr(keyboard_t *kb, int k) {
 	}
 }
 
-key_t make_key(keyboard_t *kb, int k) {
+key_t make_key(keyboard_t *kb, int k, bool down) {
 	key_t x;
 	x.flags = kb->status;
 
@@ -106,7 +106,12 @@ key_t make_key(keyboard_t *kb, int k) {
 	if (x.key != 0) return x;
 
 	x.flags |= KBD_CHAR;
-	x.chr = key_chr(kb, k);
+	if (down) {
+		x.chr = key_chr(kb, k);
+		kb->key_char[k] = x.chr;
+	} else {
+		x.chr = kb->key_char[k];
+	}
 	return x;
 
 }
@@ -126,7 +131,7 @@ key_t keyboard_press(keyboard_t *kb, int k) {
 		kb->status ^= KBD_CAPS;
 	}
 
-	return make_key(kb, k);
+	return make_key(kb, k, true);
 }
 
 key_t keyboard_release(keyboard_t *kb, int k) {
@@ -142,7 +147,7 @@ key_t keyboard_release(keyboard_t *kb, int k) {
 		kb->status &= ~KBD_MOD;
 	}
 
-	return make_key(kb, k);
+	return make_key(kb, k, false);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

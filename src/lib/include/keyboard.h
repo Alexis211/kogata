@@ -22,6 +22,7 @@ typedef struct {
 
 typedef struct {
 	keymap_t km;
+	int key_char[256];
 	uint32_t status;		// mask of alt/ctrl/super
 } keyboard_t;
 
