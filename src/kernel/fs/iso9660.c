@@ -315,7 +315,7 @@ bool iso9660_dir_readdir(fs_handle_t *h, size_t ent_no, dirent_t *d) {
 		if (!(dr->flags & ISO9660_DR_FLAG_DIR) && name[len] != ';') continue;
 		if (name[len-1] == '.') len--;	// file with no extension
 		
-		if (idx == ent_no) {
+		if (idx - 2 == ent_no) {
 			// Found the node we are interested in
 			if (len >= DIR_MAX) len = DIR_MAX - 1;
 			memcpy(d->name, name, len);

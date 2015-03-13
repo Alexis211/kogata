@@ -24,6 +24,6 @@
 
 // Comment to disable either form of debug log output
 #define DBGLOG_TO_SERIAL
-#define DBGLOG_TO_SCREEN
+//#define DBGLOG_TO_SCREEN
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

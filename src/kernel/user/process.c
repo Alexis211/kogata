@@ -244,7 +244,7 @@ void process_exit(process_t *p, int status, int exit_code) {
 	// notify parent
 	process_t *par = p->parent;
 	if (par->status == PS_RUNNING) {
-		resume_on(par->children);
+		resume_on(&par->children);
 		resume_on(p);
 	}
 
@@ -408,7 +408,7 @@ void process_wait_any_child(process_t *par, proc_status_t *st, bool wait) {
 				{	int st = enter_critical(CL_NOSWITCH);
 
 					mutex_unlock(&par->lock);
-					wait_ok = wait_on(par);
+					wait_ok = wait_on(&par->children);
 
 					exit_critical(st);	}
 				

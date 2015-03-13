@@ -80,10 +80,10 @@ void setup_sys() {
 
 	char* sep = strchr(buf, ':');
 	if (sep == 0) {
-		ok = fs_subfs("sys", "root", buf, FM_READ | FM_MMAP);
+		ok = fs_subfs("sys", "root", buf, FM_READ | FM_MMAP | FM_READDIR);
 	} else {
 		*sep = 0;
-		ok = fs_subfs("sys", buf, sep +1, FM_READ | FM_MMAP);
+		ok = fs_subfs("sys", buf, sep +1, FM_READ | FM_MMAP | FM_READDIR);
 	}
 
 	if (!ok) PANIC("[init] Could not bind root:/sys to sys:/");
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
 
 		char buf[50];
 		snprintf(buf, 50, "/config/%s", config);
-		bool ok = fs_subfs("config", "root", buf, FM_READ | FM_WRITE | FM_MMAP);
+		bool ok = fs_subfs("config", "root", buf, FM_READ | FM_WRITE | FM_MMAP | FM_READDIR);
 		if (!ok) PANIC("[init] Could not setup config:");
 	}
 

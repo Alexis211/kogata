@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I../../src/lib/include -std=c11
+CFLAGS=-I../../src/lib/include/proto -std=c11
 AS=nasm
 ASFLAGS=-fbin
 

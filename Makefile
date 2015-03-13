@@ -26,7 +26,7 @@ mrproper:
 run_tests: rebuild
 	src/tests/run_tests.sh
 
-cdrom.iso: all
+cdrom.iso: all make_cdrom.sh
 	./make_cdrom.sh
 
 run_qemu: cdrom.iso

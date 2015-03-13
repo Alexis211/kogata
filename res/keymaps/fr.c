@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <proto/keymap_file.h>
+#include <keymap_file.h>
 
 keymap_t fr_keymap = {
 	{		// normal

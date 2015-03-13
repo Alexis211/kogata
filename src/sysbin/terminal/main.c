@@ -231,13 +231,7 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 void c_key_down(gip_handler_t *s, gip_msg_header *p) {
 	term_t *c = (term_t*)s->data;
 
-	keyboard_press(c->kb, p->arg);
-}
-
-void c_key_up(gip_handler_t *s, gip_msg_header *p) {
-	term_t *c = (term_t*)s->data;
-
-	key_t k = keyboard_release(c->kb, p->arg);
+	key_t k = keyboard_press(c->kb, p->arg);
 
 	c->wr_c_buf = 0;
 	if (k.flags & KBD_CHAR) {
@@ -248,6 +242,12 @@ void c_key_up(gip_handler_t *s, gip_msg_header *p) {
 		if (k.key == KBD_CODE_BKSP) c->wr_c_buf = '\b';
 	}
 	mainloop_nonblocking_write(&c->app, &c->wr_c_buf, 1, false);
+}
+
+void c_key_up(gip_handler_t *s, gip_msg_header *p) {
+	term_t *c = (term_t*)s->data;
+
+	keyboard_release(c->kb, p->arg);
 }
 
 void c_unknown_msg(gip_handler_t *s, gip_msg_header *p) {
