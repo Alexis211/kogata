@@ -27,6 +27,9 @@ typedef struct {
 	int csrl, csrc;
 	bool csr_visible;
 
+	mainloop_fd_t app;
+	char rd_c_buf;
+	char wr_c_buf;
 } term_t;
 
 void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m);
@@ -34,6 +37,9 @@ void c_key_down(gip_handler_t *s, gip_msg_header *p);
 void c_key_up(gip_handler_t *s, gip_msg_header *p);
 void c_unknown_msg(gip_handler_t *s, gip_msg_header *p);
 void c_fd_error(gip_handler_t *s);
+
+void term_on_rd_c(mainloop_fd_t *fd);
+void term_app_on_error(mainloop_fd_t *fd);
 
 void c_async_initiate(gip_handler_t *s, gip_msg_header *p, void* msgdata, void* hdata);
 
@@ -76,6 +82,12 @@ int main(int argc, char **argv) {
 	h->mainloop_item.fd = 1;
 	mainloop_add_fd(&h->mainloop_item);
 
+	// setup communication with app
+	term.app.fd = 2;
+	term.app.on_error = term_app_on_error;
+	term.app.data = &term;
+	mainloop_expect(&term.app, &term.rd_c_buf, 1, term_on_rd_c);
+
 	gip_msg_header reset_msg = { .code = GIPC_RESET, .arg = 0 };
 	gip_cmd(h, &reset_msg, 0, c_async_initiate, 0);
 
@@ -94,8 +106,10 @@ void term_draw_c(term_t *t, int l, int c) {
 	ss[0] = t->scr_chars[l * t->w + c];
 	ss[1] = 0;
 
-	g_fillrect(t->fb, c * t->cw, l * t->ch, t->cw, t->ch, bg);
-	g_write(t->fb, c * t->cw, l * t->ch, ss, t->font, t->fg);
+	if (t->fb) {
+		g_fillrect(t->fb, c * t->cw, l * t->ch, t->cw, t->ch, bg);
+		g_write(t->fb, c * t->cw, l * t->ch, ss, t->font, t->fg);
+	}
 }
 
 void term_move_cursor(term_t *t, int l, int c) {
@@ -111,7 +125,8 @@ void term_clear_screen(term_t *t) {
 
 	for (int i = 0; i < t->w * t->h; i++) t->scr_chars[i] = ' ';
 
-	g_fillrect(t->fb, 0, 0, t->mode.width, t->mode.height, t->bg);
+	if (t->fb)
+		g_fillrect(t->fb, 0, 0, t->mode.width, t->mode.height, t->bg);
 
 	term_move_cursor(t, 0, 0);
 }
@@ -124,8 +139,10 @@ void term_scroll1(term_t *t) {
 	}
 	t->csrl--;
 
-	g_scroll_up(t->fb, t->ch);
-	g_fillrect(t->fb, 0, t->ch * (t->h - 1), t->cw * t->w, t->ch, t->bg);
+	if (t->fb) {
+		g_scroll_up(t->fb, t->ch);
+		g_fillrect(t->fb, 0, t->ch * (t->h - 1), t->cw * t->w, t->ch, t->bg);
+	}
 }
 
 void term_putc(term_t *t, int c) {
@@ -135,8 +152,11 @@ void term_putc(term_t *t, int c) {
 	} else if (c == '\b') {
 		if (nc > 0) {
 			nc--;
-			t->scr_chars[nl * t->w + nc] = ' ';
+		} else {
+			nl--;
+			nc = t->w - 1;
 		}
+		t->scr_chars[nl * t->w + nc] = ' ';
 	} else if (c == '\t') {
 		while (nc % 4 != 0) nc++;
 	} else if (c >= ' ' && c < 128) {
@@ -198,6 +218,9 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 			c->bg = g_color_rgb(c->fb, 0, 0, 0);
 			c->fg = g_color_rgb(c->fb, 200, 200, 200);
 			term_clear_screen(c);
+
+			mainloop_rm_fd(&c->app);
+			mainloop_add_fd(&c->app);
 		} else {
 			dbg_printf("[terminal] Could not open framebuffer file %d\n", c->fd);
 		}
@@ -208,12 +231,7 @@ void c_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m) 
 void c_key_down(gip_handler_t *s, gip_msg_header *p) {
 	term_t *c = (term_t*)s->data;
 
-	key_t k = keyboard_press(c->kb, p->arg);
-
-	if (k.flags & KBD_CHAR)
-		dbg_printf("D %x %c\n", k.flags, k.key);
-	else
-		dbg_printf("D %x %d\n", k.flags, k.key);
+	keyboard_press(c->kb, p->arg);
 }
 
 void c_key_up(gip_handler_t *s, gip_msg_header *p) {
@@ -221,18 +239,15 @@ void c_key_up(gip_handler_t *s, gip_msg_header *p) {
 
 	key_t k = keyboard_release(c->kb, p->arg);
 
-	if (k.flags & KBD_CHAR)
-		dbg_printf("U %x %c\n", k.flags, k.key);
-	else
-		dbg_printf("U %x %d\n", k.flags, k.key);
-
+	c->wr_c_buf = 0;
 	if (k.flags & KBD_CHAR) {
-		term_putc(c, k.chr);
+		c->wr_c_buf = k.chr;
 	} else {
-		if (k.key == KBD_CODE_RETURN) term_putc(c, '\n');
-		if (k.key == KBD_CODE_TAB) term_putc(c, '\t');
-		if (k.key == KBD_CODE_BKSP) term_putc(c, '\b');
+		if (k.key == KBD_CODE_RETURN) c->wr_c_buf = '\n';
+		if (k.key == KBD_CODE_TAB) c->wr_c_buf = '\t';
+		if (k.key == KBD_CODE_BKSP) c->wr_c_buf = '\b';
 	}
+	mainloop_nonblocking_write(&c->app, &c->wr_c_buf, 1, false);
 }
 
 void c_unknown_msg(gip_handler_t *s, gip_msg_header *p) {
@@ -240,6 +255,16 @@ void c_unknown_msg(gip_handler_t *s, gip_msg_header *p) {
 }
 
 void c_fd_error(gip_handler_t *s) {
+	// TODO
+}
+
+void term_on_rd_c(mainloop_fd_t *fd) {
+	term_t *t = (term_t*)fd->data;
+
+	term_putc(t, t->rd_c_buf);
+}
+
+void term_app_on_error(mainloop_fd_t *fd) {
 	// TODO
 }
 
