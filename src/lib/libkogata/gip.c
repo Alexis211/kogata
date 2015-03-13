@@ -137,7 +137,7 @@ void giph_msg_header(mainloop_fd_t *fd) {
 	ASSERT(fd == &h->mainloop_item);
 
 	int code = h->msg_buf.code;
-	dbg_printf("Got GIP header, code %d\n", code);
+	/*dbg_printf("Got GIP header, code %d\n", code);*/
 
 	noarg_gip_callback_t use_cb = 0;
 	if (code ==	GIPC_RESET) {

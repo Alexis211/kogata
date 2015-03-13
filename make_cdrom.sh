@@ -15,6 +15,7 @@ cp src/sysbin/init/init.bin cdrom/boot; strip cdrom/boot/init.bin
 mkdir -p cdrom/sys/bin
 cp src/sysbin/giosrv/giosrv.bin cdrom/sys/bin
 cp src/sysbin/login/login.bin cdrom/sys/bin
+cp src/sysbin/terminal/terminal.bin cdrom/sys/bin
 for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
 mkdir -p cdrom/sys/fonts

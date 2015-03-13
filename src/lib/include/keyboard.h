@@ -1,7 +1,8 @@
 #pragma once
 
-#include <proto/keymap_file.h>
+#include <proto/keyboard.h>
 
+#include <proto/keymap_file.h>
 
 #define KBD_CHAR		0x01
 #define KBD_ALT			0x02

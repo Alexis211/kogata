@@ -208,6 +208,14 @@ void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg) {
 	}
 }
 
+void g_scroll_up(fb_t *dst, int l) {
+	for (unsigned y = 0; y < dst->geom.height - l; y++) {
+		memcpy(dst->data + y * dst->geom.pitch,
+				dst->data + (y + l) * dst->geom.pitch,
+				dst->geom.pitch);
+	}
+}
+
 //  ---- Text manipulation
 
 #define FONT_ASCII_BITMAP	1

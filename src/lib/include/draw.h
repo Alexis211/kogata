@@ -48,6 +48,8 @@ void g_fillcircle(fb_t *fb, int cx, int cy, int r, color_t c);
 void g_blit(fb_t *dst, int x, int y, fb_t *src);
 void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg);
 
+void g_scroll_up(fb_t *fb, int l);
+
 //  ---- Text manipulation
 
 font_t *g_load_font(const char* fontname);

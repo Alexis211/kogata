@@ -1,6 +1,6 @@
 DIRS = src/common/libkogata src/common/libc src/common/libalgo \
 	src/kernel src/lib/libkogata \
-	src/sysbin/init src/sysbin/giosrv src/sysbin/login \
+	src/sysbin/init src/sysbin/giosrv src/sysbin/login src/sysbin/terminal \
 	res/fonts res/keymaps
 
 all:
