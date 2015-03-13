@@ -98,7 +98,7 @@ running the tests):
 
 ### Files in the repository
 
-    doc/                        documentation (none yet, sorry!)
+    doc/                        documentation
 	src/
 	src/kernel/                 code for the kogata kernel
 	src/common/                 code shared between kernel and userspace libs
