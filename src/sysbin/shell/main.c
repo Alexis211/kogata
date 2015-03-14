@@ -14,7 +14,10 @@ void ls(char* dir) {
 		dirent_t i;
 		int ent_no = 0;
 		while (readdir(f, ent_no++, &i)) {
-			printf("%s\n", i.name);
+			if (i.st.type & FT_DIR)
+				printf("%s/\n", i.name);
+			else
+				printf("%s\n", i.name);
 		}
 		close(f);
 	} else {
@@ -22,10 +25,28 @@ void ls(char* dir) {
 	}
 }
 
+void cat(char* file) {
+	fd_t f = open(file, FM_READ);
+	if (f) {
+		char buf[129];
+		size_t p = 0;
+		while (true) {
+			size_t r = read(f, p, 128, buf);
+			p += r;
+			buf[r] = 0;
+			puts(buf);
+			if (r < 128) break;
+		}
+		close(f);
+	} else {
+		printf("Could not open file '%s'\n", file);
+	}
+}
+
 int main(int argc, char **argv) {
 	dbg_printf("[shell] Starting\n");
 
-	/*fctl(stdio, FC_SET_BLOCKING, 0);*/
+	fctl(1, FC_SET_BLOCKING, 0);
 
 	puts("Kogata shell.\n");
 
@@ -47,6 +68,13 @@ int main(int argc, char **argv) {
 			if (getcwd(buf2, 256)) {
 				if (pathncat(buf2, buf + 3, 256)) {
 					ls(buf2);
+				}
+			}
+		} else if (!strncmp(buf, "cat ", 4)) {
+			char buf2[256];
+			if (getcwd(buf2, 256)) {
+				if (pathncat(buf2, buf+4, 256)) {
+					cat(buf2);
 				}
 			}
 		} else if (!strcmp(buf, "exit")) {

@@ -21,7 +21,7 @@ for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
 mkdir -p cdrom/sys/fonts
 cp res/fonts/*.bf cdrom/sys/fonts
-cp res/fonts/muazzam.bf cdrom/sys/fonts/default.bf
+cp res/fonts/pcvga.bf cdrom/sys/fonts/default.bf
 
 mkdir -p cdrom/sys/keymaps
 cp res/keymaps/*.km cdrom/sys/keymaps

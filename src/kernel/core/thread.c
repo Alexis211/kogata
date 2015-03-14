@@ -421,7 +421,7 @@ void kill_thread(thread_t *thread) {
 			enqueue_thread(thread, false);
 		}
 		yield();
-		if (i++ > 100) dbg_printf("Thread 0x%p must be killed but will not exit.\n", thread);
+		if (i++ == 100) dbg_printf("Thread 0x%p must be killed but will not exit.\n", thread);
 	}
 
 	exit_critical(st);

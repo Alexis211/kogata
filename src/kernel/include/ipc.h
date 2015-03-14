@@ -6,7 +6,7 @@
 
 //  ---- Communication channels
 
-#define CHANNEL_BUFFER_SIZE 1000		// 1000 + other channel_t fields = 1024 - epsilon
+#define CHANNEL_BUFFER_SIZE 200		// 1000 + other channel_t fields = 1024 - epsilon
 
 typedef struct {
 	fs_handle_t *a, *b;

@@ -1,4 +1,5 @@
 #include <syscall.h>
+#include <string.h>
 
 #include <printf.h>
 #include <stdio.h>
@@ -7,12 +8,6 @@
 fd_t stdio = 1;
 
 int getc() {
-	sel_fd_t fd;
-	fd.fd = stdio;
-	fd.req_flags = SEL_READ;
-	ASSERT(select(&fd, 1, -1));
-	ASSERT(fd.got_flags & SEL_READ);
-
 	char chr;
 	size_t sz = read(stdio, 0, 1, &chr);
 	ASSERT(sz == 1);
@@ -26,7 +21,7 @@ void putc(int c) {
 }
 
 void puts(char* s) {
-	while (*s) putc(*(s++));
+	write(stdio, 0, strlen(s), s);
 }
 
 void getline(char* buf, size_t l) {

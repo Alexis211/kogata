@@ -128,11 +128,23 @@ size_t channel_read(fs_handle_t *h, size_t offset, size_t req_len, char* orig_bu
 			c->buf_used -= len;
 			
 			if (c->buf_used == 0) c->buf_use_begin = 0;
+
+			resume_on(c);
+
+			mutex_unlock(&c->lock);
+
+			ret += len;
+		} else if (h->mode & FM_BLOCKING) {
+			int st = enter_critical(CL_NOINT);
+
+			mutex_unlock(&c->lock);
+
+			wait_on(c);
+
+			exit_critical(st);
+		} else {
+			mutex_unlock(&c->lock);
 		}
-
-		ret += len;
-
-		mutex_unlock(&c->lock);
 	} while ((h->mode & FM_BLOCKING) && ret < req_len);
 
 	return ret;
@@ -158,22 +170,37 @@ size_t channel_write(fs_handle_t *h, size_t offset, size_t req_len, const char* 
 		if (c->buf_used + len > CHANNEL_BUFFER_SIZE) len = CHANNEL_BUFFER_SIZE - c->buf_used;
 
 		if (len) {
-			size_t len0 = len, len1 = 0;
+			if (c->buf_use_begin + c->buf_used >= CHANNEL_BUFFER_SIZE) {
+				memcpy(c->buf + c->buf_use_begin + c->buf_used - CHANNEL_BUFFER_SIZE, buf, len);
+			} else {
+				size_t len0 = len, len1 = 0;
 
-			if (c->buf_use_begin + c->buf_used + len > CHANNEL_BUFFER_SIZE) {
-				len0 = CHANNEL_BUFFER_SIZE - c->buf_use_begin - c->buf_used;
-				len1 = len - len0;
+				if (c->buf_use_begin + c->buf_used + len > CHANNEL_BUFFER_SIZE) {
+					len0 = CHANNEL_BUFFER_SIZE - c->buf_use_begin - c->buf_used;
+					len1 = len - len0;
+				}
+				memcpy(c->buf + c->buf_use_begin + c->buf_used, buf, len0);
+				if (len1) memcpy(c->buf, buf + len0, len1);
 			}
-			memcpy(c->buf + c->buf_use_begin + c->buf_used, buf, len0);
-			if (len1) memcpy(c->buf, buf + len0, len1);
 
 			c->buf_used += len;
+
+			resume_on(c);	//  notify other side
+
+			mutex_unlock(&c->lock);
+
+			ret += len;
+		} else if (h->mode & FM_BLOCKING) {
+			int st = enter_critical(CL_NOINT);
+
+			mutex_unlock(&c->lock);
+
+			wait_on(c);
+
+			exit_critical(st);
+		} else {
+			mutex_unlock(&c->lock);
 		}
-
-		mutex_unlock(&c->lock);
-
-		if (len) resume_on(c);	// notify processes that may be waiting for data
-		ret += len;
 	} while ((h->mode & FM_BLOCKING) && ret < req_len);
 
 	return ret;
