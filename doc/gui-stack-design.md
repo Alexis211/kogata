@@ -1,6 +1,36 @@
 (sorry, in french for the moment)
 
-# Design de la pile GUI
+GUI stack design
+================
+
+Two protocols :
+
+- GIP (Graphics Initiation Protocol) : one GIP session handles one graphical
+  framebuffer, a keyboard, a mouse. The buffer is created by the server and
+  shared to the client with a token (a kernel IPC mechanism for file
+  descriptors). Reset operation. Possible extention for audio input/output to be
+  done at this level.
+- WMP (Window Management Protocol) : creation of windows and of a GIP channel
+  for interacting with each window. Usual window managing messages. Hierarchy of
+  WMP channels : in a WMP channel you can ask for the creation of a sub-channel
+  ; when a channel is closed all the sub-channels are closed too.
+
+Software components of the GUI stack :
+
+- `giosrv` handles the i/o with the hardware and makes that available as a GIP
+  channel
+- login manager : talks to `giosrv`, displays the login manager, and once a
+  user is logged in, simply proxies the GIP between `giosrv` and the user
+  desktop manager. Intercepts Ctrl+Alt+Del to lock the current session and go
+  back to login screen.
+- sessin manager : instantiated by login manager, runs with the privileges of
+  the user. Window managing.
+- graphical toolkit library
+
+
+----
+
+Version française.
 
 Deux protocoles :
 
