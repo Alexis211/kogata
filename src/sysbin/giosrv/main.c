@@ -4,7 +4,7 @@
 
 #include <syscall.h>
 #include <debug.h>
-#include <user_region.h>
+#include <region_alloc.h>
 
 #include <proto/keyboard.h>
 

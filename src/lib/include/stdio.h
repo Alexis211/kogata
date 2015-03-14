@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stddef.h>
 #include <stdarg.h>
-#include <stdint.h>
+
+#include <syscall.h>
 
 extern fd_t stdio;
 

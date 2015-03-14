@@ -4,7 +4,7 @@
 
 #include <syscall.h>
 #include <debug.h>
-#include <user_region.h>
+#include <region_alloc.h>
 
 int main(int argc, char **argv) {
 	dbg_print("(BEGIN-USER-TEST malloc-test)\n");

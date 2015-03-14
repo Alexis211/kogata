@@ -1,6 +1,5 @@
 #include <string.h>
 #include <malloc.h>
-#include <user_region.h>
 #include <debug.h>
 
 #include <syscall.h>
