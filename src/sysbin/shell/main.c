@@ -33,8 +33,7 @@ void cat(char* file) {
 		while (true) {
 			size_t r = read(f, p, 128, buf);
 			p += r;
-			buf[r] = 0;
-			puts(buf);
+			write(stdio, 0, r, buf);
 			if (r < 128) break;
 		}
 		close(f);
@@ -46,7 +45,7 @@ void cat(char* file) {
 int main(int argc, char **argv) {
 	dbg_printf("[shell] Starting\n");
 
-	fctl(1, FC_SET_BLOCKING, 0);
+	fctl(stdio, FC_SET_BLOCKING, 0);
 
 	puts("Kogata shell.\n");
 

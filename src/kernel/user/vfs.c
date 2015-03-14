@@ -497,6 +497,8 @@ void unref_file(fs_handle_t *file) {
 }
 
 size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
+	if (len == 0) return 0;
+
 	if (!(f->mode & FM_READ)) return 0;
 
 	if (f->node->ops->read == 0) return 0;
@@ -505,6 +507,8 @@ size_t file_read(fs_handle_t *f, size_t offset, size_t len, char* buf) {
 }
 
 size_t file_write(fs_handle_t *f, size_t offset, size_t len, const char* buf) {
+	if (len == 0) return 0;
+
 	if (!(f->mode & FM_WRITE)) return 0;
 
 	if (f->node->ops->write == 0) return 0;

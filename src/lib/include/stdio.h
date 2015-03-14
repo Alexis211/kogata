@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+extern fd_t stdio;
+
 void putchar(int c);
 void puts(char* s);
 void printf(char* arg, ...);
