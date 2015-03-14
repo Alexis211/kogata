@@ -5,7 +5,7 @@
 
 #include <proto/font_file.h>
 
-#include <user_region.h>
+#include <region_alloc.h>
 
 #include <draw.h>
 

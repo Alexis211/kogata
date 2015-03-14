@@ -113,7 +113,8 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	paging_setup(kernel_data_end);
 	dbg_printf("Paging seems to be working!\n");
 
-	region_allocator_init(kernel_data_end);
+	region_allocator_init((void*)K_HIGHHALF_ADDR, (void*)PAGE_ALIGN_UP(kernel_data_end),
+		(void*)LAST_KERNEL_ADDR, alloc_map_single_frame);
 	dbg_printf("Region allocator initialized.\n");
 	TEST_PLACEHOLDER_AFTER_REGION;
 

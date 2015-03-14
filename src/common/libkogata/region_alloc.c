@@ -1,8 +1,15 @@
-#include <user_region.h>
+#include <region_alloc.h>
 #include <debug.h>
 #include <mutex.h>
 
-#include <syscall.h>
+// we cannot include sys...
+
+#define PAGE_SIZE		0x1000
+#define PAGE_MASK		0xFFFFF000
+#define PAGE_ALIGNED(x)     ((((size_t)(x)) & (~PAGE_MASK)) == 0)
+#define PAGE_ALIGN_DOWN(x)	(((size_t)(x)) & PAGE_MASK) 
+#define PAGE_ALIGN_UP(x)  	((((size_t)(x))&(~PAGE_MASK)) == 0 ? ((size_t)x) : (((size_t)x) & PAGE_MASK) + PAGE_SIZE)
+
 
 typedef union region_descriptor {
 	struct {
@@ -30,19 +37,21 @@ uint32_t n_unused_descriptors;
 static descriptor_t *first_free_region_by_addr, *first_free_region_by_size;
 static descriptor_t *first_used_region;
 
+static map_page_fun_t region_alloc_map_page_fun;
+
 STATIC_MUTEX(ra_mutex);	// region allocator mutex
 
 // ========================================================= //
 // HELPER FUNCTIONS FOR THE MANIPULATION OF THE REGION LISTS //
 // ========================================================= //
 
-static void add_unused_descriptor(descriptor_t *d) {
+void add_unused_descriptor(descriptor_t *d) {
 	n_unused_descriptors++;
 	d->unused_descriptor.next = first_unused_descriptor;
 	first_unused_descriptor = d;
 }
 
-static descriptor_t *get_unused_descriptor() {
+descriptor_t *get_unused_descriptor() {
 	descriptor_t *r = first_unused_descriptor;
 	if (r != 0) {
 		first_unused_descriptor = r->unused_descriptor.next;
@@ -51,7 +60,7 @@ static descriptor_t *get_unused_descriptor() {
 	return r;
 }
 
-static void remove_free_region(descriptor_t *d) {
+void remove_free_region(descriptor_t *d) {
 	if (first_free_region_by_size == d) {
 		first_free_region_by_size = d->free.next_by_size;
 	} else {
@@ -77,7 +86,7 @@ static void remove_free_region(descriptor_t *d) {
 	}
 }
 
-static void add_free_region(descriptor_t *d) {
+void add_free_region(descriptor_t *d) {
 	/*dbg_printf("Add free region 0x%p - 0x%p\n", d->free.addr, d->free.size + d->free.addr);*/
 	// Find position of region in address-ordered list
 	// Possibly concatenate free region
@@ -159,7 +168,7 @@ static void add_free_region(descriptor_t *d) {
 	}
 }
 
-static descriptor_t *find_used_region(void* addr) {
+descriptor_t *find_used_region(void* addr) {
 	for (descriptor_t *i = first_used_region; i != 0; i = i->used.next_by_addr) {
 		if (addr >= i->used.i.addr && addr < i->used.i.addr + i->used.i.size) return i;
 		if (i->used.i.addr > addr) break;
@@ -167,13 +176,13 @@ static descriptor_t *find_used_region(void* addr) {
 	return 0;
 }
 
-static void add_used_region(descriptor_t *d) {
+void add_used_region(descriptor_t *d) {
 	if (first_used_region == 0 || d->used.i.addr < first_used_region->used.i.addr) {
 		d->used.next_by_addr = first_used_region;
 		first_used_region = d;
 	} else {
 		descriptor_t *i = first_used_region;
-		ASSERT(i->used.i.addr < d->used.i.addr);	// first region by address is never free
+		ASSERT(i->used.i.addr < d->used.i.addr);
 
 		while (i != 0) {
 			ASSERT(i->used.i.addr < d->used.i.addr);
@@ -189,7 +198,7 @@ static void add_used_region(descriptor_t *d) {
 	}
 }
 
-static void remove_used_region(descriptor_t *d) {
+void remove_used_region(descriptor_t *d) {
 	if (first_used_region == d) {
 		first_used_region = d->used.next_by_addr;
 	} else {
@@ -207,24 +216,39 @@ static void remove_used_region(descriptor_t *d) {
 // THE ACTUAL CODE //
 // =============== //
 
-void region_allocator_init(void* begin, void* end) {
+void region_allocator_init(void* begin, void* rsvd_end, void* end, map_page_fun_t map_page_fun) {
 	n_unused_descriptors = 0;
 	first_unused_descriptor = 0;
 	for (int i = 0; i < N_BASE_DESCRIPTORS; i++) {
 		add_unused_descriptor(&base_descriptors[i]);
 	}
 
+	ASSERT(PAGE_ALIGNED(begin));
+	ASSERT(PAGE_ALIGNED(rsvd_end));
+	ASSERT(PAGE_ALIGNED(end));
+
 	descriptor_t *f0 = get_unused_descriptor();
-	f0->free.addr = (void*)PAGE_ALIGN_UP(begin);
-	f0->free.size = ((void*)PAGE_ALIGN_DOWN(end) - f0->free.addr);
+	f0->free.addr = rsvd_end;
+	f0->free.size = ((void*)end - rsvd_end);
 	f0->free.next_by_size = 0;
 	f0->free.first_bigger = 0;
 	first_free_region_by_size = first_free_region_by_addr = f0;
 
-	first_used_region = 0;
+	if (rsvd_end > begin) {
+		descriptor_t *u0 = get_unused_descriptor();
+		u0->used.i.addr = begin;
+		u0->used.i.size = rsvd_end - begin;
+		u0->used.i.type = "Reserved";
+		u0->used.next_by_addr = 0;
+		first_used_region = u0;
+	} else {
+		first_used_region = 0;
+	}
+
+	region_alloc_map_page_fun = map_page_fun;
 }
 
-static void region_free_inner(void* addr) {
+void region_free_inner(void* addr) {
 	descriptor_t *d = find_used_region(addr);
 	if (d == 0) return;
 
@@ -241,7 +265,7 @@ void region_free(void* addr) {
 	mutex_unlock(&ra_mutex);
 }
 
-static void* region_alloc_inner(size_t size, char* type, bool use_reserve) {
+void* region_alloc_inner(size_t size, char* type, bool use_reserve) {
 	size = PAGE_ALIGN_UP(size);
 
 	for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.first_bigger) {
@@ -292,9 +316,10 @@ void* region_alloc(size_t size, char* type) {
 		void* descriptor_region = region_alloc_inner(PAGE_SIZE, "Region descriptors", true);
 		ASSERT(descriptor_region != 0);
 
-		bool map_ok = mmap(descriptor_region, PAGE_SIZE, MM_READ | MM_WRITE);
+		bool map_ok = region_alloc_map_page_fun(descriptor_region);
 		if (!map_ok) {
-			// this can happen if we weren't able to mmap the region (for whatever reason)
+			// this can happen if we weren't able to allocate a frame for
+			// a new pagetable
 			region_free_inner(descriptor_region);
 			goto try_anyway;
 		}
@@ -326,6 +351,7 @@ region_info_t *find_region(void* addr) {
 	return r;
 }
 
+
 // =========================== //
 // DEBUG LOG PRINTING FUNCTION //
 // =========================== //
@@ -333,19 +359,19 @@ region_info_t *find_region(void* addr) {
 void dbg_print_region_info() {
 	mutex_lock(&ra_mutex);
 
-	dbg_printf("/ Free process regions, by address:\n");
+	dbg_printf("/ Free kernel regions, by address:\n");
 	for (descriptor_t *d = first_free_region_by_addr; d != 0; d = d->free.next_by_addr) {
 		dbg_printf("| 0x%p - 0x%p\n", d->free.addr, d->free.addr + d->free.size);
 		ASSERT(d != d->free.next_by_addr);
 	}
-	dbg_printf("- Free process regions, by size:\n");
+	dbg_printf("- Free kernel regions, by size:\n");
 	for (descriptor_t *d = first_free_region_by_size; d != 0; d = d->free.next_by_size) {
 		dbg_printf("| 0x%p - 0x%p ", d->free.addr, d->free.addr + d->free.size);
 		dbg_printf("(0x%p, next in size: 0x%p)\n", d->free.size,
 			(d->free.first_bigger == 0 ? 0 : d->free.first_bigger->free.addr));
 		ASSERT(d != d->free.next_by_size);
 	}
-	dbg_printf("- Used process regions:\n");
+	dbg_printf("- Used kernel regions:\n");
 	for (descriptor_t *d = first_used_region; d != 0; d = d->used.next_by_addr) {
 		dbg_printf("| 0x%p - 0x%p  %s\n", d->used.i.addr, d->used.i.addr + d->used.i.size, d->used.i.type);
 		ASSERT(d != d->used.next_by_addr);

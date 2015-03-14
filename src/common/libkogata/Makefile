@@ -1,4 +1,4 @@
-OBJ = slab_alloc.o mutex.o
+OBJ = slab_alloc.o region_alloc.o mutex.o
 
 LIB = 
 

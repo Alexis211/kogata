@@ -1,4 +1,4 @@
-OBJ = start.o malloc.o debug.o syscall.o user_region.o \
+OBJ = start.o malloc.o debug.o syscall.o \
 	mainloop.o gip.o draw.o keyboard.o \
 	stdio.o unistd.o
 

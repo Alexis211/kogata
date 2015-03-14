@@ -2,7 +2,7 @@
 #include <slab_alloc.h>
 
 #include <syscall.h>
-#include <user_region.h>
+#include <region_alloc.h>
 
 static void* heap_alloc_pages(size_t s) {
 	void* addr = region_alloc(s, "Heap");
@@ -37,8 +37,12 @@ static slab_type_t slab_sizes[] = {
 	{ 0, 0, 0 }
 };
 
+bool mmap_single_page(void* addr) {
+	return mmap(addr, PAGE_SIZE, MM_READ | MM_WRITE);
+}
+
 void malloc_setup() {
-	region_allocator_init((void*)0x40000000, (void*)0xB0000000);
+	region_allocator_init((void*)0x40000000, (void*)0x40000000, (void*)0xB0000000, mmap_single_page);
 
 	mem_allocator = create_slab_allocator(slab_sizes, heap_alloc_pages, heap_free_pages);
 
