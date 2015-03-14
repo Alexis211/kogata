@@ -50,7 +50,7 @@ fs_t *make_fs(const char* drv_name, fs_handle_t *source, const char* opts) {
 	fs->root->parent = 0;
 	fs->root->children = 0;
 
-	dbg_printf("sREF1m0x%p\n", fs);
+	if (SPAM_FS_REF) dbg_printf("sREF1m0x%p\n", fs);
 
 	// Look for driver
 	for(fs_driver_t *i = drivers; i != 0; i = i->next) {
@@ -88,7 +88,7 @@ fs_t *fs_subfs(fs_t *fs, const char* root, int ok_modes) {
 
 	subfs->root = new_root;
 
-	dbg_printf("sREF1s0x%p\n", fs);
+	if (SPAM_FS_REF) dbg_printf("sREF1s0x%p\n", fs);
 
 	return subfs;
 }
@@ -98,7 +98,7 @@ bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts) {
 }
 
 void ref_fs(fs_t *fs) {
-	dbg_printf("sREF++0x%p(%d)\n", fs, fs->refs);
+	if (SPAM_FS_REF) dbg_printf("sREF++0x%p(%d)\n", fs, fs->refs);
 
 	mutex_lock(&fs->lock);
 	
@@ -108,7 +108,7 @@ void ref_fs(fs_t *fs) {
 }
 
 void unref_fs(fs_t *fs) {
-	dbg_printf("sREF--0x%p(%d)\n", fs, fs->refs);
+	if (SPAM_FS_REF) dbg_printf("sREF--0x%p(%d)\n", fs, fs->refs);
 
 	mutex_lock(&fs->lock);
 
@@ -456,7 +456,7 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	h->node = n;
 	h->mode = mode;
 
-	dbg_printf("hREF1o0x%p\n", h);
+	if (SPAM_FS_REF) dbg_printf("hREF1o0x%p\n", h);
 
 	// our reference to node n is transferred to the file handle
 	mutex_unlock(&n->lock);
@@ -471,7 +471,7 @@ error:
 }
 
 void ref_file(fs_handle_t *file) {
-	dbg_printf("hREF++0x%p(%d)\n", file, file->refs);
+	if (SPAM_FS_REF) dbg_printf("hREF++0x%p(%d)\n", file, file->refs);
 
 	mutex_lock(&file->lock);
 
@@ -481,7 +481,7 @@ void ref_file(fs_handle_t *file) {
 }
 
 void unref_file(fs_handle_t *file) {
-	dbg_printf("hREF--0x%p(%d)\n", file, file->refs);
+	if (SPAM_FS_REF) dbg_printf("hREF--0x%p(%d)\n", file, file->refs);
 
 	mutex_lock(&file->lock);
 

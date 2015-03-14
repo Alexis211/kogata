@@ -56,6 +56,9 @@ static void remove_free_region(descriptor_t *d) {
 		first_free_region_by_size = d->free.next_by_size;
 	} else {
 		for (descriptor_t *i = first_free_region_by_size; i != 0; i = i->free.next_by_size) {
+			if (i->free.first_bigger == d) {
+				i->free.first_bigger = d->free.next_by_size;
+			}
 			if (i->free.next_by_size == d) {
 				i->free.next_by_size = d->free.next_by_size;
 				break;
@@ -337,7 +340,9 @@ void dbg_print_region_info() {
 	}
 	dbg_printf("- Free process regions, by size:\n");
 	for (descriptor_t *d = first_free_region_by_size; d != 0; d = d->free.next_by_size) {
-		dbg_printf("| 0x%p - 0x%p\n", d->free.addr, d->free.addr + d->free.size);
+		dbg_printf("| 0x%p - 0x%p ", d->free.addr, d->free.addr + d->free.size);
+		dbg_printf("(0x%p, next in size: 0x%p)\n", d->free.size,
+			(d->free.first_bigger == 0 ? 0 : d->free.first_bigger->free.addr));
 		ASSERT(d != d->free.next_by_size);
 	}
 	dbg_printf("- Used process regions:\n");
@@ -345,7 +350,12 @@ void dbg_print_region_info() {
 		dbg_printf("| 0x%p - 0x%p  %s\n", d->used.i.addr, d->used.i.addr + d->used.i.size, d->used.i.type);
 		ASSERT(d != d->used.next_by_addr);
 	}
-	dbg_printf("\\\n");
+
+	int nfreerd = 0;
+	for (descriptor_t *i = first_unused_descriptor; i != 0; i = i->unused_descriptor.next)
+		nfreerd++;
+
+	dbg_printf("\\ Free region descriptors: %d (%d)\n", nfreerd, n_unused_descriptors);
 
 	mutex_unlock(&ra_mutex);
 }

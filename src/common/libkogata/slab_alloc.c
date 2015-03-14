@@ -238,10 +238,7 @@ void slab_free(mem_allocator_t* a, void* addr) {
 
 				// check the object is not already on the free list (double-free error)
 				for (object_t *i = r->first_free_obj; i != 0; i = i->next) {
-					if (!((void*)i >= r->region_addr && (void*)i < r->region_addr + region_size)){
-						dbg_printf("Invalid object 0x%p in cache 0x%p - %x\n", i, r->region_addr, region_size);
-						PANIC("Error");
-					}
+					ASSERT((void*)i >= r->region_addr && (void*)i < r->region_addr + region_size);
 					ASSERT(o != i);
 				}
 

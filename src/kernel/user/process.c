@@ -449,8 +449,6 @@ bool proc_add_fs(process_t *p, fs_t *fs, const char* name) {
 	if (hashtbl_find(p->filesystems, n) != 0) goto end;
 
 	add_ok = hashtbl_add(p->filesystems, n, fs);
-	
-	dbg_printf("Bind %s: 0x%p\n", name, fs);
 
 end:
 	mutex_unlock(&p->lock);
@@ -601,7 +599,6 @@ error:
 }
 
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode) {
-	dbg_printf("Mmap file 0x%p\n", h);
 	if (find_user_region(proc, addr) != 0) return false;
 
 	if ((uint32_t)addr & (~PAGE_MASK)) return false;

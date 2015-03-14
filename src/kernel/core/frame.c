@@ -54,6 +54,7 @@ uint32_t frame_alloc(size_t n) {
 
 				mutex_unlock(&frame_allocator_mutex);
 				/*dbg_printf("AF 0x%p\n", i * 32 + j);*/
+
 				return i * 32 + j;
 			}
 		}

@@ -129,7 +129,7 @@ void run_scheduler() {
 	}
 	current_thread = dequeue_thread();
 
-	if (current_thread != prev_thread) dbg_printf("[0x%p]\n", current_thread);
+	if (current_thread != prev_thread && SPAM_CONTEXT_SWITCH) dbg_printf("[0x%p]\n", current_thread);
 
 	if (current_thread != 0) {
 		thread_t *ptr = current_thread;
@@ -149,7 +149,7 @@ void run_scheduler() {
 void run_thread(void (*entry)(void*), void* data) {
 	ASSERT(current_thread->state == T_STATE_RUNNING);
 
-	dbg_printf("Begin thread 0x%p (in process %d)\n",
+	if (SPAM_BEGIN_EXIT) dbg_printf("Begin thread 0x%p (in process %d)\n",
 		current_thread, (current_thread->proc ? current_thread->proc->pid : 0));
 
 	switch_pagedir(get_kernel_pagedir());
@@ -176,6 +176,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 		uint32_t f;
 		int tries = 0;
 		while ((f = frame_alloc(1)) == 0 && (tries++) < 3) {
+			dbg_printf("thread stack alloc OOM\n");
 			free_some_memory();
 		}
 		if (f == 0) {
@@ -220,7 +221,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 void delete_thread(thread_t *t) {
 	ASSERT(t->state == T_STATE_FINISHED);
 
-	dbg_printf("Deleting thread 0x%p\n", t);
+	if (SPAM_BEGIN_EXIT) dbg_printf("Deleting thread 0x%p\n", t);
 
 	region_free_unmap_free(t->stack_region->addr);
 	free(t);
@@ -289,11 +290,13 @@ bool wait_on_many(void** x, size_t n) {
 
 	//  ---- Set ourselves as the waiting thread for all the requested objets
 
-	/*dbg_printf("Wait on many:");*/
-	/*for (size_t i = 0; i < n; i++) {*/
-		/*dbg_printf(" 0x%p", x[i]);*/
-	/*}*/
-	/*dbg_printf("\n");*/
+	if (SPAM_WAIT_RESUME_ON) {
+		dbg_printf("Wait on many:");
+		for (size_t i = 0; i < n; i++) {
+			dbg_printf(" 0x%p", x[i]);
+		}
+		dbg_printf("\n");
+	}
 
 	current_thread->waiting_on = x;
 	current_thread->n_waiting_on = n;
@@ -363,7 +366,7 @@ void exit() {
 	// (it may switch before adding the delete_thread task), but once the task is added
 	// no other switch may happen, therefore this thread will not get re-enqueued
 
-	dbg_printf("Thread 0x%p exiting.\n", current_thread);
+	if (SPAM_BEGIN_EXIT) dbg_printf("Thread 0x%p exiting.\n", current_thread);
 
 	worker_push(exit_cleanup_task, current_thread);
 
@@ -379,12 +382,12 @@ bool resume_on(void* x) {
 
 	int st = enter_critical(CL_NOINT);
 
-	/*dbg_printf("Resume on 0x%p:", x);*/
+	if (SPAM_WAIT_RESUME_ON) dbg_printf("Resume on 0x%p:", x);
 
 	for (thread_t *t = waiters; t != 0; t = t->next_waiter) {
 		for (int i = 0; i < t->n_waiting_on; i++) {
 			if (t->waiting_on[i] == x) {
-				/*dbg_printf(" 0x%p", t);*/
+				if (SPAM_WAIT_RESUME_ON) dbg_printf(" 0x%p", t);
 
 				if (t->state == T_STATE_PAUSED) {
 					t->state = T_STATE_RUNNING;
@@ -397,7 +400,7 @@ bool resume_on(void* x) {
 			}
 		}
 	}
-	/*dbg_printf("\n");*/
+	if (SPAM_WAIT_RESUME_ON) dbg_printf("\n");
 
 	exit_critical(st);
 

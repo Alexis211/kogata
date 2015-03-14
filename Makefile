@@ -30,10 +30,10 @@ cdrom.iso: all make_cdrom.sh
 	./make_cdrom.sh
 
 run_qemu: cdrom.iso
-	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 64
+	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 16
 
 run_qemu_debug: cdrom.iso
-	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 64 -s -S &	\
+	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 16 -s -S &	\
 	(sleep 0.1; gdb src/kernel/kernel.bin -x gdb_cmd)
 
 run_bochs_debug: cdrom.iso
