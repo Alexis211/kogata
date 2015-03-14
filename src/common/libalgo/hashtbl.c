@@ -67,7 +67,7 @@ void hashtbl_check_size(hashtbl_t *ht) {
 	if (4 * ht->nitems < ht->size) nsize = ht->size / 2;
 	if (4 * ht->nitems > 3 * ht->size) nsize = ht->size * 2;
 
-	if (nsize != 0) {
+	if (nsize != 0 && nsize >= DEFAULT_HT_INIT_SIZE) {
 		hashtbl_item_t **nitems = (hashtbl_item_t**)malloc(nsize * sizeof(hashtbl_item_t*));
 		if (nitems == 0) return;	// if we can't realloc, too bad, we just lose space/efficienty
 

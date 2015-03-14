@@ -324,8 +324,8 @@ STATIC_MUTEX(token_table_mutex);
 
 typedef struct {
 	token_t tok;
-	fs_handle_t *h;
 	uint64_t time;
+	fs_handle_t *h;
 } token_table_entry_t;
 
 static token_table_entry_t *expired_token = 0;
@@ -344,7 +344,7 @@ void token_expiration_check(void* x) {
 		}
 		hashtbl_iter(token_table, find_expired_token);
 
-		if (expired_token) {
+		if (expired_token != 0) {
 			hashtbl_remove(token_table, &expired_token->tok);
 			unref_file(expired_token->h);
 			free(expired_token);
@@ -370,7 +370,7 @@ bool gen_token_for(fs_handle_t *h, token_t *tok) {
 		while (!worker_push_in(1000000, token_expiration_check, 0)) yield();
 	}
 
-	e = (token_table_entry_t*)malloc(sizeof(token_t));
+	e = (token_table_entry_t*)malloc(sizeof(token_table_entry_t));
 	if (!e) goto end;
 
 	prng_bytes((uint8_t*)e->tok.bytes, TOKEN_LENGTH);
@@ -418,6 +418,8 @@ hash_t token_hash_fun(const void* v) {
 }
 
 bool token_eq_fun(const void* a, const void* b) {
+	if (a == b) return true;
+
 	token_t *ta = (token_t*)a, *tb = (token_t*)b;
 	for (int i = 0; i < TOKEN_LENGTH; i++) {
 		if (ta->bytes[i] != tb->bytes[i]) return false;
