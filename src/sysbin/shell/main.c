@@ -53,9 +53,11 @@ int main(int argc, char **argv) {
 
 	while(true) {
 		char buf[256];
-		printf("\n%s> ", getcwd(buf, 256));
+		printf("\n\e[36m%s>\e[33m ", getcwd(buf, 256));
 
 		getline(buf, 256);
+
+		printf("\e[39m");
 		if (!strncmp(buf, "cd ", 3)) {
 			chdir(buf + 3);
 		} else if (!strcmp(buf, "ls")) {

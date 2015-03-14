@@ -10,7 +10,14 @@
 
 void* page_alloc_fun_for_kmalloc(size_t bytes) {
 	void* addr = region_alloc(bytes, "Core kernel heap");
-	if (addr == 0) return 0;
+	if (addr == 0) {
+		if (SPAM_OOM_REASON) {
+			dbg_printf("Could not allocate region for kmalloc.\n");
+			dbg_print_frame_stats();
+			dbg_print_region_info();
+		}
+		return 0;
+	}
 
 	// Map physical memory
 	for (void* i = addr; i < addr + bytes; i += PAGE_SIZE) {
@@ -74,6 +81,7 @@ void* malloc(size_t sz) {
 	int tries = 0;
 
 	while ((res = malloc0(sz)) == 0 && (tries++) < 3) {
+		if (SPAM_OOM_REASON) dbg_printf("OOM in kmalloc\n");
 		free_some_memory();
 	}
 

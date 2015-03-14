@@ -794,11 +794,13 @@ void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	do {
 		frame = pager_get_frame(r->pager, addr - r->addr + r->offset);
 		if (frame == 0) {
+			if (SPAM_OOM_REASON) dbg_printf("Pager OOM\n");
 			free_some_memory();
 		}
 	} while (frame == 0);
 
 	while(!pd_map_page(addr, frame, (r->mode & MM_WRITE) != 0)) {
+		if (SPAM_OOM_REASON) dbg_printf("pd_map_page OOM\n");
 		free_some_memory();
 	}
 }

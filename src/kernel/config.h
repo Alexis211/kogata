@@ -31,5 +31,6 @@
 #define SPAM_WAIT_RESUME_ON 0		// trace wait_on and resume_on calls
 #define SPAM_FS_REF			0		// show reference inc/dec on VFS items
 #define SPAM_BEGIN_EXIT		1		// trace thread creation/deletion && process begin/exit
+#define SPAM_OOM_REASON		1		// print a message saying where we are when calling free_some_memory
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

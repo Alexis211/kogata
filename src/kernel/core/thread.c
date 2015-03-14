@@ -176,7 +176,7 @@ thread_t *new_thread(entry_t entry, void* data) {
 		uint32_t f;
 		int tries = 0;
 		while ((f = frame_alloc(1)) == 0 && (tries++) < 3) {
-			dbg_printf("thread stack alloc OOM\n");
+			if (SPAM_OOM_REASON) dbg_printf("OOM when allocating thread stack\n");
 			free_some_memory();
 		}
 		if (f == 0) {
