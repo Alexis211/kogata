@@ -52,6 +52,11 @@ I would love to have kogata fit on a 1.44MB floppy and run with a full GUI and
 some cool apps (remember the QNX demo floppy!). Also, I want to be able to use
 it on older computers and prove that such machines can still be put to use.
 
+### And more...
+
+See files in the `doc/` folder of the repository for more details about some
+parts of the system (some of that is only plans for the distant future).
+
 ## How to build
 
 ### Requirements
