@@ -9,6 +9,8 @@
 
 static int next_pid = 1;
 
+void munmap_inner(process_t *proc, user_region_t *r);
+
 void proc_user_exception(registers_t *regs);
 void proc_usermem_pf(void* proc, registers_t *regs, void* addr);
 
@@ -154,20 +156,21 @@ bool start_process(process_t *p, void* entry) {
 	return true;
 }
 
-void current_process_exit(int status, int exit_code) {
-	void process_exit_v(void* args) {
-		exit_data_t *d = (exit_data_t*)args;
-		process_exit(d->proc, d->status, d->exit_code);
-		free(d);
-	}
+void current_process_exit_task(void* args) {
+	exit_data_t *d = (exit_data_t*)args;
+	process_exit(d->proc, d->status, d->exit_code);
+	free(d);
+}
 
-	exit_data_t *d = (exit_data_t*)malloc(sizeof(exit_data_t));
+void current_process_exit(int status, int exit_code) {
+	exit_data_t *d;
+	while ((d = (exit_data_t*)malloc(sizeof(exit_data_t))) == 0) yield();
 
 	d->proc = current_process();;
 	d->status = status;
 	d->exit_code = exit_code;
 
-	while (!worker_push(process_exit_v, d)) yield();
+	while (!worker_push(current_process_exit_task, d)) yield();
 
 	exit();
 }
@@ -207,8 +210,9 @@ void process_exit(process_t *p, int status, int exit_code) {
 		process_t *ch = p->children;
 		p->children = ch->next_child;
 
-		if (ch->status == PS_RUNNING || ch->status == PS_LOADING)
+		if (ch->status == PS_RUNNING || ch->status == PS_LOADING) {
 			process_exit(ch, PS_KILLED, 0);
+		}
 		free(ch);
 	}
 
@@ -222,7 +226,7 @@ void process_exit(process_t *p, int status, int exit_code) {
 
 	// unmap memory
 	while (p->regions != 0) {
-		munmap(p, p->regions->addr);
+		munmap_inner(p, p->regions);
 	}
 	ASSERT(btree_count(p->regions_idx) == 0);
 	delete_btree(p->regions_idx);
@@ -441,6 +445,7 @@ bool proc_add_fs(process_t *p, fs_t *fs, const char* name) {
 
 	mutex_lock(&p->lock);
 
+	if (p->filesystems == 0) goto end;
 	if (hashtbl_find(p->filesystems, n) != 0) goto end;
 
 	add_ok = hashtbl_add(p->filesystems, n, fs);
@@ -458,7 +463,7 @@ end:
 fs_t *proc_find_fs(process_t *p, const char* name) {
 	mutex_lock(&p->lock);
 
-	fs_t *ret = (fs_t*)hashtbl_find(p->filesystems, name);
+	fs_t *ret = (p->filesystems != 0 ? (fs_t*)hashtbl_find(p->filesystems, name) : 0);
 
 	mutex_unlock(&p->lock);
 	return ret;
@@ -477,11 +482,10 @@ void proc_rm_fs(process_t *p, const char* name) {
 }
 
 int proc_add_fd(process_t *p, fs_handle_t *f) {
-	int fd = p->next_fd++;
-
 	mutex_lock(&p->lock);
 
-	bool add_ok = hashtbl_add(p->files, (void*)fd, f);
+	int fd = p->next_fd++;
+	bool add_ok = (p->files != 0 ? hashtbl_add(p->files, (void*)fd, f) : false);
 
 	mutex_unlock(&p->lock);
 
@@ -497,6 +501,7 @@ bool proc_add_fd_as(process_t *p, fs_handle_t *f, int fd) {
 
 	mutex_lock(&p->lock);
 
+	if (p->files == 0) goto end;
 	if (hashtbl_find(p->files, (void*)fd) != 0) goto end;
 
 	if (fd >= p->next_fd) p->next_fd = fd + 1;
@@ -511,7 +516,7 @@ end:
 fs_handle_t *proc_read_fd(process_t *p, int fd) {
 	mutex_lock(&p->lock);
 
-	fs_handle_t *ret = (fs_handle_t*)hashtbl_find(p->files, (void*)fd);
+	fs_handle_t *ret = (p->files != 0 ? (fs_handle_t*)hashtbl_find(p->files, (void*)fd) : 0);
 
 	mutex_unlock(&p->lock);
 	return ret;
@@ -520,7 +525,7 @@ fs_handle_t *proc_read_fd(process_t *p, int fd) {
 void proc_close_fd(process_t *p, int fd) {
 	mutex_lock(&p->lock);
 
-	fs_handle_t *x = (fs_handle_t*)hashtbl_find(p->files, (void*)fd);
+	fs_handle_t *x = (p->files != 0 ? (fs_handle_t*)hashtbl_find(p->files, (void*)fd) : 0);
 	if (x != 0) {
 		unref_file(x);
 		hashtbl_remove(p->files, (void*)fd);
@@ -536,7 +541,7 @@ void proc_close_fd(process_t *p, int fd) {
 user_region_t *find_user_region(process_t *proc, const void* addr) {
 	mutex_lock(&proc->lock);
 
-	user_region_t *r = (user_region_t*)btree_lower(proc->regions_idx, addr);
+	user_region_t *r = (proc->regions_idx != 0 ? (user_region_t*)btree_lower(proc->regions_idx, addr) : 0);
 
 	if (r != 0) {
 		ASSERT(addr >= r->addr);
@@ -560,6 +565,8 @@ bool mmap(process_t *proc, void* addr, size_t size, int mode) {
 	if (r == 0) return false;
 
 	mutex_lock(&proc->lock);
+
+	if (proc->regions_idx == 0) goto error;
 
 	r->proc = proc;
 	r->addr = addr;
@@ -592,6 +599,7 @@ error:
 }
 
 bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_t size, int mode) {
+	dbg_printf("Mmap file 0x%p\n", h);
 	if (find_user_region(proc, addr) != 0) return false;
 
 	if ((uint32_t)addr & (~PAGE_MASK)) return false;
@@ -610,6 +618,8 @@ bool mmap_file(process_t *proc, fs_handle_t *h, size_t offset, void* addr, size_
 	if (r == 0) return false;
 
 	mutex_lock(&proc->lock);
+
+	if (proc->regions_idx == 0) goto error;
 
 	r->addr = addr;
 	r->size = size;
@@ -673,12 +683,9 @@ bool mchmap(process_t *proc, void* addr, int mode) {
 	return true;
 }
 
-bool munmap(process_t *proc, void* addr) {
-	user_region_t *r = find_user_region(proc, addr);
-	if (r == 0) return false;
-
-	mutex_lock(&proc->lock);
-
+void munmap_inner(process_t *proc, user_region_t *r) {
+	// assume theprocess lock is locked
+	// will always succeed
 	if (proc->regions == r) {
 		proc->regions = r->next_in_proc;
 	} else {
@@ -707,14 +714,23 @@ bool munmap(process_t *proc, void* addr) {
 	}
 	switch_pagedir(save_pd);
 
-	mutex_unlock(&proc->lock);
-
 	pager_rm_map(r->pager, r);
 
 	if (r->file != 0) unref_file(r->file);
 	if (r->own_pager) delete_pager(r->pager);
 
 	free(r);
+}
+
+bool munmap(process_t *proc, void* addr) {
+	user_region_t *r = find_user_region(proc, addr);
+	if (r == 0) return false;
+
+	mutex_lock(&proc->lock);
+
+	munmap_inner(proc, r);
+
+	mutex_unlock(&proc->lock);
 
 	return true;
 }

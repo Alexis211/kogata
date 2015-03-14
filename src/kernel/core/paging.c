@@ -58,9 +58,10 @@ void page_fault_handler(registers_t *regs) {
 			current_thread->user_ex_handler(regs);
 		} else {
 			if (pd->user_pfh == 0) {
-				dbg_printf("Error: usermode page fault on PD with no user PFH.\n");
+				dbg_printf("Error: usermode page fault (0x%p) on PD with no user PFH.\n", vaddr);
 				dbg_printf("PD: 0x%p, kernel PD: 0x%p\n", get_current_pagedir(), get_kernel_pagedir());
-				PANIC("Un-handlable usermode PF.\n");
+				dbg_dump_registers(regs);
+				PANIC("Un-handlable usermode PF.");
 			}
 			ASSERT(pd->user_pfh != 0);
 			pd->user_pfh(pd->user_pfh_data, regs, vaddr);

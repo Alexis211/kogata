@@ -307,7 +307,7 @@ uint32_t select_sc(sc_args_t args) {
 	uint64_t select_begin_time = get_kernel_time();
 
 	void** wait_objs = (void**)malloc((n+1) * sizeof(void*));
-	if (!wait_objs) return false;
+	if (wait_objs == 0) return false;
 
 	bool ret = false;
 

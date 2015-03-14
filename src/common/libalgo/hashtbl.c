@@ -1,3 +1,4 @@
+#include <debug.h>
 #include <malloc.h>
 
 #include <hashtbl.h>
@@ -68,7 +69,7 @@ void hashtbl_check_size(hashtbl_t *ht) {
 
 	if (nsize != 0) {
 		hashtbl_item_t **nitems = (hashtbl_item_t**)malloc(nsize * sizeof(hashtbl_item_t*));
-		if (nitems == 0) return;	// if we can't realloc, too bad, we just lose space
+		if (nitems == 0) return;	// if we can't realloc, too bad, we just lose space/efficienty
 
 		for (size_t i = 0; i < nsize; i++) nitems[i] = 0;
 

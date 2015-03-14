@@ -55,6 +55,7 @@ typedef struct fs_handle {
 	struct fs_node *node;
 
 	int refs;
+	mutex_t lock;
 
 	int mode;
 
@@ -125,6 +126,8 @@ typedef struct {
 typedef struct fs {
 	// Filled by VFS's make_fs()
 	int refs;
+	mutex_t lock;
+
 	struct fs *from_fs;
 	int ok_modes;
 	// Filled by FS's specific make() - all zero in the case of a subfs

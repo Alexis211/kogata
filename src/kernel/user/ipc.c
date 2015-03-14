@@ -83,6 +83,10 @@ fs_handle_pair_t make_channel(bool blocking) {
 	ret.b->node = nb;
 	ret.a->refs = ret.b->refs = 1;
 	ret.a->mode = ret.b->mode = FM_READ | FM_WRITE | (blocking ? FM_BLOCKING : 0);
+	ret.a->lock = ret.b->lock = MUTEX_UNLOCKED;
+
+	dbg_printf("hREF1c0x%p\n", ret.a);
+	dbg_printf("hREF1c0x%p\n", ret.b);
 
 	return ret;
 
@@ -274,7 +278,10 @@ fs_handle_t* make_shm(size_t size) {
 	h->fs = 0;
 	h->node = n;
 	h->refs = 1;
+	h->lock = MUTEX_UNLOCKED;
 	h->mode = FM_READ | FM_WRITE | FM_MMAP;
+
+	dbg_printf("hREF1s0x%p\n", h);
 
 	return h;
 

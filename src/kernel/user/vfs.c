@@ -42,12 +42,15 @@ fs_t *make_fs(const char* drv_name, fs_handle_t *source, const char* opts) {
 	if (fs->root == 0) goto fail;
 
 	fs->refs = 1;
+	fs->lock = MUTEX_UNLOCKED;
 	fs->from_fs = 0;
 	fs->ok_modes = FM_ALL_MODES;
 	fs->root->refs = 1;
 	fs->root->fs = fs;
 	fs->root->parent = 0;
 	fs->root->children = 0;
+
+	dbg_printf("sREF1m0x%p\n", fs);
 
 	// Look for driver
 	for(fs_driver_t *i = drivers; i != 0; i = i->next) {
@@ -75,6 +78,8 @@ fs_t *fs_subfs(fs_t *fs, const char* root, int ok_modes) {
 	if (subfs == 0) return 0;
 
 	subfs->refs = 1;
+	subfs->lock = MUTEX_UNLOCKED;
+
 	subfs->from_fs = fs;
 	subfs->ok_modes = ok_modes & fs->ok_modes;
 
@@ -82,6 +87,8 @@ fs_t *fs_subfs(fs_t *fs, const char* root, int ok_modes) {
 	subfs->data = 0;
 
 	subfs->root = new_root;
+
+	dbg_printf("sREF1s0x%p\n", fs);
 
 	return subfs;
 }
@@ -91,10 +98,20 @@ bool fs_add_source(fs_t *fs, fs_handle_t *source, const char* opts) {
 }
 
 void ref_fs(fs_t *fs) {
+	dbg_printf("sREF++0x%p(%d)\n", fs, fs->refs);
+
+	mutex_lock(&fs->lock);
+	
 	fs->refs++;
+
+	mutex_unlock(&fs->lock);
 }
 
 void unref_fs(fs_t *fs) {
+	dbg_printf("sREF--0x%p(%d)\n", fs, fs->refs);
+
+	mutex_lock(&fs->lock);
+
 	fs->refs--;
 	if (fs->refs == 0) {
 		if (fs->from_fs != 0) {
@@ -105,6 +122,8 @@ void unref_fs(fs_t *fs) {
 		}
 		if (fs->ops->shutdown) fs->ops->shutdown(fs->data);
 		free(fs);
+	} else {
+		mutex_unlock(&fs->lock);
 	}
 }
 
@@ -432,9 +451,12 @@ fs_handle_t* fs_open(fs_t *fs, const char* file, int mode) {
 	if (!open_ok) goto error;
 
 	h->refs = 1;
+	h->lock = MUTEX_UNLOCKED;
 	h->fs = fs;
 	h->node = n;
 	h->mode = mode;
+
+	dbg_printf("hREF1o0x%p\n", h);
 
 	// our reference to node n is transferred to the file handle
 	mutex_unlock(&n->lock);
@@ -449,16 +471,28 @@ error:
 }
 
 void ref_file(fs_handle_t *file) {
+	dbg_printf("hREF++0x%p(%d)\n", file, file->refs);
+
+	mutex_lock(&file->lock);
+
 	file->refs++;
+
+	mutex_unlock(&file->lock);
 }
 
 void unref_file(fs_handle_t *file) {
+	dbg_printf("hREF--0x%p(%d)\n", file, file->refs);
+
+	mutex_lock(&file->lock);
+
 	file->refs--;
 	if (file->refs == 0) {
 		if (file->node->ops->close) file->node->ops->close(file);
 		unref_fs_node(file->node);
 		if (file->fs) unref_fs(file->fs);
 		free(file);
+	} else {
+		mutex_unlock(&file->lock);
 	}
 }
 

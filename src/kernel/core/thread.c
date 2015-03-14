@@ -120,7 +120,7 @@ void run_scheduler() {
 	// At this point, interrupts are disabled
 	// This function is expected NEVER TO RETURN
 
-	/*thread_t *prev_thread = current_thread;*/
+	thread_t *prev_thread = current_thread;
 
 	if (current_thread != 0 && current_thread->state == T_STATE_RUNNING) {
 		current_thread->last_ran = get_kernel_time();
@@ -129,7 +129,7 @@ void run_scheduler() {
 	}
 	current_thread = dequeue_thread();
 
-	/*if (current_thread != prev_thread) dbg_printf("[0x%p]\n", current_thread);*/
+	if (current_thread != prev_thread) dbg_printf("[0x%p]\n", current_thread);
 
 	if (current_thread != 0) {
 		thread_t *ptr = current_thread;
@@ -345,19 +345,19 @@ void usleep(int usecs) {
 	if (ok) wait_on(current_thread);
 }
 
-void exit() {
-	void exit_cleanup_task(void* v) {
-		thread_t *t = (thread_t*)v;
+void exit_cleanup_task(void* v) {
+	thread_t *t = (thread_t*)v;
 
-		if (t->proc == 0) {
-			// stand alone thread, can be deleted safely
-			delete_thread(t);
-		} else {
-			// call specific routine from process code
-			process_thread_exited(t);
-		}
+	if (t->proc == 0) {
+		// stand alone thread, can be deleted safely
+		delete_thread(t);
+	} else {
+		// call specific routine from process code
+		process_thread_exited(t);
 	}
+}
 
+void exit() {
 	int st = enter_critical(CL_NOSWITCH);
 	// the critical section here does not guarantee that worker_push will return immediately
 	// (it may switch before adding the delete_thread task), but once the task is added
