@@ -272,7 +272,7 @@ void* btree_find(btree_t *t, const void* key) {
 	return i->val;
 }
 
-void* btree_lower(btree_t *t, const void* key) {
+void* btree_lower(btree_t *t, const void* key, void** actual_key) {
 	btree_item_t *find_aux(btree_t *t, btree_item_t *i, const void* key) {
 		if (i == 0) return 0;
 
@@ -291,10 +291,11 @@ void* btree_lower(btree_t *t, const void* key) {
 	btree_item_t *i = find_aux(t, t->root, key);
 
 	if (i == 0) return 0;
+	if (actual_key != 0) *actual_key = i->key;
 	return i->val;
 }
 
-void* btree_upper(btree_t *t, const void* key) {
+void* btree_upper(btree_t *t, const void* key, void** actual_key) {
 	btree_item_t *find_aux(btree_t *t, btree_item_t *i, const void* key) {
 		if (i == 0) return 0;
 
@@ -313,6 +314,7 @@ void* btree_upper(btree_t *t, const void* key) {
 	btree_item_t *i = find_aux(t, t->root, key);
 
 	if (i == 0) return 0;
+	if (actual_key != 0) *actual_key = i->key;
 	return i->val;
 }
 

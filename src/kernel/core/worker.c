@@ -50,7 +50,7 @@ void worker_thread(void* x) {
 	while (true) {
 		mutex_lock(&tasks_mutex);
 
-		worker_task_t *next_task = btree_upper(tasks, &zero64);
+		worker_task_t *next_task = btree_upper(tasks, &zero64, 0);
 		next_task_time = (next_task == 0 ? UINT64_MAX : next_task->time);
 
 		if (next_task != 0 && next_task->time <= time) {

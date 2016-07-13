@@ -23,8 +23,8 @@ void btree_remove(btree_t *t, const void* key);
 void btree_remove_v(btree_t *t, const void* key, const void* value);
 
 void* btree_find(btree_t *i, const void* key);
-void* btree_lower(btree_t *i, const void* key);
-void* btree_upper(btree_t *i, const void* key);
+void* btree_lower(btree_t *i, const void* key, void** actual_key);
+void* btree_upper(btree_t *i, const void* key, void** actual_key);
 void btree_iter(btree_t *i, kv_iter_fun_t f);
 void btree_iter_on(btree_t *i, const void* key, kv_iter_fun_t f);
 

@@ -541,7 +541,7 @@ void proc_close_fd(process_t *p, int fd) {
 user_region_t *find_user_region(process_t *proc, const void* addr) {
 	mutex_lock(&proc->lock);
 
-	user_region_t *r = (proc->regions_idx != 0 ? (user_region_t*)btree_lower(proc->regions_idx, addr) : 0);
+	user_region_t *r = (proc->regions_idx != 0 ? (user_region_t*)btree_lower(proc->regions_idx, addr, 0) : 0);
 
 	if (r != 0) {
 		ASSERT(addr >= r->addr);

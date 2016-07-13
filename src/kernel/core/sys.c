@@ -73,9 +73,12 @@ void kernel_stacktrace(uint32_t ebp, uint32_t eip) {
 	int i = 0;
 	while (ebp >= K_HIGHHALF_ADDR) {
 		char* sym = 0;
-		if (kernel_symbol_map != 0) sym = btree_lower(kernel_symbol_map, (void*)eip);
+		void* fn_ptr = 0;
+		if (kernel_symbol_map != 0) {
+			sym = btree_lower(kernel_symbol_map, (void*)eip, &fn_ptr);
+		}
 
-		dbg_printf("| 0x%p	EIP: 0x%p  %s\n", ebp, eip, sym);
+		dbg_printf("| 0x%p	EIP: 0x%p  %s  +0x%p\n", ebp, eip, sym, ((void*)eip - fn_ptr));
 
 		uint32_t *d = (uint32_t*)ebp;
 		ebp = d[0];

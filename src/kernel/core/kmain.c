@@ -125,6 +125,20 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	setup_syscall_table();
 	dbg_printf("System calls setup ok.\n");
 
+	// If we have a kernel map, load it now
+	for (unsigned i = 0; i < mbd->mods_count; i++) {
+		char* modname = (char*)mods[i].string;
+		size_t len = mods[i].mod_end - mods[i].mod_start;
+
+		if (strlen(modname) > 4 && strcmp(modname + strlen(modname) - 4, ".map") == 0) {
+			// Copy data to somewhere safe, as it will be modified
+			void* dup_data = malloc(len + 1);
+			memcpy(dup_data, (void*)mods[i].mod_start, len);
+
+			load_kernel_symbol_map((char*)dup_data, len);
+		}
+	}
+
 	// enter multi-threading mode
 	// interrupts are enabled at this moment, so all
 	// code run from now on should be preemtible (ie thread-safe)
@@ -249,12 +263,6 @@ fs_t *setup_iofs(multiboot_info_t *mbd) {
 		ASSERT(nullfs_add_ram_file(iofs, name,
 					(char*)mods[i].mod_start,
 					len, FM_READ | FM_MMAP));
-
-		if (strlen(modname) > 4 && strcmp(modname + strlen(modname) - 4, ".map") == 0) {
-			// remark: load_kernel_symbol_map modifies the data region,
-			// which is not a problem because nullfs_add_ram_file copied the thing already
-			load_kernel_symbol_map((char*)mods[i].mod_start, len);
-		}
 	}
 
 	return iofs;

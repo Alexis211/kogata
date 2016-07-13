@@ -9,7 +9,7 @@ rebuild: clean all
 mrproper: clean
 
 run_tests:
-	rm build/tests/*.log
+	rm build/tests/*.log build/tests/*.log.err || true
 	bam test
 
 run_qemu: all

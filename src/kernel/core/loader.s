@@ -2,6 +2,7 @@
 [GLOBAL loader]           ; making entry point visible to linker
 [GLOBAL kernel_pd]   	  ; make kernel page directory visible
 [GLOBAL kernel_stack_protector] 		; used to detect kernel stack overflow
+[GLOBAL kernel_stack_bottom] 			; usefull for debugging
 [GLOBAL kernel_stack_top] 				; stack re-used by scheduler
 
 ; higher-half kernel setup
