@@ -1,41 +1,24 @@
-DIRS = src/common/libkogata src/common/libc src/common/libalgo \
-	src/kernel src/lib/libkogata \
-	src/sysbin/init src/sysbin/giosrv src/sysbin/login src/sysbin/terminal src/sysbin/shell \
-	res/fonts res/keymaps
-
 all:
-	for dir in $(DIRS); do \
-		$(MAKE) -C $$dir || exit 1;   \
-	done
-
-rebuild:
-	for dir in $(DIRS); do \
-		$(MAKE) -C $$dir rebuild || exit 1;   \
-	done
+	bam
 
 clean:
-	for dir in $(DIRS); do \
-		$(MAKE) -C $$dir clean;   \
-	done
+	bam -c
 
-mrproper:
-	for dir in $(DIRS); do \
-		$(MAKE) -C $$dir mrproper;   \
-	done
+rebuild: clean all
 
-run_tests: rebuild
+mrproper: clean
+
+run_tests:
+	bam
 	src/tests/run_tests.sh
 
-cdrom.iso: all make_cdrom.sh
-	./make_cdrom.sh
-
-run_qemu: cdrom.iso
+run_qemu: all
 	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 12
 
-run_qemu_debug: cdrom.iso
+run_qemu_debug: all
 	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 12 -s -S &	\
 	(sleep 0.1; gdb src/kernel/kernel.bin -x gdb_cmd)
 
-run_bochs_debug: cdrom.iso
+run_bochs_debug: all
 	bochs -f bochs_debug.cfg -q
 

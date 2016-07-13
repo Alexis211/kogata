@@ -8,24 +8,24 @@ fi
 
 # Copy system files to CDROM
 
-cp src/kernel/kernel.bin cdrom/boot; strip cdrom/boot/kernel.bin
-cp src/kernel/kernel.map cdrom/boot
-cp src/sysbin/init/init.bin cdrom/boot; strip cdrom/boot/init.bin
+cp build/kernel.bin cdrom/boot; strip cdrom/boot/kernel.bin
+cp build/kernel.map cdrom/boot
+cp build/init.bin cdrom/boot; strip cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
-cp src/sysbin/giosrv/giosrv.bin cdrom/sys/bin
-cp src/sysbin/login/login.bin cdrom/sys/bin
-cp src/sysbin/terminal/terminal.bin cdrom/sys/bin
-cp src/sysbin/shell/shell.bin cdrom/sys/bin
+cp build//giosrv.bin cdrom/sys/bin
+cp build/login.bin cdrom/sys/bin
+cp build/terminal.bin cdrom/sys/bin
+cp build/shell.bin cdrom/sys/bin
 for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
 mkdir -p cdrom/sys/fonts
-cp res/fonts/*.bf cdrom/sys/fonts
-cp res/fonts/pcvga.bf cdrom/sys/fonts/default.bf
+cp build/res/fonts/*.bf cdrom/sys/fonts
+cp build/res/fonts/pcvga.bf cdrom/sys/fonts/default.bf
 
 mkdir -p cdrom/sys/keymaps
-cp res/keymaps/*.km cdrom/sys/keymaps
-cp res/keymaps/fr.km cdrom/sys/keymaps/default.km
+cp build/res/keymaps/*.km cdrom/sys/keymaps
+cp build/res/keymaps/fr.km cdrom/sys/keymaps/default.km
 
 cp README.md cdrom
 

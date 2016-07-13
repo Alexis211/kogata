@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
 	btree_t *cmdline = read_cmdline();
 	if (cmdline == 0) PANIC("[init] Could not parse cmdline");
 
-	// Later : setup config: and read config file
+	// setup config:
 	if (btree_find(cmdline, "config") == 0) {
 		PANIC("[init] No config=xxx option specified on command line");
 	} else {
@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
 		if (!ok) PANIC("[init] Could not setup config:");
 	}
 
-	// Setup sys: partition
+	// Setup sys:
 	setup_sys();
 
 	// Setup GIP channel for communication between giosrv and login

@@ -1,23 +1,27 @@
 #!/bin/bash
 
-if [ "$1" = "watchdog" ]; then
-	sleep 3 &
-	PID=$!
-	echo $PID > pid2
-	wait $PID
-	if [ $? -eq 0 ]; then echo "(TEST-FAIL)"; fi
-	exit 0
+BINFILE=$1
+LOGFILE=$2
+MAPFILE=$3
+
+RESULTFILE=`mktemp`
+PIDFILE=`mktemp`
+
+(timeout 10s qemu-system-i386 -kernel build/kernel.bin -append "init=io:/mod/`basename $BINFILE`" \
+							  -initrd "$BINFILE,$MAPFILE" -serial stdio -m 16 -display none 2>/dev/null \
+	& echo $! >$PIDFILE) \
+	| tee >(grep -m 1 "TEST-" >$RESULTFILE; kill -INT `cat $PIDFILE`) >$LOGFILE
+
+RESULT=`cat $RESULTFILE`
+
+rm $RESULTFILE
+rm $PIDFILE
+
+if [ "$RESULT" != '[1] (TEST-OK)' ]; then
+	echo -e "\033[0;31m$BINFILE $RESULT\033[0m"
+	cp $LOGFILE $LOGFILE.err
+	exit 1;
+else
+	echo -e "\033[0;32m$BINFILE $RESULT\033[0m"
 fi
-
-(qemu-system-i386 -kernel ../../../kernel/kernel.bin  -append 'init=io:/mod/init.bin' -initrd 'init.bin,../../../kernel/kernel.map' -serial stdio -m 16 -display none & echo $! >pid &
- $0 watchdog) \
-	| tee >(grep -m 1 "TEST-" >result; kill -INT `cat pid`; kill -TERM `cat pid2`) \
-
-RESULT=`cat result`
-
-rm result
-rm pid
-rm pid2
-
-if [ $RESULT != '(TEST-OK)' ]; then exit 1; fi
 

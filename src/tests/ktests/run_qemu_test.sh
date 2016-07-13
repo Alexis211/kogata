@@ -1,12 +1,26 @@
 #!/bin/bash
 
-(qemu-system-i386 -kernel test_kernel.bin -initrd ../../../kernel/kernel.map -serial stdio -m 16 -display none & echo $! >pid) \
-	| tee >(grep -m 1 "TEST-" >result; kill -INT `cat pid`) \
+BINFILE=$1
+LOGFILE=$2
+MAPFILE=$3
 
-RESULT=`cat result`
+RESULTFILE=`mktemp`
+PIDFILE=`mktemp`
 
-rm result
-rm pid
+(timeout 10s qemu-system-i386 -kernel $BINFILE -initrd $MAPFILE -serial stdio -m 16 -display none 2>/dev/null \
+		& echo $! >$PIDFILE) \
+	| tee >(grep -m 1 "TEST-" >$RESULTFILE; kill -INT `cat $PIDFILE`) > $LOGFILE
 
-if [ $RESULT != '(TEST-OK)' ]; then exit 1; fi
+RESULT=`cat $RESULTFILE`
+
+rm $RESULTFILE
+rm $PIDFILE
+
+if [ "$RESULT" != '(TEST-OK)' ]; then
+	echo -e "\033[0;31m$BINFILE $RESULT\033[0m"
+	cp $LOGFILE $LOGFILE.err
+	exit 1;
+else
+	echo -e "\033[0;32m$BINFILE $RESULT\033[0m"
+fi
 

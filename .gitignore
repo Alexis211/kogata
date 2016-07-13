@@ -3,14 +3,17 @@
 
 tags
 
-*.o
-*.bin
-*.lib
-*.map
-*.log
+build/*
+.bam/*
 
-*.bf
-*.km
+# *.o
+# *.bin
+# *.lib
+# *.map
+# *.log
+# 
+# *.bf
+# *.km
 
 *.iso
 cdrom/
