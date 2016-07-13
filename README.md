@@ -62,6 +62,7 @@ parts of the system (some of that is only plans for the distant future).
 ### Requirements
 
 * git for accessing the repository
+* the `bam` build tool <https://matricks.github.io/bam/>
 * `i586-elf` cross-compiler built by [these scripts](http://adnab.me/cgit/cross-scripts.git/about/).
 * nasm
 * for testing, either qemu or bochs
