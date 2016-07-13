@@ -7,7 +7,7 @@ MAPFILE=$3
 RESULTFILE=`mktemp`
 PIDFILE=`mktemp`
 
-(timeout 10s qemu-system-i386 -kernel $BINFILE -initrd $MAPFILE -serial stdio -m 16 -display none 2>/dev/null \
+(timeout 3s qemu-system-i386 -kernel $BINFILE -initrd $MAPFILE -serial stdio -m 16 -display none 2>/dev/null \
 		& echo $! >$PIDFILE) \
 	| tee >(grep -m 1 "TEST-" >$RESULTFILE; kill -INT `cat $PIDFILE`) > $LOGFILE
 

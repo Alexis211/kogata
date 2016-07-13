@@ -19,6 +19,7 @@ host_settings.cc.Output = BuildOutput
 host_settings.cc.extension = ".host.o"
 host_settings.cc.includes:Add("src/lib/include/proto",
 							  "src/common/include")
+host_settings.link.extension = ".bin"
 
 common_settings = NewSettings()
 

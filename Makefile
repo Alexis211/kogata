@@ -9,14 +9,14 @@ rebuild: clean all
 mrproper: clean
 
 run_tests:
-	bam
-	src/tests/run_tests.sh
+	rm build/tests/*.log
+	bam test
 
 run_qemu: all
-	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 12
+	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 12 </dev/null
 
 run_qemu_debug: all
-	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 12 -s -S &	\
+	qemu-system-i386 -cdrom cdrom.iso -serial stdio -m 12 -s -S </dev/null &	\
 	(sleep 0.1; gdb src/kernel/kernel.bin -x gdb_cmd)
 
 run_bochs_debug: all

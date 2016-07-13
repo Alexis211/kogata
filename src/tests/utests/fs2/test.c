@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
 	while (ent_no < 2) {
 		ASSERT (readdir(f, ent_no++, &x));
 
-		ASSERT((!strcmp(x.name, "init.bin")) || (!strcmp(x.name, "kernel.map")));
+		ASSERT((!strcmp(x.name, "utest_fs2.bin")) || (!strcmp(x.name, "kernel.map")));
 		ASSERT(x.st.type == FT_REGULAR);
 	}
 
