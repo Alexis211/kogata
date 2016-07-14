@@ -12,6 +12,10 @@
 pid_t giosrv_pid = 0, login_pid = 0;
 fd_pair_t root_gip_chan;
 
+void _parse_cmdline_iter(void* a, void* b) {
+	dbg_printf("  '%s'  ->  '%s'\n", a, b);
+}
+
 btree_t *parse_cmdline(const char* x) {
 	btree_t *ret = create_btree(str_key_cmp_fun, free_key_val);
 	ASSERT(ret != 0);
@@ -41,10 +45,7 @@ btree_t *parse_cmdline(const char* x) {
 		}
 	}
 
-	void iter(void* a, void* b) {
-		dbg_printf("  '%s'  ->  '%s'\n", a, b);
-	}
-	btree_iter(ret, iter);
+	btree_iter(ret, _parse_cmdline_iter);
 	
 	return ret;
 }

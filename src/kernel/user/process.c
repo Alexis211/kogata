@@ -34,7 +34,7 @@ typedef struct {
 // ============================== //
 
 process_t *new_process(process_t *parent) {
-	process_t *proc = (process_t*)malloc(sizeof(process_t));
+	process_t *proc = (process_t*)calloc(1, sizeof(process_t));
 	if (proc == 0) goto error;
 
 	proc->filesystems = create_hashtbl(str_key_eq_fun, str_hash_fun, free_key);
@@ -175,6 +175,12 @@ void current_process_exit(int status, int exit_code) {
 	exit();
 }
 
+void _process_exit_release_fd(void* a, void* fd) {
+	unref_file((fs_handle_t*)fd);
+}
+void _process_exit_release_fs(void* a, void* fs) {
+	unref_fs((fs_t*)fs);
+}
 void process_exit(process_t *p, int status, int exit_code) {
 	// --- Make sure we are not running in a thread we are about to kill
 	ASSERT(current_process() != p);
@@ -217,10 +223,7 @@ void process_exit(process_t *p, int status, int exit_code) {
 	}
 
 	// release file descriptors
-	void release_fd(void* a, void* fd) {
-		unref_file((fs_handle_t*)fd);
-	}
-	hashtbl_iter(p->files, release_fd);
+	hashtbl_iter(p->files, _process_exit_release_fd);
 	delete_hashtbl(p->files);
 	p->files = 0;
 
@@ -233,10 +236,7 @@ void process_exit(process_t *p, int status, int exit_code) {
 	p->regions_idx = 0;
 
 	// release filesystems
-	void release_fs(void* a, void* fs) {
-		unref_fs((fs_t*)fs);
-	}
-	hashtbl_iter(p->filesystems, release_fs);
+	hashtbl_iter(p->filesystems, _process_exit_release_fs);
 	delete_hashtbl(p->filesystems);
 	p->filesystems = 0;
 

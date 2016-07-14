@@ -36,8 +36,15 @@ void test_btree_2() {
 			if (k[i] <= xk && (ilower == -1 || k[i] > k[ilower])) ilower = i;
 			if (k[i] >= xk && (iupper == -1 || k[i] < k[iupper])) iupper = i;
 		}
-		dbg_printf("random %d : lower %d (= %d), upper %d (= %d) ; ",
-			xk, k[ilower], v[ilower], k[iupper], v[iupper]);
+		dbg_printf("random %d : ", xk);
+		if (ilower == -1)
+			dbg_printf("no lower, ");
+		else
+			dbg_printf("lower %d (= %d), ", k[ilower], v[ilower]);
+		if (iupper == -1)
+			dbg_printf("no upper ; ");
+		else
+			dbg_printf("upper %d (= %d) ; ", k[iupper], v[iupper]);
 		const uint32_t bt_lower = (uint32_t)btree_lower(ht, (void*)xk, 0);
 		const uint32_t bt_upper = (uint32_t)btree_upper(ht, (void*)xk, 0);
 		dbg_printf("got lower %d, upper %d\n", bt_lower, bt_upper);

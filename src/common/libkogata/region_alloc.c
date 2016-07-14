@@ -86,6 +86,13 @@ void remove_free_region(descriptor_t *d) {
 	}
 }
 
+descriptor_t *_region_alloc_rec_check_first_bigger(descriptor_t *it, size_t sz) {
+	if (it == 0) return 0;
+	ASSERT(_region_alloc_rec_check_first_bigger(it->free.next_by_size, it->free.size) == it->free.first_bigger);
+	if (it->free.size > sz) return it;
+	return it->free.first_bigger;
+}
+
 void add_free_region(descriptor_t *d) {
 	/*dbg_printf("Add free region 0x%p - 0x%p\n", d->free.addr, d->free.size + d->free.addr);*/
 	// Find position of region in address-ordered list
@@ -119,7 +126,8 @@ void add_free_region(descriptor_t *d) {
 		d->free.next_by_addr = i;
 		first_free_region_by_addr = d;
 	} else {
-		while (i != 0) {
+		while (true) {
+			ASSERT(i != 0);
 			ASSERT(d->free.addr > i->free.addr);
 			if (i->free.addr + i->free.size == d->free.addr) {
 				// concatenate i . d
@@ -193,13 +201,7 @@ void add_free_region(descriptor_t *d) {
 	// Explanation: the first_bigger field is meant to point at the first free descriptor with strictly
 	// superior size, intending to make the finding a suitable free region faster, but this field
 	// is a bit complicated to keep up to date (see the messy code above...)
-	descriptor_t *rec_check_first_bigger(descriptor_t *it, size_t sz) {
-		if (it == 0) return 0;
-		ASSERT(rec_check_first_bigger(it->free.next_by_size, it->free.size) == it->free.first_bigger);
-		if (it->free.size > sz) return it;
-		return it->free.first_bigger;
-	}
-	ASSERT(rec_check_first_bigger(first_free_region_by_size, 0) == first_free_region_by_size);
+	ASSERT(_region_alloc_rec_check_first_bigger(first_free_region_by_size, 0) == first_free_region_by_size);
 }
 
 descriptor_t *find_used_region(void* addr) {

@@ -332,7 +332,7 @@ void vesa_init_driver(fs_t *iofs, vesa_mode_t *mode_data, int mode_data_c) {
 	if (d == 0) goto fail_setup;
 
 	d->pager = new_device_pager(0, 0);
-	if (d == 0) goto fail_setup;
+	if (d->pager == 0) goto fail_setup;
 
 	d->modes = mode_data;
 	d->nmodes = mode_data_c;

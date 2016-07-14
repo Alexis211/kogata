@@ -337,13 +337,13 @@ bool wait_on_many(void** x, size_t n) {
 	return true;
 }
 
+void _usleep_resume_on_v(void* x) {
+	resume_on(x);
+}
 void usleep(int usecs) {
 	if (current_thread == 0) return;
 
-	void resume_on_v(void* x) {
-		resume_on(x);
-	}
-	bool ok = worker_push_in(usecs, resume_on_v, current_thread);
+	bool ok = worker_push_in(usecs, _usleep_resume_on_v, current_thread);
 
 	if (ok) wait_on(current_thread);
 }

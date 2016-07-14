@@ -357,19 +357,19 @@ typedef struct {
 
 static token_table_entry_t *expired_token = 0;
 
+void _find_expired_token(void* k, void* x) {
+	token_table_entry_t *e = (token_table_entry_t*)x;
+	if (e->time + TOKEN_LIFETIME < get_kernel_time()) {
+		expired_token = e;
+	}
+}
 void token_expiration_check(void* x) {
 	mutex_lock(&token_table_mutex);
 
 	do {
 		expired_token = 0;
 
-		void find_expired_token(void* k, void* x) {
-			token_table_entry_t *e = (token_table_entry_t*)x;
-			if (e->time + TOKEN_LIFETIME < get_kernel_time()) {
-				expired_token = e;
-			}
-		}
-		hashtbl_iter(token_table, find_expired_token);
+		hashtbl_iter(token_table, _find_expired_token);
 
 		if (expired_token != 0) {
 			hashtbl_remove(token_table, &expired_token->tok);

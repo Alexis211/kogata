@@ -24,7 +24,7 @@ int chdir(const char* path) {
 
 	stat_t st;
 	if (!stat(cwd_buf2, &st)) return -1;
-	if (!st.type & FT_DIR) return -1;
+	if (!(st.type & FT_DIR)) return -1;
 
 	strcpy(cwd_buf, cwd_buf2);
 	return 0;

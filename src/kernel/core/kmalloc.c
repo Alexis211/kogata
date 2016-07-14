@@ -2,6 +2,7 @@
 
 #include <slab_alloc.h>
 #include <mutex.h>
+#include <string.h>
 
 #include <frame.h>
 #include <paging.h>
@@ -77,6 +78,8 @@ void* malloc0(size_t sz) {
 }
 
 void* malloc(size_t sz) {
+	if (sz == 0) return 0;
+
 	void* res;
 	int tries = 0;
 
@@ -86,6 +89,12 @@ void* malloc(size_t sz) {
 	}
 
 	return res;
+}
+
+void* calloc(size_t nmemb, size_t sz) {
+	void* r = malloc(nmemb * sz);
+	if (r != 0) memset(r, 0, nmemb * sz);
+	return r;
 }
 
 void free(void* ptr) {

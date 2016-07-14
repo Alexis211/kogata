@@ -107,9 +107,17 @@ int memcmp(const void *va, const void *vb, size_t count) {
 }
 
 void *memset(void *dest, int val, size_t count) {
+	uint8_t uval = (val & 0xFF);
+	uint32_t wval = (uval<<24)|(uval<<16)|(uval<<8)|uval;
+
+	uint32_t *dest_w = (uint32_t*)dest;
+	for (size_t i = 0; i < count/4; i++) {
+		dest_w[i] = wval;
+	}
+
 	uint8_t *dest_c = (uint8_t*)dest;
-	for (size_t i = 0; i < count; i++) {
-		dest_c[i] = val;
+	for (size_t i = count - (count%4); i < count; i++) {
+		dest_c[i] = uval;
 	}
 	return dest;
 }

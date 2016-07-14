@@ -88,7 +88,7 @@ void g_hline(fb_t *fb, int x, int y, int w, color_t c) {
 		for (int u = x; u < x + w; u++) {
 			fb->data[y * fb->geom.pitch + u] = (c & 0xFF);
 		}
-	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 15) {
+	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 16) {
 		for (int u = x; u < x + w; u++) {
 			uint16_t *p = (uint16_t*)(fb->data + y * fb->geom.pitch + 2 * u);
 			*p = (c & 0xFFFF);
@@ -110,7 +110,7 @@ void g_vline(fb_t *fb, int x, int y, int h, color_t c) {
 		for (int v = y; v < y + h; v++) {
 			fb->data[v * fb->geom.pitch + x] = (c & 0xFF);
 		}
-	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 15) {
+	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 16) {
 		for (int v = y; v < y + h; v++) {
 			uint16_t *p = (uint16_t*)(fb->data + v * fb->geom.pitch + 2 * x);
 			*p = (c & 0xFFFF);
@@ -145,7 +145,7 @@ void g_fillrect(fb_t *fb, int x, int y, int w, int h, color_t c) {
 				fb->data[v * fb->geom.pitch + u] = (c & 0xFF);
 			}
 		}
-	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 15) {
+	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 16) {
 		for (int v = y; v < y + h; v++) {
 			for (int u = x; u < x + w; u++) {
 				uint16_t *p = (uint16_t*)(fb->data + v * fb->geom.pitch + 2 * u);

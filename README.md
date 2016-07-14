@@ -66,6 +66,7 @@ parts of the system (some of that is only plans for the distant future).
 * `i586-elf` cross-compiler built by [these scripts](http://adnab.me/cgit/cross-scripts.git/about/).
 * nasm
 * for testing, either qemu or bochs
+* Optionnal: `scan-build` (included with Clang) for static analysis
 
 ### Building and running
 

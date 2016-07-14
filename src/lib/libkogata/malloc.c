@@ -1,6 +1,8 @@
 #include <malloc.h>
 #include <slab_alloc.h>
 
+#include <string.h>
+
 #include <syscall.h>
 #include <region_alloc.h>
 
@@ -50,7 +52,15 @@ void malloc_setup() {
 }
 
 void* malloc(size_t size) {
+	if (size == 0) return 0;
+
 	return slab_alloc(mem_allocator, size);
+}
+
+void* calloc(size_t nmemb, size_t sz) {
+	void* r = malloc(nmemb * sz);
+	if (r != 0) memset(r, 0, nmemb * sz);
+	return r;
 }
 
 void free(void* ptr) {

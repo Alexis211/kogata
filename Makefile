@@ -9,11 +9,6 @@ analyze:
 
 reanalyze: clean analyze
 
-splint:
-	splint -I src/common/include src/common/*/*.c
-	splint -I src/common/include -I src/kernel/include src/kernel/*/*.c
-	splint -I src/common/include -I src/lib/include src/lib/*/*.c src/sysbin/*/*.c
-
 rebuild: clean all
 
 mrproper: clean

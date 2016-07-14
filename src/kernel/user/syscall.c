@@ -297,6 +297,9 @@ uint32_t fctl_sc(sc_args_t args) {
 	}
 }
 
+void _select_sc_resume_on_v(void*x) {
+	resume_on(x);
+}
 uint32_t select_sc(sc_args_t args) {
 	sel_fd_t *fds = (sel_fd_t*)args.a;
 	size_t n = args.b;
@@ -336,10 +339,7 @@ uint32_t select_sc(sc_args_t args) {
 		if (timeout >= 0 && time - select_begin_time >= (uint64_t)timeout) break;
 
 		//  ---- Do a wait, if interrupted (killed or whatever) return false
-		void resume_on_v(void*x) {
-			resume_on(x);
-		}
-		if (timeout > 0) worker_push_in(time - select_begin_time - timeout, resume_on_v, current_thread);
+		if (timeout > 0) worker_push_in(time - select_begin_time - timeout, _select_sc_resume_on_v, current_thread);
 		if (!wait_on_many(wait_objs, n_wait_objs)) break;
 	}
 
