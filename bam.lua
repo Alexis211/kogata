@@ -15,13 +15,32 @@ end
 --
 
 host_settings = NewSettings()
+common_settings = NewSettings()
+
+if os.getenv('CC') and string.match(os.getenv('CC'), '.*analyzer$') then
+	print("Detected clang-analyzer")
+	SetDriversGCC(host_settings)
+	host_settings.cc.exe_c = 'CCC_CC=gcc ' .. os.getenv('CC')
+	host_settings.cc.exe_cxx = 'CCC_CXX=g++ ' .. os.getenv('CXX')
+
+	SetDriversGCC(common_settings)
+	common_settings.cc.flags:Add('-U__linux__')
+	common_settings.cc.exe_c = 'CCC_CC=i586-elf-gcc ' .. os.getenv('CC')
+	common_settings.cc.exe_cxx = 'CCC_CXX=i586-elf-g++ ' .. os.getenv('CXX')
+	common_settings.link.exe = 'CCC_CC=i586-elf-gcc ' .. os.getenv('CC')
+else
+	common_settings.cc.exe_c = "i586-elf-gcc"
+	common_settings.cc.exe_cxx = "i586-elf-g++"
+	common_settings.link.exe = "i586-elf-gcc"
+end
+
+
 host_settings.cc.Output = BuildOutput
 host_settings.cc.extension = ".host.o"
 host_settings.cc.includes:Add("src/lib/include/proto",
 							  "src/common/include")
 host_settings.link.extension = ".bin"
 
-common_settings = NewSettings()
 
 common_settings.compile.mappings['s'] = function(settings, input)
 	local output = BuildOutput(settings, input) .. settings.cc.extension
@@ -31,8 +50,6 @@ common_settings.compile.mappings['s'] = function(settings, input)
 	return output
 end
 
-common_settings.cc.exe_c = "i586-elf-gcc"
-common_settings.cc.exe_cxx = "i586-elf-g++"
 common_settings.cc.Output = BuildOutput
 common_settings.cc.includes:Add("src/common/include", ".")
 common_settings.cc.flags:Add("-m32",
@@ -43,13 +60,13 @@ common_settings.cc.flags:Add("-m32",
 							 "-Wno-unused-function",
 							 "-g", "-O0")
 
-common_settings.link.exe = "i586-elf-gcc"
 common_settings.link.extension = ".bin"
 common_settings.link.flags:Add("-ffreestanding",
 							   "-nostdlib",
 							   "-O0")
 common_settings.link.libs:Add("gcc")
 common_settings.link.Output = BuildOutput
+
 
 user_settings = TableDeepCopy(common_settings)
 user_settings.cc.includes:Add('src/lib/include')

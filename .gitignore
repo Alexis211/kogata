@@ -3,6 +3,7 @@
 
 tags
 
+debuglog/*
 build/*
 .bam/*
 

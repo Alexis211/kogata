@@ -32,10 +32,12 @@ static void panic_do(const char* type, const char *msg, const char* file, int li
 
 void panic(const char* message, const char* file, int line) {
 	panic_do("PANIC", message, file, line);
+	while(true);
 }
 
 void panic_assert(const char* assertion, const char* file, int line) {
 	panic_do("ASSERT FAILED", assertion, file, line);
+	while(true);
 }
 
 //  ---- kernel symbol map

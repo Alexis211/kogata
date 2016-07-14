@@ -281,6 +281,8 @@ void vesa_detect(fs_t *iofs) {
 	uint16_t *last_mode = modes;
 	while (*last_mode != 0xFFFF) last_mode++;
 
+	if (last_mode == modes) goto end_detect;
+
 	mode_data = (vesa_mode_t*)malloc((last_mode - modes) * sizeof(vesa_mode_t));
 	if (mode_data == 0) goto end_detect;
 

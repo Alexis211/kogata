@@ -65,6 +65,8 @@ void mainloop_run() {
 			for (mainloop_fd_t *fd = mainloop_fds; fd != 0; fd = fd->next)
 				nfds++;
 
+			if (nfds == 0) return;
+
 			if (sel_arg != 0) free(sel_arg);
 			sel_arg = (sel_fd_t*)malloc(nfds * sizeof(sel_fd_t));
 			if (sel_arg == 0) {

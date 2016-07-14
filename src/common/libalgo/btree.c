@@ -24,7 +24,7 @@ btree_t* create_btree(key_cmp_fun_t cf, kv_iter_fun_t relf) {
 	if (t == 0) return 0;
 
 	t->cf = cf;
-	if (t->releasef) t->releasef = relf;
+	t->releasef = relf;
 
 	t->root = 0;
 	t->nitems = 0;

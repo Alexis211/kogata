@@ -311,7 +311,7 @@ uint8_t ide_ata_access(ide_controller_t *c, int direction,
 	// If (!DMA & LBA48)   DO_PIO_EXT;
 	// If (!DMA & LBA28)   DO_PIO_LBA;
 	// If (!DMA & !LBA#)   DO_PIO_CHS;
-	uint8_t cmd;
+	uint8_t cmd = 0;
 	if (lba_mode == 0 && !dma && direction == 0) cmd = ATA_CMD_READ_PIO;
 	if (lba_mode == 1 && !dma && direction == 0) cmd = ATA_CMD_READ_PIO;   
 	if (lba_mode == 2 && !dma && direction == 0) cmd = ATA_CMD_READ_PIO_EXT;   
@@ -324,6 +324,8 @@ uint8_t ide_ata_access(ide_controller_t *c, int direction,
 	if (lba_mode == 0 && dma && direction == 1) cmd = ATA_CMD_WRITE_DMA;
 	if (lba_mode == 1 && dma && direction == 1) cmd = ATA_CMD_WRITE_DMA;
 	if (lba_mode == 2 && dma && direction == 1) cmd = ATA_CMD_WRITE_DMA_EXT;
+	ASSERT(cmd != 0);
+
 	ide_write(c, channel, ATA_REG_COMMAND, cmd);               // Send the Command.
 
 	if (dma) {

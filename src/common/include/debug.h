@@ -3,8 +3,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void panic(const char* message, const char* file, int line);
-void panic_assert(const char* assertion, const char* file, int line);
+void panic(const char* message, const char* file, int line)
+__attribute__((__noreturn__));
+
+void panic_assert(const char* assertion, const char* file, int line)
+__attribute__((__noreturn__));
+
 #define PANIC(s) panic(s, __FILE__, __LINE__);
 #define ASSERT(s) { if (!(s)) panic_assert(#s, __FILE__, __LINE__); }
 
