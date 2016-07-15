@@ -3,7 +3,7 @@
 --
 
 function BuildOutput(settings, fname)
-	if fname:sub(1, 4) == "src/" then
+	if fname:sub(1, 4) == "src/" or fname:sub(1, 4) == "res/" then
 		fname = fname:sub(5)
 	end
 	local out = PathJoin("build", PathBase(fname) .. settings.config_ext)

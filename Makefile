@@ -9,6 +9,12 @@ analyze:
 
 reanalyze: clean analyze
 
+CHKFLAGS=--enable=warning,performance,information,style --suppress=portability -I src/common/include -j4 --platform=unix32
+cppcheck:
+	cppcheck $(CHKFLAGS) src/common 2>&1 >/dev/null | tee build/cppcheck.log
+	cppcheck $(CHKFLAGS) -I src/kernel/include src/kernel 2>&1 >/dev/null | tee -a build/cppcheck.log
+	cppcheck $(CHKFLAGS) -I src/lib/include src/lib src/sysbin 2>&1 >/dev/null | tee -a build/cppcheck.log
+
 rebuild: clean all
 
 mrproper: clean

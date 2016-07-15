@@ -20,12 +20,12 @@ cp build/shell.bin cdrom/sys/bin
 for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
 
 mkdir -p cdrom/sys/fonts
-cp build/res/fonts/*.bf cdrom/sys/fonts
-cp build/res/fonts/pcvga.bf cdrom/sys/fonts/default.bf
+cp build/fonts/*.bf cdrom/sys/fonts
+cp build/fonts/pcvga.bf cdrom/sys/fonts/default.bf
 
 mkdir -p cdrom/sys/keymaps
-cp build/res/keymaps/*.km cdrom/sys/keymaps
-cp build/res/keymaps/fr.km cdrom/sys/keymaps/default.km
+cp build/keymaps/*.km cdrom/sys/keymaps
+cp build/keymaps/fr.km cdrom/sys/keymaps/default.km
 
 cp README.md cdrom
 
