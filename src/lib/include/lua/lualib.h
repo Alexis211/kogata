@@ -1,1 +1,1 @@
-../../lualib/lualib.h
+../../lua/lualib.h

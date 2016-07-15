@@ -6,4 +6,3 @@ end
 libkogata = {lib('libkogata'), common_libc, common_libalgo, common_libkogata}
 
 liblua = lib('lua')
-liblualib = lib('lualib')

@@ -1,12 +1,15 @@
 local function bin_settings(name)
 	local s = TableDeepCopy(user_settings)
-	s.link.flags:Add("-T src/bin/linker.ld",
+	s.link.flags:Add("-T src/sysbin/linker.ld",
 					 "-Xlinker -Map=build/bin/" .. name .. ".map")
+	if name == 'lua' or name == 'luac' then
+		s.cc.includes:Add("src/lib/lua")
+	end
 	return s
 end
 
 local function bin_exe(name, moredeps)
-	local s = sysbin_settings(name)
+	local s = bin_settings(name)
 
 	local src = Collect('src/bin/' .. name .. '/*.c')
 	local obj = Compile(s, src)
@@ -15,6 +18,6 @@ local function bin_exe(name, moredeps)
 end
 
 bin = {
-	-- bin_exe('lua', {liblua, liblualib}),
-	-- bin_exe('luac', {liblua, liblualib}),
+	bin_exe('lua', {liblua}),
+	-- bin_exe('luac', {liblua}),
 }
