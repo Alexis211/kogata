@@ -144,4 +144,9 @@ char *strndup(const char* str, size_t count) {
 	return ret;
 }
 
+int strcoll(const char *s1, const char *s2) {
+	// TODO locale handling
+	return strcmp(s1, s2);
+}
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

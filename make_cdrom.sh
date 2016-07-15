@@ -10,14 +10,19 @@ fi
 
 cp build/kernel.bin cdrom/boot; strip cdrom/boot/kernel.bin
 cp build/kernel.map cdrom/boot
-cp build/init.bin cdrom/boot; strip cdrom/boot/init.bin
+cp build/sysbin/init.bin cdrom/boot; strip cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
-cp build//giosrv.bin cdrom/sys/bin
-cp build/login.bin cdrom/sys/bin
-cp build/terminal.bin cdrom/sys/bin
-cp build/shell.bin cdrom/sys/bin
-for BIN in cdrom/sys/bin/*.bin; do strip $BIN; done
+for BIN in giosrv.bin login.bin terminal.bin shell.bin; do
+	cp build/sysbin/$BIN cdrom/sys/bin
+	strip cdrom/sys/bin/$BIN
+done
+
+mkdir -p cdrom/bin
+for BIN in lua.bin luac.bin; do
+	cp build/bin/$BIN cdrom/bin
+	strip cdrom/bin/$BIN
+done
 
 mkdir -p cdrom/sys/fonts
 cp build/fonts/*.bf cdrom/sys/fonts

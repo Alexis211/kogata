@@ -20,4 +20,13 @@ int strncmp(const char *s1, const char *s2, size_t n);
 char *strdup(const char* str);
 char *strndup(const char* str, size_t count);
 
+//TODO
+int strcoll(const char *s1, const char *s2);
+size_t strspn(const char *s, const char *accept);
+char *strstr(const char *haystack, const char *needle);
+char* strerror(int errnum);
+char *strpbrk(const char *s, const char *accept);
+void *memchr(const void *s, int c, size_t n);
+
+
 /* vim: set ts=4 sw=4 tw=0 noet :*/

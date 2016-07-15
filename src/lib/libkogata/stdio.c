@@ -7,7 +7,7 @@
 
 fd_t stdio = 1;
 
-int getc() {
+int getchar() {
 	char chr;
 	size_t sz = read(stdio, 0, 1, &chr);
 	ASSERT(sz == 1);
@@ -15,39 +15,41 @@ int getc() {
 }
 
 
-void putc(int c) {
+int putchar(int c) {
 	char chr = c;
 	write(stdio, 0, 1, &chr);
+	return 0;	//TODO what?
 }
 
-void puts(char* s) {
-	write(stdio, 0, strlen(s), s);
+int puts(const char* s) {
+	// TODO return EOF on error
+	return write(stdio, 0, strlen(s), s);
 }
 
 void getline(char* buf, size_t l) {
 	size_t i = 0;
 	while (true) {
-		int c = getc();
+		int c = getchar();
 		if (c == '\n') {
-			putc('\n');
+			putchar('\n');
 			buf[i] = 0;
 			break;
 		} else if (c == '\b') {
 			if (i > 0) {
 				 i--;
-				putc('\b');
+				putchar('\b');
 			}
 		} else if (c >= ' ') {
 			buf[i] = c;
 			if (i < l-1) {
 				i++;
-				putc(c);
+				putchar(c);
 			}
 		}
 	}
 }
 
-void printf(char* fmt, ...) {
+int printf(const char* fmt, ...) {
 	va_list ap;
 	char buffer[256];
 
@@ -55,7 +57,7 @@ void printf(char* fmt, ...) {
 	vsnprintf(buffer, 256, fmt, ap);
 	va_end(ap);
 
-	puts(buffer);
+	return puts(buffer);
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

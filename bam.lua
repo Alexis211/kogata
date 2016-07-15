@@ -75,15 +75,11 @@ user_settings.cc.includes:Add('src/lib/include')
 -- Require build scripts for all components
 --
 
-require 'src/common/libkogata/bam'
-require 'src/common/libc/bam'
-require 'src/common/libalgo/bam'
-
+require 'src/common/bam'
 require 'src/kernel/bam'
-
-require 'src/lib/libkogata/bam'
-
+require 'src/lib/bam'
 require 'src/sysbin/bam'
+require 'src/bin/bam'
 
 require 'res/fonts/bam'
 require 'res/keymaps/bam'
@@ -95,7 +91,7 @@ require 'res/keymaps/bam'
 cdrom = "build/cdrom.iso"
 
 AddJob(cdrom, "building ISO", "./make_cdrom.sh")
-AddDependency(cdrom, kernel, sysbin, fonts, keymaps)
+AddDependency(cdrom, kernel, sysbin, bin, fonts, keymaps)
 
 DefaultTarget(cdrom)
 

@@ -30,12 +30,12 @@ static void panic_do(const char* type, const char *msg, const char* file, int li
 	asm volatile("hlt");
 }
 
-void panic(const char* message, const char* file, int line) {
+void sys_panic(const char* message, const char* file, int line) {
 	panic_do("PANIC", message, file, line);
 	while(true);
 }
 
-void panic_assert(const char* assertion, const char* file, int line) {
+void sys_panic_assert(const char* assertion, const char* file, int line) {
 	panic_do("ASSERT FAILED", assertion, file, line);
 	while(true);
 }
