@@ -41,5 +41,6 @@ void destroy_slab_allocator(mem_allocator_t*);
 
 void* slab_alloc(mem_allocator_t* a, size_t sz);
 void slab_free(mem_allocator_t* a, void* ptr);
+void* slab_realloc(mem_allocator_t* a, void* ptr, size_t sz);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

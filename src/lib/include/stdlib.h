@@ -14,9 +14,8 @@ void srand(unsigned int seed);
 void abort() __attribute__((__noreturn__));
 
 
-double strtod(const char *nptr, char **endptr);
-float strtof(const char *nptr, char **endptr);
-long double strtold(const char *nptr, char **endptr);
+double strtod(const char *nptr, const char **endptr);
+float strtof(const char *nptr, const char **endptr);
 
 char *getenv(const char *name);
 

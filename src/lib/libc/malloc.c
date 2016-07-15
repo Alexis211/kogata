@@ -63,6 +63,10 @@ void* calloc(size_t nmemb, size_t sz) {
 	return r;
 }
 
+void* realloc(void* ptr, size_t sz) {
+	return slab_realloc(mem_allocator, ptr, sz);
+}
+
 void free(void* ptr) {
 	slab_free(mem_allocator, ptr);
 }

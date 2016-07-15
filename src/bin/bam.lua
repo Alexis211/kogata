@@ -18,6 +18,6 @@ local function bin_exe(name, deps)
 end
 
 bin = {
-	-- bin_exe('lua', {liblua}),
+	bin_exe('lua', {liblua}),
 	-- bin_exe('luac', {liblua}),
 }

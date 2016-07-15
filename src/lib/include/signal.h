@@ -1,8 +1,10 @@
 #pragma once
 
-// TODO
+#include <stdatomic.h>
 
-typedef int sig_atomic_t;
+typedef atomic_int sig_atomic_t;
+
+// TODO
 
 #define SIG_DFL 0	// stupid
 

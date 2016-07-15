@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <kogata/slab_alloc.h>
 
 typedef struct object {
@@ -291,6 +293,61 @@ void slab_free(mem_allocator_t* a, void* addr) {
 		}
 		ASSERT(false);
 	}
+}
+
+size_t slab_find_getsize(mem_allocator_t *a, void* addr) {
+	// look for block in caches
+	for (int i = 0; a->types[i].obj_size != 0; i++) {
+		size_t region_size = PAGE_SIZE * a->types[i].pages_per_cache;
+		for (cache_t *r = a->slabs[i].first_cache; r != 0; r = r->next_cache) {
+			if (addr >= r->region_addr && addr < r->region_addr + region_size) {
+				ASSERT((addr - r->region_addr) % a->types[i].obj_size == 0);
+				return a->types[i].obj_size;
+			}
+		}
+	}
+
+	// otherwise the block was directly allocated : look for it in regions.
+	for (region_t *i = a->all_regions; i != 0; i = i->next_region) {
+		if (i->region_addr == addr) {
+			return i->region_size;
+		}
+	}
+	ASSERT(false);
+}
+
+void* slab_realloc(mem_allocator_t* a, void* ptr, size_t sz) {
+	if (ptr == 0) return slab_alloc(a, sz);
+	if (sz == 0) {
+		slab_free(a, ptr);
+		return NULL;
+	}
+	
+	size_t old_sz = slab_find_getsize(a, ptr);
+
+	// What size will be allocated ?
+	size_t new_sz = 0;
+	for (int i = 0; a->types[i].obj_size != 0; i++) {
+		const size_t obj_size = a->types[i].obj_size;
+		if (sz <= obj_size) {
+			new_sz = obj_size;
+			break;
+		}
+	}
+	if (new_sz == 0) new_sz = sz;
+
+	// If the space is already big enough, do nothing
+	if (old_sz == new_sz) return ptr;
+
+	// Reallocate
+	void* ptr2 = slab_alloc(a, sz);
+	if (ptr2 == NULL) return NULL;
+
+	size_t min_sz = (old_sz < sz ? old_sz : sz);
+	memcpy(ptr2, ptr, min_sz);
+	slab_free(a, ptr);
+
+	return ptr2;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

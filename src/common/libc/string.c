@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <string.h>
 
 #include <kogata/malloc.h>
@@ -147,6 +148,53 @@ char *strndup(const char* str, size_t count) {
 int strcoll(const char *s1, const char *s2) {
 	// TODO locale handling
 	return strcmp(s1, s2);
+}
+
+void *memchr(const void *s, int c, size_t n) {
+	unsigned char *p = (unsigned char*)s;
+	for (size_t i = 0; i < n; i++) {
+		if (p[i] == (unsigned char)c)
+			return &p[i];
+	}
+	return NULL;
+}
+
+size_t strspn(const char *s, const char *accept) {
+	size_t l = 0;
+	while (s[l] != 0) {
+		bool ok = false;
+		for (const char* p = accept; *p != 0; p++) {
+			if (s[l] == *p) {
+				ok = true;
+				break;
+			}
+		}
+		if (!ok) break;
+		l++;
+	}
+	return l;
+}
+
+const char *strstr(const char *haystack, const char *needle) {
+	for (const char* p = haystack; *p != 0; p++) {
+		if (!strcmp(p, needle)) return p;
+	}
+	return NULL;
+}
+
+char* strerror(int errnum) {
+	// TODO
+	return "(unspecified error)";
+}
+
+const char *strpbrk(const char *s, const char *accept) {
+	while (*s) {
+		for (const char *p = accept; *p != 0; p++) {
+			if (*s == *p) return s;
+		}
+		s++;
+	}
+	return NULL;
 }
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

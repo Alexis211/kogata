@@ -39,7 +39,7 @@
 ** ensure that all software connected to Lua will be compiled with the
 ** same configuration.
 */
-#define LUA_32BITS
+// #define LUA_32BITS
 
 
 /*

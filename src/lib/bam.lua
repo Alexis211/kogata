@@ -1,5 +1,6 @@
 local function lib(name)
-	local source = Collect('src/lib/' .. name .. '/*.c')
+	local source = {Collect('src/lib/' .. name .. '/*.c'),
+					Collect('src/lib/' .. name .. '/*.s')}
 	return Compile(user_settings, source)
 end
 

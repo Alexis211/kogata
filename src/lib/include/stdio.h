@@ -38,7 +38,7 @@ int ferror(FILE *stream);
 int fileno(FILE *stream);
 
 
-size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream); 
+size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 int fflush(FILE* f);
@@ -70,14 +70,12 @@ int fsetpos(FILE *stream, const fpos_t *pos);
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-#define L_tmpnam 12
+#define L_tmpnam 128
 FILE *tmpfile(void);
 char *tmpnam(char *s);
 
 int rename(const char *old, const char *new);
 int remove(const char *pathname);
-
-
 
 
 
