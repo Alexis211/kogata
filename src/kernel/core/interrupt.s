@@ -2,6 +2,7 @@
 
 %macro COMMONSTUB 1
 [EXTERN idt_%1_handler]
+[GLOBAL %1_common_stub]		; For debugging
 %1_common_stub:
 
 	pusha                    ; Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax

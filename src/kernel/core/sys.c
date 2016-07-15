@@ -80,7 +80,7 @@ void kernel_stacktrace(uint32_t ebp, uint32_t eip) {
 			sym = btree_lower(kernel_symbol_map, (void*)eip, &fn_ptr);
 		}
 
-		dbg_printf("| 0x%p	EIP: 0x%p  %s  +0x%p\n", ebp, eip, sym, ((void*)eip - fn_ptr));
+		dbg_printf("| 0x%p	EIP: 0x%p  %s  +%d\n", ebp, eip, sym, ((void*)eip - fn_ptr));
 
 		uint32_t *d = (uint32_t*)ebp;
 		ebp = d[0];

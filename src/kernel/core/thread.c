@@ -127,19 +127,22 @@ void run_scheduler() {
 		if (current_thread->proc) current_thread->proc->last_ran = current_thread->last_ran;
 		enqueue_thread(current_thread, true);
 	}
-	current_thread = dequeue_thread();
+	current_thread = 0;
 
-	if (current_thread != prev_thread && SPAM_CONTEXT_SWITCH) dbg_printf("[0x%p]\n", current_thread);
+	thread_t *next_thread = dequeue_thread();
 
-	if (current_thread != 0) {
-		thread_t *ptr = current_thread;
-		prng_add_entropy((uint8_t*)&ptr, sizeof(ptr));
+	if (next_thread != prev_thread && SPAM_CONTEXT_SWITCH) dbg_printf("[0x%p]\n", next_thread);
 
-		set_kernel_stack(current_thread->stack_region->addr + current_thread->stack_region->size);
+	if (next_thread != 0) {
+		prng_add_entropy((uint8_t*)&next_thread, sizeof(next_thread));
+
+		set_kernel_stack(next_thread->stack_region->addr + next_thread->stack_region->size);
+
+		current_thread = next_thread;
 		resume_context(&current_thread->ctx);
 	} else {
 		// Wait for an IRQ
-		asm volatile("sti; hlt");
+		asm volatile("sti; hlt; cli");
 		// At this point an IRQ has happenned
 		// and has been processed. Loop around. 
 		run_scheduler();
@@ -247,9 +250,6 @@ void threading_setup(entry_t cont, void* arg) {
 	ASSERT(t != 0);
 
 	start_thread(t);
-
-	exit_critical(CL_USER);
-
 	run_scheduler();	// never returns
 	ASSERT(false);
 }

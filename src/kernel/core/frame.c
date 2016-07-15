@@ -16,8 +16,9 @@ static uint32_t begin_search_at;
 void frame_init_allocator(size_t total_ram, void** kernel_data_end) {
 	nframes = PAGE_ID(total_ram);
 
+	// Statically allocate space after kernel data end
 	frame_bitset = (uint32_t*)ALIGN4_UP((size_t)*kernel_data_end);
-	*kernel_data_end = (void*)frame_bitset + ALIGN4_UP(nframes / 8);
+	*kernel_data_end = (void*)((size_t)frame_bitset + ALIGN4_UP(nframes / 8));
 
 	for (size_t i = 0; i < ALIGN4_UP(nframes / 8)/4; i++)
 		frame_bitset[i] = 0;
