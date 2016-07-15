@@ -1,8 +1,8 @@
 #include <string.h>
-#include <malloc.h>
-#include <debug.h>
+#include <stdlib.h>
 
-#include <syscall.h>
+#include <kogata/debug.h>
+#include <kogata/syscall.h>
 
 int main(int argc, char **argv) {
 	dbg_print("[login] Starting up.\n");

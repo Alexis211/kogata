@@ -1,11 +1,12 @@
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
-#include <printf.h>
-
-#include <syscall.h>
 
 #include <proto/keyboard.h>
-#include <keyboard.h>
+
+#include <kogata/printf.h>
+#include <kogata/syscall.h>
+
+#include <kogata/keyboard.h>
 
 //  ---- Control keys that are not KBD_CHAR-able
 

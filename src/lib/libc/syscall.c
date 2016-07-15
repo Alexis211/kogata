@@ -1,8 +1,9 @@
-#include <debug.h>
-#include <syscall.h>
+#include <kogata/debug.h>
+#include <kogata/syscall.h>
+
+#include <kogata/printf.h>
 
 #include <string.h>
-#include <printf.h>
 
 static inline uint32_t call(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t ss, uint32_t dd) {
 	uint32_t ret;

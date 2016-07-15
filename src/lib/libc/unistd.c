@@ -1,8 +1,7 @@
 #include <string.h>
-
-#include <syscall.h>
-
 #include <unistd.h>
+
+#include <kogata/syscall.h>
 
 
 char cwd_buf[256];

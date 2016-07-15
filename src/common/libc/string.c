@@ -1,6 +1,6 @@
 #include <string.h>
-#include <malloc.h>
 
+#include <kogata/malloc.h>
 
 size_t strlen(const char* str) {
 	size_t ret = 0;

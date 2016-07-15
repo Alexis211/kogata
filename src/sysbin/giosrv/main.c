@@ -1,14 +1,14 @@
 #include <string.h>
 
-#include <malloc.h>
+#include <stdlib.h>
 
-#include <syscall.h>
-#include <debug.h>
-#include <region_alloc.h>
+#include <kogata/syscall.h>
+#include <kogata/debug.h>
+#include <kogata/region_alloc.h>
 
 #include <proto/keyboard.h>
 
-#include <gip.h>
+#include <kogata/gip.h>
 
 //  ---- GIP server
 

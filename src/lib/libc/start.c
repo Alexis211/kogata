@@ -1,4 +1,4 @@
-#include <syscall.h>
+#include <kogata/syscall.h>
 
 void malloc_setup();
 

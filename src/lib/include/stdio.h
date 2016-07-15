@@ -2,7 +2,7 @@
 
 #include <stdarg.h>
 
-#include <syscall.h>
+#include <kogata/syscall.h>
 
 extern fd_t stdio;
 

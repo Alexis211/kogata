@@ -8,16 +8,16 @@ local function bin_settings(name)
 	return s
 end
 
-local function bin_exe(name, moredeps)
+local function bin_exe(name, deps)
 	local s = bin_settings(name)
 
 	local src = Collect('src/bin/' .. name .. '/*.c')
 	local obj = Compile(s, src)
 
-	return Link(s, 'bin/' .. name .. ".bin", {obj, libkogata, moredeps})
+	return Link(s, 'bin/' .. name .. ".bin", {obj, deps})
 end
 
 bin = {
-	bin_exe('lua', {liblua}),
+	-- bin_exe('lua', {liblua}),
 	-- bin_exe('luac', {liblua}),
 }

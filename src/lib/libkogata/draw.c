@@ -1,13 +1,13 @@
-#include <syscall.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
-#include <printf.h>
 
 #include <proto/font_file.h>
 
-#include <region_alloc.h>
+#include <kogata/printf.h>
+#include <kogata/region_alloc.h>
 
-#include <draw.h>
+#include <kogata/syscall.h>
+#include <kogata/draw.h>
 
 fb_t *g_fb_from_file(fd_t file, fb_info_t *geom) {
 	fb_t *ret = (fb_t*)malloc(sizeof(fb_t));

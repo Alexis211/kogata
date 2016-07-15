@@ -9,7 +9,7 @@
 #include <proto/fs.h>
 #include <proto/token.h>
 
-#include <debug.h>
+#include <kogata/debug.h>
 
 typedef void (*entry_t)(void*);
 

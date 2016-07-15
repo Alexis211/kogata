@@ -1,6 +1,6 @@
 #pragma once
 
-#include <algo.h>
+#include <kogata/algo.h>
 
 // Simple hashtable structure (key -> void*)
 // Supports adding, seeking, removing, iterating

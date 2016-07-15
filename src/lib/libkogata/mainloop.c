@@ -1,7 +1,7 @@
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include <mainloop.h>
+#include <kogata/mainloop.h>
 
 mainloop_fd_t *mainloop_fds = 0;
 bool mainloop_fds_change = false;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "malloc.h"
+#include <kogata/malloc.h>
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 255

@@ -1,8 +1,7 @@
 #include <stdbool.h>
 
-#include <debug.h>
-
-#include <syscall.h>
+#include <kogata/debug.h>
+#include <kogata/syscall.h>
 
 void sys_panic(const char* msg, const char* file, int line) {
 	dbg_printf("PANIC in user process\n  %s\n  at %s:%d\n", msg, file, line);

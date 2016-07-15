@@ -2,7 +2,7 @@
 
 #include <proto/fb.h>
 
-#include <syscall.h>
+#include <kogata/syscall.h>
 
 /*
 	Definition of the GIP protocol (Graphics Initiation Protocol).

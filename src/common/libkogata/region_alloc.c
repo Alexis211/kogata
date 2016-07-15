@@ -1,6 +1,6 @@
-#include <region_alloc.h>
-#include <debug.h>
-#include <mutex.h>
+#include <kogata/region_alloc.h>
+#include <kogata/debug.h>
+#include <kogata/mutex.h>
 
 // we cannot include sys...
 

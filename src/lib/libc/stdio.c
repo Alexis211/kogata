@@ -1,8 +1,8 @@
-#include <syscall.h>
 #include <string.h>
-
-#include <printf.h>
 #include <stdio.h>
+
+#include <kogata/syscall.h>
+#include <kogata/printf.h>
 
 
 fd_t stdio = 1;

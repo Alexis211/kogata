@@ -1,7 +1,7 @@
-#include <malloc.h>
-#include <debug.h>
+#include <kogata/malloc.h>
+#include <kogata/debug.h>
 
-#include <btree.h>
+#include <kogata/btree.h>
 
 typedef struct btree_item {
 	void *key, *val;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <algo.h>
+#include <kogata/algo.h>
 
 // A btree may contain several bindings for the same key (in that case they are not ordered)
 //	- btree_find returns any item with matching key, or null if none exists

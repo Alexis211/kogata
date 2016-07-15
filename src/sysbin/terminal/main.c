@@ -1,11 +1,12 @@
 #include <string.h>
-#include <malloc.h>
-#include <region_alloc.h>
-#include <debug.h>
+#include <stdlib.h>
 
-#include <gip.h>
-#include <draw.h>
-#include <keyboard.h>
+#include <kogata/region_alloc.h>
+#include <kogata/debug.h>
+
+#include <kogata/gip.h>
+#include <kogata/draw.h>
+#include <kogata/keyboard.h>
 
 #define NCOLORS 16
 

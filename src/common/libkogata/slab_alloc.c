@@ -1,4 +1,4 @@
-#include <slab_alloc.h>
+#include <kogata/slab_alloc.h>
 
 typedef struct object {
 	struct object *next;

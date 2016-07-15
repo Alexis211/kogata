@@ -3,6 +3,5 @@ local function lib(name)
 	return Compile(common_settings, source) 
 end
 
-common_libalgo = lib('libalgo')
 common_libc = lib('libc')
 common_libkogata = lib('libkogata')

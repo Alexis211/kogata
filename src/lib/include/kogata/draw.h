@@ -1,6 +1,6 @@
 #pragma once
 
-#include <syscall.h>
+#include <kogata/syscall.h>
 #include <proto/fb.h>
 
 //  ---- Generic drawing functions

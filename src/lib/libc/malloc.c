@@ -1,10 +1,10 @@
-#include <malloc.h>
-#include <slab_alloc.h>
+#include <kogata/malloc.h>
+#include <kogata/slab_alloc.h>
+
+#include <kogata/syscall.h>
+#include <kogata/region_alloc.h>
 
 #include <string.h>
-
-#include <syscall.h>
-#include <region_alloc.h>
 
 static void* heap_alloc_pages(size_t s) {
 	void* addr = region_alloc(s, "Heap");

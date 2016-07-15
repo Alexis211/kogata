@@ -1,7 +1,7 @@
 #include <string.h>
-#include <malloc.h>
+#include <stdlib.h>
 
-#include <gip.h>
+#include <kogata/gip.h>
 
 typedef struct {
 	gip_reply_callback_t cb;

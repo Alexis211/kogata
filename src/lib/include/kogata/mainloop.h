@@ -4,7 +4,7 @@
 // is to multiplex several IO operations on a
 // single thread.
 
-#include <syscall.h>
+#include <kogata/syscall.h>
 
 #define MAINLOOP_MAX_WR_BUFS 4
 

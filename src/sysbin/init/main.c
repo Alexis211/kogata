@@ -1,13 +1,11 @@
 #include <string.h>
-#include <printf.h>
+#include <stdlib.h>
 
-#include <malloc.h>
+#include <kogata/syscall.h>
+#include <kogata/debug.h>
+#include <kogata/printf.h>
 
-#include <syscall.h>
-#include <debug.h>
-#include <region_alloc.h>
-
-#include <btree.h>
+#include <kogata/btree.h>
 
 pid_t giosrv_pid = 0, login_pid = 0;
 fd_pair_t root_gip_chan;

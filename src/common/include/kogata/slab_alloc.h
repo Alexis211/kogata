@@ -16,7 +16,7 @@
 #include <stdio.h> 
 #define dbg_printf printf
 #else
-#include <debug.h>
+#include <kogata/debug.h>
 #endif
 
 #define PAGE_SIZE 0x1000

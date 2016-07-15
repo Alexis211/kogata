@@ -1,7 +1,7 @@
-#include <debug.h>
-#include <malloc.h>
+#include <kogata/debug.h>
+#include <kogata/malloc.h>
 
-#include <hashtbl.h>
+#include <kogata/hashtbl.h>
 
 #define DEFAULT_HT_INIT_SIZE 16
 #define SLOT_OF_HASH(k, nslots) (((size_t)(k)*21179)%(size_t)(nslots))

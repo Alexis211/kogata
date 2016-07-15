@@ -1,7 +1,7 @@
-#include <malloc.h>
 #include <string.h>
 
-#include <algo.h>
+#include <kogata/malloc.h>
+#include <kogata/algo.h>
 
 // Hashing and comparing
 

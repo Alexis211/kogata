@@ -5,20 +5,19 @@ local function sysbin_settings(name)
 	return s
 end
 
-local function sysbin_exe(name, moredeps)
+local function sysbin_exe(name, deps)
 	local s = sysbin_settings(name)
 
 	local src = Collect('src/sysbin/' .. name .. '/*.c')
 	local obj = Compile(s, src)
 
-	return Link(s, 'sysbin/' .. name .. ".bin", {obj, libkogata, moredeps})
+	return Link(s, 'sysbin/' .. name .. ".bin", {obj, deps})
 end
 
 sysbin = {
-	sysbin_exe('init'),
-	sysbin_exe('giosrv'),
-	sysbin_exe('login'),
-	sysbin_exe('terminal'),
-	--sysbin_exe('shell', {liblua, liblualib}),
-	sysbin_exe('shell'),
+	sysbin_exe('init', {libkogata}),
+	sysbin_exe('giosrv', {libkogata}),
+	sysbin_exe('login', {libkogata}),
+	sysbin_exe('terminal', {libkogata}),
+	sysbin_exe('shell', {libkogata}),
 }

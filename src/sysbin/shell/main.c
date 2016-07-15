@@ -1,11 +1,11 @@
 #include <string.h>
-#include <malloc.h>
-#include <debug.h>
+#include <stdlib.h>
 
 #include <stdio.h>
 #include <unistd.h>
 
-#include <syscall.h>
+#include <kogata/debug.h>
+#include <kogata/syscall.h>
 
 void ls(char* dir) {
 	fd_t f = open(dir, FM_READDIR);

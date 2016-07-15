@@ -1,5 +1,6 @@
-#include <printf.h>
 #include <stdarg.h>
+
+#include <kogata/printf.h>
 
 int snprintf(char * buff, size_t len, const char *format, ...) {
 	va_list ap;

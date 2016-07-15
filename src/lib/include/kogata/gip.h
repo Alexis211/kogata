@@ -2,10 +2,10 @@
 
 // Not thread safe
 
-#include <hashtbl.h>
+#include <kogata/hashtbl.h>
+#include <kogata/mainloop.h>
 
 #include <proto/gip.h>
-#include <mainloop.h>
 
 typedef struct gip_handler gip_handler_t;
 

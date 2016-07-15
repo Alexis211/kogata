@@ -3,6 +3,8 @@ local function lib(name)
 	return Compile(user_settings, source)
 end
 
-libkogata = {lib('libkogata'), common_libc, common_libalgo, common_libkogata}
+libc = {lib('libc'), common_libc, common_libkogata}
 
-liblua = lib('lua')
+libkogata = {lib('libkogata'), libc}
+
+liblua = {lib('lua'), libc}
