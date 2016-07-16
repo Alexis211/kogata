@@ -4,38 +4,40 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <readline/readline.h>
+
 #include <kogata/debug.h>
 #include <kogata/syscall.h>
 
 void ls(char* dir) {
-	fd_t f = open(dir, FM_READDIR);
+	fd_t f = sc_open(dir, FM_READDIR);
 	if (f) {
 		dirent_t i;
 		int ent_no = 0;
-		while (readdir(f, ent_no++, &i)) {
+		while (sc_readdir(f, ent_no++, &i)) {
 			if (i.st.type & FT_DIR)
 				printf("%s/\n", i.name);
 			else
 				printf("%s\n", i.name);
 		}
-		close(f);
+		sc_close(f);
 	} else {
 		printf("Could not open directory '%s'\n", dir);
 	}
 }
 
 void cat(char* file) {
-	fd_t f = open(file, FM_READ);
+	fd_t f = sc_open(file, FM_READ);
 	if (f) {
 		char buf[129];
 		size_t p = 0;
 		while (true) {
-			size_t r = read(f, p, 128, buf);
+			size_t r = sc_read(f, p, 128, buf);
 			p += r;
-			write(stdio, 0, r, buf);
+			fwrite(buf, r, 1, stdout);
 			if (r < 128) break;
 		}
-		close(f);
+		sc_close(f);
 	} else {
 		printf("Could not open file '%s'\n", file);
 	}
@@ -44,17 +46,18 @@ void cat(char* file) {
 int main(int argc, char **argv) {
 	dbg_printf("[shell] Starting\n");
 
-	fctl(stdio, FC_SET_BLOCKING, 0);
-
 	puts("Kogata shell.\n");
 
 	chdir("sys:");
 
 	while(true) {
-		char buf[256];
-		printf("\n\e[36m%s>\e[33m ", getcwd(buf, 256));
+		char prompt[256];
+		char cwdbuf[256];
+		snprintf(prompt, 256, "\n\e[36m%s>\e[33m ", getcwd(cwdbuf, 256));
 
-		getline(buf, 256);
+		char *buf = readline(prompt);
+		if (buf == NULL) continue;
+		add_history(buf);
 
 		printf("\e[39m");
 		if (!strncmp(buf, "cd ", 3)) {
@@ -82,6 +85,8 @@ int main(int argc, char **argv) {
 		} else {
 			printf("No such command.\n");
 		}
+
+		free(buf);
 	}
 	printf("Bye.\n");
 

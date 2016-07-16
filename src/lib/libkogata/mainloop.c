@@ -91,7 +91,7 @@ void mainloop_run() {
 
 		//  ---- Do the select
 		/*dbg_printf("(mainloop) begin select\n");*/
-		bool ok = select(sel_arg, nfds, -1);
+		bool ok = sc_select(sel_arg, nfds, -1);
 		if (!ok) {
 			dbg_printf("(mainloop) Failed to select.\n");
 			free(sel_arg);
@@ -107,7 +107,7 @@ void mainloop_run() {
 					fd->on_error(fd);
 				} else if ((sel_arg[i].got_flags & SEL_READ) && fd->rd_buf != 0) {
 					fd->rd_buf_filled +=
-						read(fd->fd, 0, fd->rd_buf_expect_size - fd->rd_buf_filled, fd->rd_buf + fd->rd_buf_filled);
+						sc_read(fd->fd, 0, fd->rd_buf_expect_size - fd->rd_buf_filled, fd->rd_buf + fd->rd_buf_filled);
 					if (fd->rd_buf_filled == fd->rd_buf_expect_size) {
 						/*dbg_printf("(mainloop) finish read %d\n", fd->rd_buf_expect_size);*/
 						fd->rd_buf_filled = 0;
@@ -118,7 +118,7 @@ void mainloop_run() {
 					size_t remain_size = fd->wr_bufs[0].size - fd->wr_bufs[0].written;
 					void* write_ptr = fd->wr_bufs[0].buf + fd->wr_bufs[0].written;
 
-					fd->wr_bufs[0].written += write(fd->fd, 0, remain_size, write_ptr);
+					fd->wr_bufs[0].written += sc_write(fd->fd, 0, remain_size, write_ptr);
 
 					if (fd->wr_bufs[0].written == fd->wr_bufs[0].size) {
 						/*dbg_printf("(mainloop) finish write %d\n", fd->wr_bufs[0].size);*/

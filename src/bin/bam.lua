@@ -1,6 +1,6 @@
 local function bin_settings(name)
 	local s = TableDeepCopy(user_settings)
-	s.link.flags:Add("-T src/sysbin/linker.ld",
+	s.link.flags:Add("-T src/lib/linker.ld",
 					 "-Xlinker -Map=build/bin/" .. name .. ".map")
 	if name == 'lua' or name == 'luac' then
 		s.cc.includes:Add("src/lib/lua")

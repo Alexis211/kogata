@@ -57,14 +57,14 @@ bool load_keymap(keyboard_t *kb, const char* kmname) {
 	char buf[128];
 	snprintf(buf, 128, "sys:/keymaps/%s.km", kmname);
 
-	fd_t f = open(buf, FM_READ);
+	fd_t f = sc_open(buf, FM_READ);
 	if (f == 0) {
 		dbg_printf("Failed to open keymap %s\n", buf);
 		return false;
 	}
 
 	keymap_t km;
-	size_t rd = read(f, 0, sizeof(keymap_t), (char*)&km);
+	size_t rd = sc_read(f, 0, sizeof(keymap_t), (char*)&km);
 
 	bool ok = (rd == sizeof(keymap_t));
 
@@ -73,7 +73,7 @@ bool load_keymap(keyboard_t *kb, const char* kmname) {
 		kb->status = 0;
 	}
 
-	close(f);
+	sc_close(f);
 
 	return ok;
 }

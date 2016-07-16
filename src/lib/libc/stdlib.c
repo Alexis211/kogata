@@ -15,10 +15,10 @@ void abort() {
 	PANIC("Aborted.");
 }
 
-float strtof(const char *nptr, const char **endptr) {
+float strtof(const char *nptr, char **endptr) {
 	return (float)strtod(nptr, endptr);
 }
-double strtod(const char *nptr, const char **endptr) {
+double strtod(const char *nptr, char **endptr) {
 	// TODO: better (inf, nan, ...)
 
 	const char* p = nptr;
@@ -57,7 +57,7 @@ double strtod(const char *nptr, const char **endptr) {
 			for (int i = 0; i < exp; i++) val /= 10;
 		}
 	}
-	if (endptr != NULL) *endptr = p-1;
+	if (endptr != NULL) *endptr = (char*)(p-1);
 
 	return val * sign;
 }

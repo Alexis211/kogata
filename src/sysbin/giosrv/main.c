@@ -6,6 +6,7 @@
 #include <kogata/debug.h>
 #include <kogata/region_alloc.h>
 
+#include <proto/launch.h>
 #include <proto/keyboard.h>
 
 #include <kogata/gip.h>
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
 	dbg_print("[giosrv] Starting up.\n");
 
 	//  ---- Keyboard setup
-	kbd.fd = open("io:/input/pckbd", FM_READ);
+	kbd.fd = sc_open("io:/input/pckbd", FM_READ);
 	if (kbd.fd == 0) PANIC("Could not open keyboard");
 
 	mainloop_fd_t kh;
@@ -75,10 +76,10 @@ int main(int argc, char **argv) {
 	mainloop_add_fd(&kh);
 
 	//  ---- VESA setup
-	srv.fd = open("io:/display/vesa", FM_IOCTL | FM_READ | FM_WRITE | FM_MMAP);
+	srv.fd = sc_open("io:/display/vesa", FM_IOCTL | FM_READ | FM_WRITE | FM_MMAP);
 	if (srv.fd == 0) PANIC("Could not open fbdev");
 
-	int r = ioctl(srv.fd, IOCTL_FB_GET_INFO, &srv.mode);
+	int r = sc_ioctl(srv.fd, IOCTL_FB_GET_INFO, &srv.mode);
 	ASSERT(r == 1);
 	dbg_printf("[giosrv] Running on FB %dx%d\n", srv.mode.width, srv.mode.height);
 
@@ -86,7 +87,7 @@ int main(int argc, char **argv) {
 	gipsrv = new_gip_handler(&giosrv_cb, &srv);
 	ASSERT(gipsrv != 0);
 
-	gipsrv->mainloop_item.fd = 1;
+	gipsrv->mainloop_item.fd = STD_FD_GIOSRV;
 	mainloop_add_fd(&gipsrv->mainloop_item);
 
 	//  ---- Enter main loop
@@ -105,7 +106,7 @@ void send_buffer_info(gip_handler_t *h, giosrv_t *s) {
 	gip_buffer_info_msg msg_data;
 
 	msg_data.geom = s->mode;
-	if (!gen_token(s->fd, &msg_data.tok)) {
+	if (!sc_gen_token(s->fd, &msg_data.tok)) {
 		dbg_printf("[giosrv] Could not generate token for buffer_info_msg.\n");
 	} else {
 		dbg_printf("[giosrv] Generated token: %x %x\n",

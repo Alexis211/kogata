@@ -2,17 +2,16 @@
 
 #include <stdarg.h>
 
+#include <kogata/printf.h>
+
 #include <kogata/syscall.h>
 
-extern fd_t stdio;
-
-// CUSTOM!
-void getline(char* buf, size_t l);
+void setup_libc_stdio();
 
 
 //TODO below
 struct file_t {
-	fd_t fd;
+	// TODO
 };
 typedef struct file_t FILE;
 
@@ -78,12 +77,10 @@ int rename(const char *old, const char *new);
 int remove(const char *pathname);
 
 
-
 int printf(const char *format, ...);
 int fprintf(FILE *stream, const char *format, ...);
 int dprintf(int fd, const char *format, ...);
 int sprintf(char *str, const char *format, ...);
-int snprintf(char *str, size_t size, const char *format, ...);
 
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

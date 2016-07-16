@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <proto/launch.h>
+
 #include <kogata/region_alloc.h>
 #include <kogata/debug.h>
 
@@ -107,11 +109,11 @@ int main(int argc, char **argv) {
 	gip_handler_t *h = new_gip_handler(&term_gip_cb, &term);
 	ASSERT(h != 0);
 
-	h->mainloop_item.fd = 1;
+	h->mainloop_item.fd = STD_FD_GIP;
 	mainloop_add_fd(&h->mainloop_item);
 
 	// setup communication with app
-	term.app.fd = 2;
+	term.app.fd = STD_FD_TTYSRV;
 	term.app.on_error = term_app_on_error;
 	term.app.data = &term;
 	mainloop_expect(&term.app, &term.rd_c_buf, 1, term_on_rd_c);
@@ -262,9 +264,6 @@ void term_putc(term_t *t, int c) {
 		} else if (c == '\b') {
 			if (nc > 0) {
 				nc--;
-			} else {
-				nl--;
-				nc = t->w - 1;
 			}
 			term_put_at(t, nl, nc, ' ');
 		} else if (c == '\t') {
@@ -307,11 +306,11 @@ void gip_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m
 		c->fb = 0;
 	}
 	if (c->fd != 0) {
-		close(c->fd);
+		sc_close(c->fd);
 		c->fd = 0;
 	}
 
-	c->fd = use_token(&m->tok);
+	c->fd = sc_use_token(&m->tok);
 	if (c->fd != 0) {
 		memcpy(&c->mode, &m->geom, sizeof(fb_info_t));
 
@@ -361,7 +360,10 @@ void gip_key_down(gip_handler_t *s, gip_msg_header *p) {
 		if (k.key == KBD_CODE_TAB) c->wr_c_buf = '\t';
 		if (k.key == KBD_CODE_BKSP) c->wr_c_buf = '\b';
 	}
-	mainloop_nonblocking_write(&c->app, &c->wr_c_buf, 1, false);
+	if (c->wr_c_buf != 0) {
+		term_putc(c, c->wr_c_buf);
+		mainloop_nonblocking_write(&c->app, &c->wr_c_buf, 1, false);
+	}
 }
 
 void gip_key_up(gip_handler_t *s, gip_msg_header *p) {

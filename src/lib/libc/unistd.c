@@ -22,7 +22,7 @@ int chdir(const char* path) {
 	if (!pathncat(cwd_buf2, path, 256)) return -1;
 
 	stat_t st;
-	if (!stat(cwd_buf2, &st)) return -1;
+	if (!sc_stat(cwd_buf2, &st)) return -1;
 	if (!(st.type & FT_DIR)) return -1;
 
 	strcpy(cwd_buf, cwd_buf2);

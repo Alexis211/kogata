@@ -19,7 +19,7 @@ fb_t *g_fb_from_file(fd_t file, fb_info_t *geom) {
 	ret->data = (uint8_t*)region_alloc(geom->height * geom->pitch, "Framebuffer");
 	if (ret->data == 0) goto error;
 
-	bool map_ok = mmap_file(file, 0, ret->data, geom->height * geom->pitch, MM_READ | MM_WRITE);
+	bool map_ok = sc_mmap_file(file, 0, ret->data, geom->height * geom->pitch, MM_READ | MM_WRITE);
 	if (!map_ok) goto error;
 
 	return ret;
@@ -43,7 +43,7 @@ fb_t *g_fb_from_mem(uint8_t* data, fb_info_t *geom) {
 
 void g_delete_fb(fb_t *fb) {
 	if (fb->fd != 0) {
-		munmap(fb->data);
+		sc_munmap(fb->data);
 		region_free(fb->data);
 	}
 	free(fb);
@@ -237,7 +237,7 @@ font_t *g_load_ascii_bitmap_font(fd_t f) {
 
 	ascii_bitmap_font_header h;
 
-	size_t s = read(f, 0, sizeof(h), (char*)&h);
+	size_t s = sc_read(f, 0, sizeof(h), (char*)&h);
 	if (s != sizeof(h)) goto error;
 
 	if (h.magic != ASCII_BITMAP_FONT_MAGIC) goto error;
@@ -255,7 +255,7 @@ font_t *g_load_ascii_bitmap_font(fd_t f) {
 	font->ascii_bitmap.data = (uint8_t*)malloc(h.ch * h.nchars);
 	if (font->ascii_bitmap.data == 0) goto error;
 
-	size_t rd = read(f, sizeof(h), h.ch * h.nchars, (char*)font->ascii_bitmap.data);
+	size_t rd = sc_read(f, sizeof(h), h.ch * h.nchars, (char*)font->ascii_bitmap.data);
 	if (rd != h.ch * h.nchars) goto error;
 
 	return font;
@@ -263,7 +263,7 @@ font_t *g_load_ascii_bitmap_font(fd_t f) {
 error:
 	if (font && font->ascii_bitmap.data) free(font->ascii_bitmap.data);
 	if (font) free(font);
-	close(f);
+	sc_close(f);
 	return 0;
 }
 
@@ -271,7 +271,7 @@ font_t *g_load_font(const char* fontname) {
 	char buf[128];
 
 	snprintf(buf, 128, "sys:/fonts/%s.bf", fontname);
-	fd_t f = open(buf, FM_READ);
+	fd_t f = sc_open(buf, FM_READ);
 	if (f != 0) return g_load_ascii_bitmap_font(f);
 
 	return 0;

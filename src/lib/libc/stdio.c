@@ -1,52 +1,38 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <proto/launch.h>
+
 #include <kogata/syscall.h>
 #include <kogata/printf.h>
 
+FILE *stdin = 0;
+FILE *stdout = 0;
+FILE *stderr = 0;
 
-fd_t stdio = 1;
+void setup_libc_stdio() {
+	fd_t tty_io = STD_FD_TTY_STDIO;
+	// fd_t tty_in = STD_FD_STDIN;
+	// fd_t tty_out = STD_FD_STDOUT;
+	// fd_t tty_err = STD_FD_STDERR;
 
-int getchar() {
-	char chr;
-	size_t sz = read(stdio, 0, 1, &chr);
-	ASSERT(sz == 1);
-	return chr;
+	// TODO
+	if (true) {
+		sc_fctl(tty_io, FC_SET_BLOCKING, 0);
+	}
 }
 
 
+int getchar() {
+	return fgetc(stdin);
+}
+
 int putchar(int c) {
-	char chr = c;
-	write(stdio, 0, 1, &chr);
-	return 0;	//TODO what?
+	return fputc(c, stdout);
 }
 
 int puts(const char* s) {
-	// TODO return EOF on error
-	return write(stdio, 0, strlen(s), s);
-}
-
-void getline(char* buf, size_t l) {
-	size_t i = 0;
-	while (true) {
-		int c = getchar();
-		if (c == '\n') {
-			putchar('\n');
-			buf[i] = 0;
-			break;
-		} else if (c == '\b') {
-			if (i > 0) {
-				 i--;
-				putchar('\b');
-			}
-		} else if (c >= ' ') {
-			buf[i] = c;
-			if (i < l-1) {
-				i++;
-				putchar(c);
-			}
-		}
-	}
+	return fputs(s, stdout);
 }
 
 int printf(const char* fmt, ...) {
@@ -139,9 +125,6 @@ int fclose(FILE* f) {
 	return 0;
 }
 
-FILE *stdin = 0;
-FILE *stdout = 0;
-FILE *stderr = 0;
 
 void setbuf(FILE *stream, char *buf) {
 	// TODO

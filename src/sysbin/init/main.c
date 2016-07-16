@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <proto/launch.h>
+
 #include <kogata/syscall.h>
 #include <kogata/debug.h>
 #include <kogata/printf.h>
@@ -51,25 +53,25 @@ btree_t *parse_cmdline(const char* x) {
 btree_t* read_cmdline() {
 	char cmdline_buf[256];
 
-	fd_t f = open("io:/cmdline", FM_READ);
+	fd_t f = sc_open("io:/cmdline", FM_READ);
 	if (f == 0) return 0;
 
-	size_t len = read(f, 0, 255, cmdline_buf);
+	size_t len = sc_read(f, 0, 255, cmdline_buf);
 	cmdline_buf[len] = 0;
 
-	close(f);
+	sc_close(f);
 
 	return parse_cmdline(cmdline_buf);
 }
 
 void setup_sys() {
-	fd_t sysdir_cfg = open("config:/sysdir", FM_READ);
+	fd_t sysdir_cfg = sc_open("config:/sysdir", FM_READ);
 	if (sysdir_cfg == 0) PANIC("[init] Could not read config:/sysdir");
 
 	char buf[256];
-	size_t l = read(sysdir_cfg, 0, 255, buf);
+	size_t l = sc_read(sysdir_cfg, 0, 255, buf);
 	buf[l] = 0;
-	close(sysdir_cfg);
+	sc_close(sysdir_cfg);
 
 	char* eol = strchr(buf, '\n');
 	if (eol) *eol = 0;
@@ -79,10 +81,10 @@ void setup_sys() {
 
 	char* sep = strchr(buf, ':');
 	if (sep == 0) {
-		ok = fs_subfs("sys", "root", buf, FM_READ | FM_MMAP | FM_READDIR);
+		ok = sc_fs_subfs("sys", "root", buf, FM_READ | FM_MMAP | FM_READDIR);
 	} else {
 		*sep = 0;
-		ok = fs_subfs("sys", buf, sep +1, FM_READ | FM_MMAP | FM_READDIR);
+		ok = sc_fs_subfs("sys", buf, sep +1, FM_READ | FM_MMAP | FM_READDIR);
 	}
 
 	if (!ok) PANIC("[init] Could not bind root:/sys to sys:/");
@@ -91,7 +93,7 @@ void setup_sys() {
 void launch_giosrv() {
 	if (giosrv_pid != 0) return;
 
-	giosrv_pid = new_proc();
+	giosrv_pid = sc_new_proc();
 	if (giosrv_pid == 0) {
 		PANIC("[init] Could not create process for giosrv");
 	}
@@ -100,19 +102,19 @@ void launch_giosrv() {
 
 	bool ok;
 
-	ok = bind_fs(giosrv_pid, "io", "io");
+	ok = sc_bind_fs(giosrv_pid, "io", "io");
 	if (!ok) PANIC("[init] Could not bind io:/ to giosrv");
 
-	ok = bind_fs(giosrv_pid, "sys", "sys");
+	ok = sc_bind_fs(giosrv_pid, "sys", "sys");
 	if (!ok) PANIC("[init] Could not bind sys:/ to giosrv");
 
-	ok = bind_fs(giosrv_pid, "config", "config");
+	ok = sc_bind_fs(giosrv_pid, "config", "config");
 	if (!ok) PANIC("[init] Could not bind config:/ to giosrv");
 
-	ok = bind_fd(giosrv_pid, 1, root_gip_chan.a);
+	ok = sc_bind_fd(giosrv_pid, STD_FD_GIOSRV, root_gip_chan.a);
 	if (!ok) PANIC("[init] Could not bind root GIP channel FD to giosrv");
 
-	ok = proc_exec(giosrv_pid, "sys:/bin/giosrv.bin");
+	ok = sc_proc_exec(giosrv_pid, "sys:/bin/giosrv.bin");
 	if (!ok) PANIC("[init] Could not run giosrv.bin");
 
 	dbg_printf("[init] giosrv started.\n");
@@ -121,7 +123,7 @@ void launch_giosrv() {
 void launch_login() {
 	if (login_pid != 0) return;
 
-	login_pid = new_proc();
+	login_pid = sc_new_proc();
 	if (login_pid == 0) {
 		PANIC("[init] Could not create process for login");
 	}
@@ -130,19 +132,19 @@ void launch_login() {
 
 	bool ok;
 
-	ok = bind_fs(login_pid, "root", "root");
+	ok = sc_bind_fs(login_pid, "root", "root");
 	if (!ok) PANIC("[init] Could not bind root:/ to login");
 
-	ok = bind_fs(login_pid, "sys", "sys");
+	ok = sc_bind_fs(login_pid, "sys", "sys");
 	if (!ok) PANIC("[init] Could not bind sys:/ to login");
 
-	ok = bind_fs(login_pid, "config", "config");
+	ok = sc_bind_fs(login_pid, "config", "config");
 	if (!ok) PANIC("[init] Could not bind config:/ to login");
 
-	ok = bind_fd(login_pid, 1, root_gip_chan.b);
+	ok = sc_bind_fd(login_pid, STD_FD_GIP, root_gip_chan.b);
 	if (!ok) PANIC("[init] Could not bind root GIP channel FD to login");
 
-	ok = proc_exec(login_pid, "sys:/bin/login.bin");
+	ok = sc_proc_exec(login_pid, "sys:/bin/login.bin");
 	if (!ok) PANIC("[init] Could not run login.bin");
 
 	dbg_printf("[init] login started.\n");
@@ -165,7 +167,7 @@ int main(int argc, char **argv) {
 
 		char buf[50];
 		snprintf(buf, 50, "/config/%s", config);
-		bool ok = fs_subfs("config", "root", buf, FM_READ | FM_WRITE | FM_MMAP | FM_READDIR);
+		bool ok = sc_fs_subfs("config", "root", buf, FM_READ | FM_WRITE | FM_MMAP | FM_READDIR);
 		if (!ok) PANIC("[init] Could not setup config:");
 	}
 
@@ -173,7 +175,7 @@ int main(int argc, char **argv) {
 	setup_sys();
 
 	// Setup GIP channel for communication between giosrv and login
-	root_gip_chan = make_channel(false);
+	root_gip_chan = sc_make_channel(false);
 	if (root_gip_chan.a == 0 || root_gip_chan.b == 0) {
 		PANIC("[init] Could not create root GIP channel.");
 	}
@@ -185,7 +187,7 @@ int main(int argc, char **argv) {
 	// Make sure no one dies
 	while(true) {
 		proc_status_t s;
-		proc_wait(0, false, &s);
+		sc_proc_wait(0, false, &s);
 		if (s.pid != 0) {
 			if (s.pid == giosrv_pid) {
 				giosrv_pid = 0;
@@ -201,7 +203,7 @@ int main(int argc, char **argv) {
 				ASSERT(false);
 			}
 		}
-		usleep(1000000);
+		sc_usleep(1000000);
 	}
 
 	return 0;

@@ -1,6 +1,6 @@
 local function sysbin_settings(name)
 	local s = TableDeepCopy(user_settings)
-	s.link.flags:Add("-T src/sysbin/linker.ld",
+	s.link.flags:Add("-T src/lib/linker.ld",
 					 "-Xlinker -Map=build/sysbin/" .. name .. ".map")
 	return s
 end

@@ -10,7 +10,7 @@ static void* heap_alloc_pages(size_t s) {
 	void* addr = region_alloc(s, "Heap");
 	if (addr == 0) return 0;
 
-	bool map_ok = mmap(addr, s, FM_READ | FM_WRITE);
+	bool map_ok = sc_mmap(addr, s, FM_READ | FM_WRITE);
 	if (!map_ok) {
 		region_free(addr);
 		return 0;
@@ -20,7 +20,7 @@ static void* heap_alloc_pages(size_t s) {
 }
 
 static void heap_free_pages(void* addr) {
-	munmap(addr);
+	sc_munmap(addr);
 	region_free(addr);
 }
 
@@ -40,7 +40,7 @@ static slab_type_t slab_sizes[] = {
 };
 
 bool mmap_single_page(void* addr) {
-	return mmap(addr, PAGE_SIZE, MM_READ | MM_WRITE);
+	return sc_mmap(addr, PAGE_SIZE, MM_READ | MM_WRITE);
 }
 
 void malloc_setup() {

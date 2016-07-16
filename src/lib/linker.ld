@@ -1,4 +1,4 @@
-ENTRY (__libkogata_start)
+ENTRY (__libc_start)
  
 SECTIONS{
     . = 0x100000;

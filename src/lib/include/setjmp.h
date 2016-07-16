@@ -1,6 +1,6 @@
 #pragma once
 
-// TODO
+#include <stdint.h>
 
 struct _jmp_buf {
 	uint32_t stuff[10];	// 40 bytes
