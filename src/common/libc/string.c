@@ -176,8 +176,9 @@ size_t strspn(const char *s, const char *accept) {
 }
 
 const char *strstr(const char *haystack, const char *needle) {
+	int n = strlen(needle);
 	for (const char* p = haystack; *p != 0; p++) {
-		if (!strcmp(p, needle)) return p;
+		if (!strncmp(p, needle, n)) return p;
 	}
 	return NULL;
 }

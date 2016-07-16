@@ -178,7 +178,7 @@
 		LUA_ROOT"?.lua;"  LUA_ROOT"?/init.lua;" \
 		"./?.lua;" "./?/init.lua"
 #define LUA_CPATH_DEFAULT \
-		LUA_ROOT"?.so;" LUA_ROOT"loadall.so;" "./?.so"
+		LUA_ROOT"?.so;" "./?.so"
 
 
 /*

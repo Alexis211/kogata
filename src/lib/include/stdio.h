@@ -10,13 +10,22 @@
 
 void setup_libc_stdio();
 
+#define BUFSIZ 256
 
-//TODO below
+
 struct file_t {
 	fd_t fd;
 	stat_t st;
-	int mode;
-	int flags;
+	int file_mode;
+
+	size_t pos;
+
+	int buf_mode;
+	char *out_buf;
+	size_t out_buf_size, out_buf_used;
+	bool out_buf_owned;
+
+	int ungetc_char;
 };
 typedef struct file_t FILE;
 
@@ -52,7 +61,6 @@ int fclose(FILE* f);
 
 extern FILE *stdin, *stdout, *stderr;
 
-#define BUFSIZ 1024
 void setbuf(FILE *stream, char *buf);
 void setbuffer(FILE *stream, char *buf, size_t size);
 void setlinebuf(FILE *stream);
