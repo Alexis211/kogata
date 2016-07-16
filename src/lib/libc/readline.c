@@ -21,6 +21,7 @@ char *readline(const char* prompt) {
 	// readline_history *h = &stdio_history;
 
 	puts(prompt);
+	fflush(stdout);
 
 	char* buf = malloc(READLINE_MAX_LEN);
 	if (buf == NULL) return NULL;

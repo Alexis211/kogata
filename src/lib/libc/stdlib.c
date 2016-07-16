@@ -57,7 +57,7 @@ double strtod(const char *nptr, char **endptr) {
 			for (int i = 0; i < exp; i++) val /= 10;
 		}
 	}
-	if (endptr != NULL) *endptr = (char*)(p-1);
+	if (endptr != NULL) *endptr = (char*)p;
 
 	return val * sign;
 }

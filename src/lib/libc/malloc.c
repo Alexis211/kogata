@@ -54,7 +54,10 @@ void malloc_setup() {
 void* malloc(size_t size) {
 	if (size == 0) return 0;
 
-	return slab_alloc(mem_allocator, size);
+	//dbg_printf("malloc 0x%p -> ", size);
+	void* ret = slab_alloc(mem_allocator, size);
+	//dbg_printf("0x%p\n", ret);
+	return ret;
 }
 
 void* calloc(size_t nmemb, size_t sz) {
@@ -64,10 +67,16 @@ void* calloc(size_t nmemb, size_t sz) {
 }
 
 void* realloc(void* ptr, size_t sz) {
-	return slab_realloc(mem_allocator, ptr, sz);
+	//dbg_printf("realloc 0x%p 0x%p -> ", ptr, sz);
+	void* ret = slab_realloc(mem_allocator, ptr, sz);
+	//dbg_printf("0x%p\n", ret);
+	return ret;
 }
 
 void free(void* ptr) {
+	if (ptr == 0) return;
+	
+	//dbg_printf("free 0x%p\n", ptr);
 	slab_free(mem_allocator, ptr);
 }
 

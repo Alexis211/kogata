@@ -41,7 +41,8 @@ int main(int argc, char **argv) {
 			&& sc_bind_fd(shell_pid, STD_FD_TTY_STDIO, tc.b);
 	if (!ok) PANIC("[login] Could not bind to shell process.");
 
-	ok = sc_proc_exec(shell_pid, "sys:/bin/shell.bin");
+	// ok = sc_proc_exec(shell_pid, "sys:/bin/shell.bin");
+	ok = sc_proc_exec(shell_pid, "root:/bin/lua.bin");
 	if (!ok) PANIC("[login] Could not run shell.bin");
 
 	proc_status_t s;

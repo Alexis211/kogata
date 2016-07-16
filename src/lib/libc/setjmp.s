@@ -1,24 +1,18 @@
 [GLOBAL setjmp]
 setjmp:
+	; get return address
+	mov edx, [esp]
+	; get address of jmpbuf structure
+	mov ecx, [esp+4]
+
 	; Store general purpose registers
-	; (in new stack frame)
-	mov [esp+4], eax
-	mov [esp+8], ebx
-	mov [esp+12], ecx
-	mov [esp+16], edx
-	mov [esp+20], edi
-	mov [esp+24], esi
-	mov [esp+28], ebp
-	mov [esp+32], esp
-
-	; Store flags
-	pushf
-	pop eax
-	mov [esp+36], eax
-
-	; Store return address
-	mov eax, [esp]
-	mov [esp+40], eax
+	mov [ecx], ebx
+	mov [ecx+4], edx
+	mov [ecx+8], ebp
+	mov [ecx+12], esp
+	mov [ecx+16], esi
+	mov [ecx+20], edi
+	mov [ecx+24], eax
 
 	; return 0
 	xor eax, eax
@@ -27,27 +21,26 @@ setjmp:
 
 [GLOBAL longjmp]
 longjmp:
-	; on previous stack, resume return address
-	mov eax, [esp+32]
-	mov ebx, [esp+40]
-	mov [eax], ebx
+	; get address of jmpbuf structure
+	mov ecx, [esp+4]
+	; get retun value
+	mov eax, [esp+8]
 
-	; resume flags
-	mov eax, [esp+36]
-	push eax
-	popf
+	; load general purpose registers
+	; (edx contains the return address)
+	mov ebx, [ecx]
+	mov edx, [ecx+4]
+	mov ebp, [ecx+8]
+	mov esp, [ecx+12]
+	mov esi, [ecx+16]
+	mov edi, [ecx+20]
 
-	; load return value in eax
-	mov eax, [esp+44]
-	; resume geneal purpose registers, except eax/esp
-	mov ebx, [esp+8]
-	mov ecx, [esp+12]
-	mov edx, [esp+16]
-	mov edi, [esp+20]
-	mov esi, [esp+24]
-	mov ebp, [esp+28]
-
-	; resume previous esp
-	mov esp, [esp+32]
-	; return as if we were the setjmp call
+	; make sure return value is nonzero
+	test eax, eax
+	jnz _doret
+	inc eax
+_doret:
+	; store back return address
+	mov [esp], edx
 	ret
+

@@ -12,8 +12,9 @@ void __libc_start() {
 	setup_libc_stdio();
 
 	// TODO : more setup ? yes, for args, for env...
+	char *argv[] = {"bin"};
 
-	int ret = main(0, 0);
+	int ret = main(1, argv);
 
 	sc_exit(ret);
 }

@@ -2,6 +2,8 @@
 
 #include <stdarg.h>
 
+#include <proto/fs.h>
+
 #include <kogata/printf.h>
 
 #include <kogata/syscall.h>
@@ -11,7 +13,10 @@ void setup_libc_stdio();
 
 //TODO below
 struct file_t {
-	// TODO
+	fd_t fd;
+	stat_t st;
+	int mode;
+	int flags;
 };
 typedef struct file_t FILE;
 
@@ -47,15 +52,15 @@ int fclose(FILE* f);
 
 extern FILE *stdin, *stdout, *stderr;
 
-#define BUFSIZ 0
+#define BUFSIZ 1024
 void setbuf(FILE *stream, char *buf);
 void setbuffer(FILE *stream, char *buf, size_t size);
 void setlinebuf(FILE *stream);
 int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 
-#define _IOFBF 0
-#define _IOLBF 1
-#define _IONBF 2
+#define _IOFBF 1
+#define _IOLBF 2
+#define _IONBF 4
 
 typedef size_t fpos_t;	//TODO
 
@@ -65,9 +70,9 @@ void rewind(FILE *stream);
 int fgetpos(FILE *stream, fpos_t *pos);
 int fsetpos(FILE *stream, const fpos_t *pos);
 
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#define SEEK_END 2
+#define SEEK_SET 1
+#define SEEK_CUR 2
+#define SEEK_END 4
 
 #define L_tmpnam 128
 FILE *tmpfile(void);
@@ -76,11 +81,10 @@ char *tmpnam(char *s);
 int rename(const char *old, const char *new);
 int remove(const char *pathname);
 
-
 int printf(const char *format, ...);
 int fprintf(FILE *stream, const char *format, ...);
-int dprintf(int fd, const char *format, ...);
-int sprintf(char *str, const char *format, ...);
+int vfprintf(FILE *stream, const char *format, va_list ap);
+
 
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

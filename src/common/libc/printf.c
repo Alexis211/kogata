@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <stdbool.h>
 
 #include <kogata/printf.h>
 
@@ -29,31 +30,56 @@ int vsnprintf(char *buff, size_t len, const char* format, va_list ap){
 	for(i = 0; format[i] != '\0' ; i++) {
 		if (format[i] == '%') {
 			i++;
+			int u = 0;
+			int l = 0;
+			bool spec = true;
+			while (spec) {
+				switch(format[i]) {
+					case 'l': {
+						l++;
+						i++;
+						break;
+					}
+					case 'u': {
+						u = 1;
+						i++;
+						break;
+					}
+					default:
+						spec = false;
+				}
+			}
 			switch(format[i]) {
 				case '%':
 					PUTCHAR('%');
 					break;
-
 				case 'i':;
 				case 'd': {
-					 int integer = va_arg(ap,int);
-					 int cpt2 = 0;
-					 char buff_int[16];
+					if (u) {
+						// TODO
+					} else {
+						long long int integer;
+						if (l == 0) integer = va_arg(ap, int);
+						if (l == 1) integer = va_arg(ap, long int);
+						if (l == 2) integer = va_arg(ap, long long int);
 
-					 if (integer<0)
-						 PUTCHAR('-');
+						int cpt2 = 0;
+						char buff_int[32];
 
-					 do {
-						 int m10 = integer%10;
-						 m10 = (m10 < 0)? -m10:m10;
-						 buff_int[cpt2++] = (char)('0'+ m10);
-						 integer = integer/10;
-					 } while(integer != 0);
+						if (integer<0)
+							PUTCHAR('-');
 
-					 for(cpt2 = cpt2 - 1; cpt2 >= 0; cpt2--)
-						 PUTCHAR(buff_int[cpt2]);
+						do {
+							int m10 = integer%10;
+							m10 = (m10 < 0)? -m10:m10;
+							buff_int[cpt2++] = (char)('0'+ m10);
+							integer = integer/10;
+						} while(integer != 0);
 
-					 break;
+						for(cpt2 = cpt2 - 1; cpt2 >= 0; cpt2--)
+							PUTCHAR(buff_int[cpt2]);
+					}
+					break;
 				}
 				case 'c': {
 					 int value = va_arg(ap,int);

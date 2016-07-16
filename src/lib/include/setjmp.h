@@ -2,10 +2,7 @@
 
 #include <stdint.h>
 
-struct _jmp_buf {
-	uint32_t stuff[10];	// 40 bytes
-};
-typedef struct _jmp_buf jmp_buf;
+typedef uint32_t jmp_buf[10];
 
 int setjmp(jmp_buf env);
 

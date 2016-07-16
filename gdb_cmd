@@ -1,3 +1,5 @@
 target remote localhost:1234
 symbol-file build/kernel.bin
 break core/sys.c:panic_do
+break user/process.c:764
+break user/process.c:773
