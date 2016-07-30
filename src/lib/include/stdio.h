@@ -25,7 +25,9 @@ struct file_t {
 	size_t out_buf_size, out_buf_used;
 	bool out_buf_owned;
 
-	int ungetc_char;
+	char *in_buf;
+	size_t in_buf_size;
+	size_t in_buf_begin, in_buf_end;
 };
 typedef struct file_t FILE;
 

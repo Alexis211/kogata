@@ -3,6 +3,8 @@
 #include <thread.h>
 #include <string.h>
 
+#include <elf.h>
+
 #include <btree.h>
 
 
@@ -44,31 +46,21 @@ void sys_panic_assert(const char* assertion, const char* file, int line) {
 
 btree_t *kernel_symbol_map = 0;
 
-void load_kernel_symbol_map(char* text, size_t len) {
+void load_kernel_symbol_table(elf_shdr_t *sym, elf_shdr_t *str) {
 	kernel_symbol_map = create_btree(id_key_cmp_fun, 0);
 	ASSERT (kernel_symbol_map != 0);
 
-	dbg_printf("Loading kernel symbol map...\n");
+	dbg_printf("Loading kernel symbol table...\n");
 
-	char* it = text;
-	while (it < text + len) {
-		char* eol = it;
-		while (eol < text + len && *eol != 0 && *eol != '\n') eol++;
-		if (eol >= text + len) break;
-		*eol = 0;
+	
+	ASSERT(sym->sh_entsize == sizeof(elf_sym_t));
+	unsigned nsym = sym->sh_size / sym->sh_entsize;
 
-		if (it[16] == '0' && it[17] == 'x' && it[34] == ' ' && it[49] == ' ') {
-			uint32_t addr = 0;
-			for (unsigned i = 18; i < 34; i++) {
-				addr *= 16;
-				if (it[i] >= '0' && it[i] <= '9') addr += it[i] - '0';
-				if (it[i] >= 'a' && it[i] <= 'f') addr += it[i] - 'a' + 10;
-			}
-			btree_add(kernel_symbol_map, (void*)addr, it + 50);
-		}
-
-		it = eol + 1;
-	} 
+	elf_sym_t *st = (elf_sym_t*)sym->sh_addr;
+	const char* strtab = (const char*)(str->sh_addr);
+	for (unsigned j = 0; j < nsym; j++) {
+		btree_add(kernel_symbol_map, (void*)st[j].st_value, (void*)(strtab + st[j].st_name));
+	}
 }
 
 void kernel_stacktrace(uint32_t ebp, uint32_t eip) {

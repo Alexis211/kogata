@@ -69,6 +69,9 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	// to allocate memory ; they just increment it of the allocated quantity
 	void* kernel_data_end = (void*)&k_end_addr;
 
+	elf_shdr_t *elf_sections = (elf_shdr_t*)(mbd->elf_sec.addr + K_HIGHHALF_ADDR);
+	ASSERT(sizeof(elf_shdr_t) == mbd->elf_sec.size);
+
 	dbglog_setup();
 
 	dbg_printf("Hello, kernel world!\n");
@@ -93,6 +96,14 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 		void* mod_end_pa = (void*)((mods[i].mod_end & 0xFFFFF000) + 0x1000);
 		if (mod_end_pa > kernel_data_end)
 			kernel_data_end = mod_end_pa;
+	}
+
+	for (unsigned i = 0; i < mbd->elf_sec.num; i++) {
+		elf_sections[i].sh_addr += K_HIGHHALF_ADDR;
+		size_t section_end = elf_sections[i].sh_addr + elf_sections[i].sh_size;
+		void* section_end_pa = (void*)((section_end & 0xFFFFF000) + 0x1000);
+		if (section_end_pa > kernel_data_end)
+			kernel_data_end = section_end_pa;
 	}
 
 	gdt_init(); dbg_printf("GDT set up.\n");
@@ -125,17 +136,13 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	setup_syscall_table();
 	dbg_printf("System calls setup ok.\n");
 
-	// If we have a kernel map, load it now
-	for (unsigned i = 0; i < mbd->mods_count; i++) {
-		char* modname = (char*)mods[i].string;
-		size_t len = mods[i].mod_end - mods[i].mod_start;
-
-		if (strlen(modname) > 4 && strcmp(modname + strlen(modname) - 4, ".map") == 0) {
-			// Copy data to somewhere safe, as it will be modified
-			void* dup_data = malloc(len + 1);
-			memcpy(dup_data, (void*)mods[i].mod_start, len);
-
-			load_kernel_symbol_map((char*)dup_data, len);
+	// Look for kernel symbol table section
+	for (unsigned i = 0; i < mbd->elf_sec.num; i++) {
+		dbg_printf("0x%p section type %d addr 0x%p - 0x%p\n",
+			&elf_sections[i], elf_sections[i].sh_type,
+			elf_sections[i].sh_addr, elf_sections[i].sh_addr + elf_sections[i].sh_size);
+		if (elf_sections[i].sh_type == SHT_SYMTAB) {
+			load_kernel_symbol_table(&elf_sections[i], &elf_sections[elf_sections[i].sh_link]);
 		}
 	}
 

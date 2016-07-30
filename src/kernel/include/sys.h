@@ -3,6 +3,8 @@
 #include <debug.h> 		// common header
 #include <config.h>
 
+typedef struct elf_shdr elf_shdr_t;
+
 static inline void outb(uint16_t port, uint8_t value) {
 	asm volatile("outb %1, %0" : : "dN"(port), "a"(value));
 }
@@ -92,7 +94,7 @@ static inline void invlpg(void* addr) {
 #define ALIGN4_DOWN(x)	(((size_t)x)&MASK4)
 
 
-void load_kernel_symbol_map(char* text, size_t len);
+void load_kernel_symbol_table(elf_shdr_t *sym, elf_shdr_t *str);
 void kernel_stacktrace(uint32_t ebp, uint32_t eip);
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

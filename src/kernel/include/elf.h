@@ -16,6 +16,9 @@
 #define	PT_PHDR             6
 #define	PT_LOPROC  0x70000000
 #define	PT_HIPROC  0x7fffffff
+
+#define SHT_SYMTAB 2
+#define SHT_STRTAB 3
  
 /* elf_phdr_t :: p_flags : program header entries flags */
 #define PF_X	(1 << 0)
@@ -52,6 +55,28 @@ typedef struct {
 	uint32_t p_flags;
 	uint32_t p_align;
 } elf_phdr_t;
+
+typedef struct elf_shdr {
+	uint32_t sh_name;
+	uint32_t sh_type;
+	uint32_t sh_flags;
+	uint32_t sh_addr;
+	uint32_t sh_offset;
+	uint32_t sh_size;
+	uint32_t sh_link;
+	uint32_t sh_info;
+	uint32_t sh_addralign;
+	uint32_t sh_entsize;
+} elf_shdr_t;
+
+typedef struct {
+	uint32_t st_name;
+	uint32_t st_value;
+	uint32_t st_size;
+	uint8_t st_info;
+	uint8_t st_other;
+	uint16_t st_shndx;
+} elf_sym_t;
  
 bool is_elf(fs_handle_t *f);
 proc_entry_t elf_load(fs_handle_t *f, process_t *process);	//Load an ELF to a process, return entry point

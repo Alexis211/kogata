@@ -3,8 +3,7 @@ local kernel_settings = TableDeepCopy(common_settings)
 kernel_settings.cc.includes:Add("src/common/include/kogata",
 								"src/kernel/include")
 
-kernel_settings.link.flags:Add("-T src/kernel/linker.ld",
-							   "-Xlinker -Map=build/kernel.map")
+kernel_settings.link.flags:Add("-T src/kernel/linker.ld")
 
 kernel_source = {
 	Collect('src/kernel/core/*.s'),

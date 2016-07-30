@@ -8,20 +8,19 @@ fi
 
 # Copy system files to CDROM
 
-cp build/kernel.bin cdrom/boot; strip cdrom/boot/kernel.bin
-cp build/kernel.map cdrom/boot
-cp build/sysbin/init.bin cdrom/boot; strip cdrom/boot/init.bin
+cp build/kernel.bin cdrom/boot; strip --strip-debug cdrom/boot/kernel.bin
+cp build/sysbin/init.bin cdrom/boot; strip --strip-debug cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
 for BIN in giosrv.bin login.bin terminal.bin shell.bin; do
 	cp build/sysbin/$BIN cdrom/sys/bin
-	strip cdrom/sys/bin/$BIN
+	strip --strip-debug cdrom/sys/bin/$BIN
 done
 
 mkdir -p cdrom/bin
 for BIN in lua.bin luac.bin; do
 	cp build/bin/$BIN cdrom/bin
-	strip cdrom/bin/$BIN
+	strip --strip-debug cdrom/bin/$BIN
 done
 
 mkdir -p cdrom/sys/fonts
@@ -46,7 +45,6 @@ default 0
 
 title   kogata OS
 kernel  /boot/kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/boot/init.bin config=default
-module  /boot/kernel.map
 EOF
 
 # Generate CDROM image

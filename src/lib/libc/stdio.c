@@ -14,17 +14,36 @@ FILE *stderr = 0;
 FILE libc_tty_stdio, libc_stdin, libc_stdout, libc_stderr;
 
 void initialize_out_buffer(FILE* f, int buf_mode) {
-	if (buf_mode == 0) {
-		f->buf_mode = 0;
-		f->out_buf = 0;
-		f->out_buf_size = f->out_buf_used = 0;
-		f->out_buf_owned = false;
-	} else {
-		f->buf_mode = buf_mode;
+	f->buf_mode = 0;
+	f->out_buf = 0;
+	f->out_buf_size = f->out_buf_used = 0;
+	f->out_buf_owned = false;
+
+	if (buf_mode != 0) {
 		f->out_buf = malloc(BUFSIZ);
+		if (f->out_buf == 0) {
+			f->file_mode &= ~FM_WRITE;
+			return;
+		}
+		f->buf_mode = buf_mode;
 		f->out_buf_size = BUFSIZ;
 		f->out_buf_used = 0;
 		f->out_buf_owned = true;
+	}
+}
+
+void initialize_in_buffer(FILE* f) {
+	f->in_buf = 0;
+	f->in_buf_size = 0;
+	f->in_buf_begin = f->in_buf_end = 0;
+
+	if (f->file_mode & FM_READ) {
+		f->in_buf = malloc(BUFSIZ);
+		if (f->in_buf == 0) {
+			f->file_mode &= ~FM_READ;
+			return;
+		}
+		f->in_buf_size = BUFSIZ;
 	}
 }
 
@@ -35,10 +54,11 @@ void setup_libc_stdio() {
 		libc_tty_stdio.pos = 0;
 
 		initialize_out_buffer(&libc_tty_stdio, _IOLBF);
+		initialize_in_buffer(&libc_tty_stdio);
 
+		// For interactive input, enable blocking mode
 		sc_fctl(libc_tty_stdio.fd, FC_SET_BLOCKING, 0);
 		libc_tty_stdio.file_mode |= FM_BLOCKING;
-		libc_tty_stdio.ungetc_char = EOF;
 
 		stdin = &libc_tty_stdio;
 		stdout = &libc_tty_stdio;
@@ -51,10 +71,10 @@ void setup_libc_stdio() {
 		libc_stdin.pos = 0;
 
 		initialize_out_buffer(&libc_stdin, 0);
+		initialize_in_buffer(&libc_stdin);
 
-		sc_fctl(libc_stdin.fd, FC_SET_BLOCKING, 0);
-		libc_stdin.file_mode |= FM_BLOCKING;
-		libc_stdin.ungetc_char = EOF;
+		int mode = sc_fctl(libc_stdin.fd, FC_GET_MODE, 0);
+		libc_stdin.file_mode |= (mode & FM_BLOCKING);
 
 		stdin = &libc_stdin;
 	}
@@ -65,6 +85,7 @@ void setup_libc_stdio() {
 		libc_stdout.pos = 0;
 
 		initialize_out_buffer(&libc_stdout, _IOLBF);
+		initialize_in_buffer(&libc_stdout);
 
 		stdout = &libc_stdout;
 	}
@@ -75,6 +96,7 @@ void setup_libc_stdio() {
 		libc_stderr.pos = 0;
 
 		initialize_out_buffer(&libc_stderr, _IONBF);
+		initialize_in_buffer(&libc_stderr);
 
 		stderr = &libc_stderr;
 	}
@@ -117,7 +139,15 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
 	return 0;
 }
 int fclose(FILE* f) {
-	// TODO
+	if (fflush(f) != 0) return EOF;
+
+	sc_close(f->fd);
+	if (f->out_buf != 0 && f->out_buf_owned)
+		free(f->out_buf);
+	if (f->in_buf != 0)
+		free(f->in_buf);
+	free(f);
+
 	return 0;
 }
 
@@ -200,7 +230,7 @@ int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
 	if (stream == NULL || stream->fd == 0
 		|| !(stream->file_mode & FM_WRITE)) return EOF;
 
-	if (fflush(stream) == EOF) return EOF;
+	if (fflush(stream) != 0) return EOF;
 
 	if (stream->out_buf_owned) free(stream->out_buf);
 	if (buf == NULL) {
@@ -247,7 +277,7 @@ int buffered_putc(int c, FILE* stream) {
 	stream->out_buf[stream->out_buf_used++] = c;
 	if (stream->out_buf_used == stream->out_buf_size ||
 		(stream->buf_mode == _IOLBF && c == '\n')) {
-		fflush(stream);
+		if (fflush(stream) != 0) return EOF;
 	}
 	return c;
 }
@@ -259,7 +289,7 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	if (stream == NULL || stream->fd == 0
 		|| !(stream->file_mode & FM_WRITE)) return 0;
 
-	fflush(stream);
+	if (fflush(stream) != 0) return EOF;
 
 	size_t ret = sc_write(stream->fd, stream->pos, size * nmemb, ptr);
 	if (!(stream->st.type & (FT_CHARDEV | FT_CHANNEL | FT_DIR))) {
@@ -274,7 +304,7 @@ int fputc(int c, FILE *stream) {
 
 	buffered_putc(c, stream);
 	if (stream->buf_mode == _IONBF) {
-		if (fflush(stream) == EOF) return EOF;
+		if (fflush(stream) != 0) return EOF;
 	}
 	return c;
 }
@@ -288,7 +318,7 @@ int fputs(const char *s, FILE *stream) {
 		i++;
 	}
 	if (stream->buf_mode == _IONBF) {
-		if (fflush(stream) == EOF) return EOF;
+		if (fflush(stream) != 0) return EOF;
 	}
 	return i;
 }
@@ -324,7 +354,7 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
 	int ret = vcprintf(vfprintf_putc_fun, stream, format, ap);
 
 	if (stream->buf_mode == _IONBF) {
-		if (fflush(stream) == EOF) return -1;
+		if (fflush(stream) != 0) return -1;
 	}
 
 	return ret;
@@ -347,8 +377,7 @@ int ferror(FILE *stream) {
 	return 0;
 }
 int fileno(FILE *stream) {
-	// TODO
-	return 0;
+	return stream->fd;
 }
 
 
