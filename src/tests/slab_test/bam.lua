@@ -1,11 +1,14 @@
-local source = {"src/common/libkogata/slab_alloc.c",
-				"src/tests/slab_test/slab_test.c"}
-local obj = Compile(host_settings, source)
+return function(s)
+	local source = {"src/common/libkogata/slab_alloc.c",
+					"src/tests/slab_test/slab_test.c"}
+	local obj = Compile(s.host_settings, source)
 
-local bin = Link(host_settings, "build/tests/slab_test", obj)
+	local f = s.host_settings.cc.Output(s.host_settings, "tests/slab_test")
+	local bin = Link(s.host_settings, f, obj)
 
-local slab_test = "build/tests/slab_test.log"
-AddJob(slab_test, "slab_test", "./" .. bin .. " > " .. slab_test)
-AddDependency(slab_test, bin)
+	local slab_test = f .. ".log"
+	AddJob(slab_test, "slab_test", "./" .. bin .. " > " .. slab_test)
+	AddDependency(slab_test, bin)
 
-table.insert(tests, slab_test)
+	return slab_test
+end

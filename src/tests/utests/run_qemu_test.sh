@@ -2,12 +2,13 @@
 
 BINFILE=$1
 LOGFILE=$2
+KERNEL=$3
 
 RESULTFILE=`mktemp`
 PIDFILE=`mktemp`
 
-(timeout 3s qemu-system-i386 -kernel build/kernel.bin -append "init=io:/mod/`basename $BINFILE`" \
-							  -initrd "$BINFILE,build/kernel.map" -serial stdio -m 16 -display none 2>/dev/null \
+(timeout 3s qemu-system-i386 -kernel $KERNEL -append "init=io:/mod/`basename $BINFILE`" \
+							 -initrd "$BINFILE" -serial stdio -m 16 -display none 2>/dev/null \
 	& echo $! >$PIDFILE) \
 	| tee >(grep -m 1 "TEST-" >$RESULTFILE; kill -INT `cat $PIDFILE`) >$LOGFILE
 

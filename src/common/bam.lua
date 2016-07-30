@@ -1,7 +1,11 @@
-local function lib(name)
-	local source = Collect('src/common/' .. name .. '/*.c')
-	return Compile(common_settings, source) 
-end
+return function(s)
+	local function lib(name)
+		local source = Collect('src/common/' .. name .. '/*.c')
+		return Compile(s.common_settings, source) 
+	end
 
-common_libc = lib('libc')
-common_libkogata = lib('libkogata')
+	return {
+		libc = lib('libc'),
+		libkogata = lib('libkogata')
+	}
+end

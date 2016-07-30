@@ -1,5 +1,20 @@
 #!/bin/sh
 
+TY="$1"
+
+echo "Building cdrom type: $TY"
+
+if [ "$TY" != "dev" -a "$TY" != "rel" ]; then
+	print "Invalid build type: $TY, expected dev or rel"
+	exit -1
+fi
+
+if [ "$TY" = "dev" ]; then
+	STRIP="strip --strip-debug"
+else
+	STRIP="strip -s -R .comment -R .gnu.version"
+fi
+
 if [ ! -e cdrom/boot/grub/stage2_eltorito ]; then
 	mkdir -p cdrom/boot/grub
 	echo "Please copy grub's stage2_eltorito to cdrom/boot/grub."
@@ -8,19 +23,19 @@ fi
 
 # Copy system files to CDROM
 
-cp build/kernel.bin cdrom/boot; strip --strip-debug cdrom/boot/kernel.bin
-cp build/sysbin/init.bin cdrom/boot; strip --strip-debug cdrom/boot/init.bin
+cp build/$TY/kernel.bin cdrom/boot; $STRIP cdrom/boot/kernel.bin
+cp build/$TY/sysbin/init.bin cdrom/boot; $STRIP cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
 for BIN in giosrv.bin login.bin terminal.bin shell.bin; do
-	cp build/sysbin/$BIN cdrom/sys/bin
-	strip --strip-debug cdrom/sys/bin/$BIN
+	cp build/$TY/sysbin/$BIN cdrom/sys/bin
+	$STRIP cdrom/sys/bin/$BIN
 done
 
 mkdir -p cdrom/bin
 for BIN in lua.bin luac.bin; do
-	cp build/bin/$BIN cdrom/bin
-	strip --strip-debug cdrom/bin/$BIN
+	cp build/$TY/bin/$BIN cdrom/bin
+	$STRIP cdrom/bin/$BIN
 done
 
 mkdir -p cdrom/sys/fonts
@@ -51,4 +66,4 @@ EOF
 
 genisoimage -R -b boot/grub/stage2_eltorito -no-emul-boot \
 	-boot-load-size 4 -boot-info-table -input-charset ascii \
-	-A kogata-os -o cdrom.iso cdrom
+	-A kogata-os -o cdrom.$TY.iso cdrom

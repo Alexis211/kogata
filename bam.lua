@@ -2,20 +2,24 @@
 -- Redefine output function to put everything in build/
 --
 
-function BuildOutput(settings, fname)
-	if fname:sub(1, 4) == "src/" or fname:sub(1, 4) == "res/" then
-		fname = fname:sub(5)
+function BuildOutput(mode)
+	local basepath = mode and ("build/" .. mode) or "build"
+
+	return function (settings, fname)
+		if fname:sub(1, 4) == "src/" or fname:sub(1, 4) == "res/" then
+			fname = fname:sub(5)
+		end
+		local out = PathJoin(basepath, PathBase(fname) .. settings.config_ext)
+		return out
 	end
-	local out = PathJoin("build", PathBase(fname) .. settings.config_ext)
-	return out
 end
 
 --
 -- Define custom settings
 --
 
-host_settings = NewSettings()
-common_settings = NewSettings()
+local host_settings = NewSettings()
+local common_settings = NewSettings()
 
 if os.getenv('CC') and string.match(os.getenv('CC'), '.*analyzer$') then
 	print("Detected clang-analyzer")
@@ -35,7 +39,7 @@ else
 end
 
 
-host_settings.cc.Output = BuildOutput
+host_settings.cc.Output = BuildOutput(nil)
 host_settings.cc.extension = ".host.o"
 host_settings.cc.includes:Add("src/lib/include/proto",
 							  "src/common/include")
@@ -43,66 +47,97 @@ host_settings.link.extension = ".bin"
 
 
 common_settings.compile.mappings['s'] = function(settings, input)
-	local output = BuildOutput(settings, input) .. settings.cc.extension
+	local output = settings.cc.Output(settings, input) .. settings.cc.extension
 	AddJob(output, "nasm " .. input,
 		   "nasm -felf -g -o " .. output .. " " .. input)
 	AddDependency(output, input)
 	return output
 end
 
-common_settings.cc.Output = BuildOutput
+common_settings.cc.Output = BuildOutput(nil)
 common_settings.cc.includes:Add("src/common/include", ".")
 common_settings.cc.flags:Add("-m32",
 							 "-ffreestanding",
 							 "-std=gnu99",
 							 "-Wall", "-Wextra", "-Werror",
 							 "-Wno-unused-parameter",
-							 "-Wno-unused-function",
-							 "-g", "-O0")
+							 "-Wno-unused-function")
 
 common_settings.link.extension = ".bin"
 common_settings.link.flags:Add("-ffreestanding",
-							   "-nostdlib",
-							   "-O0")
+							   "-nostdlib")
 common_settings.link.libs:Add("gcc")
-common_settings.link.Output = BuildOutput
+common_settings.link.Output = BuildOutput(nil)
 
 
-user_settings = TableDeepCopy(common_settings)
+local user_settings = TableDeepCopy(common_settings)
 user_settings.cc.includes:Add('src/lib/include')
+
+local base_settings = {
+	host_settings = host_settings,
+	common_settings = common_settings,
+	user_settings = user_settings
+}
 
 --
 -- Require build scripts for all components
 --
 
-require 'src/common/bam'
-require 'src/kernel/bam'
-require 'src/lib/bam'
-require 'src/sysbin/bam'
-require 'src/bin/bam'
+local fonts = require('res/fonts/bam')(base_settings)
+local keymaps = require('res/keymaps/bam')(base_settings)
 
-require 'res/fonts/bam'
-require 'res/keymaps/bam'
+local function cdrom(name, settings)
+	for _, s in pairs(settings) do
+		s.cc.Output = BuildOutput(name)
+		s.link.Output = BuildOutput(name)
+	end
 
---
--- Build script for CDROM.iso
---
+	local common = require('src/common/bam')(settings)
+	local kernel = require('src/kernel/bam')(settings, common)
+	local lib = require('src/lib/bam')(settings, common)
+	local sysbin = require('src/sysbin/bam')(settings, lib)
+	local bin = require('src/bin/bam')(settings, lib)
 
-cdrom = "build/cdrom.iso"
+	if name == "dev" then
+		dev_kernel = kernel
+	end
 
-AddJob(cdrom, "building ISO", "./make_cdrom.sh")
-AddDependency(cdrom, kernel, sysbin, bin, fonts, keymaps)
+	local cdrom = "cdrom." .. name .. ".iso"
+	AddJob(cdrom, "building ISO", "./make_cdrom.sh " .. name)
+	AddDependency(cdrom, kernel.bin, sysbin, bin, fonts, keymaps)
 
-DefaultTarget(cdrom)
+	--
+	-- Script for running tests
+	--
 
---
--- Script for running tests
---
+	local tests = {
+		require('src/tests/slab_test/bam')(settings),
+		require('src/tests/ktests/bam')(settings, common, kernel.obj),
+		require('src/tests/utests/bam')(settings, kernel.bin, lib)
+	}
 
-tests = {}
+	PseudoTarget("test." .. name, tests)
 
-require 'src/tests/slab_test/bam'
-require 'src/tests/ktests/bam'
-require 'src/tests/utests/bam'
+	return cdrom
+end
 
-PseudoTarget("test", tests)
+
+local dev_settings = TableDeepCopy(base_settings)
+for _, s in pairs(dev_settings) do
+	s.cc.flags:Add("-g", "-O0")
+end
+local dev_cdrom = cdrom("dev", dev_settings)
+
+local rel_settings = TableDeepCopy(base_settings)
+for _, s in pairs(rel_settings) do
+	s.cc.flags:Add("-Os", "-flto")
+	s.link.flags:Add("-Os", "-flto")
+	
+	-- Maybee
+	-- s.cc.flags:Add("-ffunction-sections", "-fdata-sections")
+	-- s.link.flags:Add("-Wl,--gc-sections")
+end
+local rel_cdrom = cdrom("rel", rel_settings)
+
+DefaultTarget(dev_cdrom)
+

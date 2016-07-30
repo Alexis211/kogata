@@ -1,12 +1,18 @@
-keymaps = {}
+return function(s)
+	local keymaps = {}
 
-for _, file in pairs(Collect('res/keymaps/*.c')) do
-	local obj = Compile(host_settings, file)
-	local tgt = BuildOutput(host_settings, PathBase(file) .. '_tmp')
-	local bin = Link(host_settings, tgt, obj)
+	local BO = s.host_settings.cc.Output
 
-	local out = BuildOutput(host_settings, PathBase(file)) .. '.km'
-	AddJob(out, "call font " .. bin, "./" .. bin .. " > " .. out)
-	AddDependency(out, bin)
-	table.insert(keymaps, out)
+	for _, file in pairs(Collect('res/keymaps/*.c')) do
+		local obj = Compile(s.host_settings, file)
+		local tgt = BO(s.host_settings, PathBase(file) .. '_tmp')
+		local bin = Link(s.host_settings, tgt, obj)
+
+		local out = BO(s.host_settings, PathBase(file)) .. '.km'
+		AddJob(out, "call font " .. bin, "./" .. bin .. " > " .. out)
+		AddDependency(out, bin)
+		table.insert(keymaps, out)
+	end
+
+	return keymaps
 end

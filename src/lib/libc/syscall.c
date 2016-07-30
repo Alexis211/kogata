@@ -9,7 +9,8 @@ static inline uint32_t sc_docall(uint32_t a, uint32_t b, uint32_t c, uint32_t d,
 	uint32_t ret;
 	asm volatile("int $0x40"
 		:"=a"(ret)
-		:"a"(a),"b"(b),"c"(c),"d"(d),"S"(ss),"D"(dd));
+		:"a"(a),"b"(b),"c"(c),"d"(d),"S"(ss),"D"(dd)
+		:"memory");
 	return ret;
 }
 
@@ -108,7 +109,7 @@ fd_t sc_use_token(token_t *tok) {
 }
 
 bool sc_make_fs(const char* name, const char* driver, fd_t source, const char* options) {
-	volatile sc_make_fs_args_t args = {
+	sc_make_fs_args_t args = {
 		.driver = driver,
 		.driver_strlen = strlen(driver),
 		.fs_name = name,
@@ -124,7 +125,7 @@ bool sc_fs_add_source(const char* fs, fd_t source, const char* options) {
 	return sc_docall(SC_FS_ADD_SRC, (uint32_t)fs, strlen(fs), source, (uint32_t)options, strlen(options));
 }
 bool sc_fs_subfs(const char* name, const char* orig_fs, const char* root, int ok_modes) {
-	volatile sc_subfs_args_t args = {
+	sc_subfs_args_t args = {
 		.new_name = name,
 		.new_name_strlen = strlen(name),
 		.from_fs = orig_fs,

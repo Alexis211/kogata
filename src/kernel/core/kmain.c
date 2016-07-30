@@ -69,8 +69,12 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	// to allocate memory ; they just increment it of the allocated quantity
 	void* kernel_data_end = (void*)&k_end_addr;
 
-	elf_shdr_t *elf_sections = (elf_shdr_t*)(mbd->elf_sec.addr + K_HIGHHALF_ADDR);
-	ASSERT(sizeof(elf_shdr_t) == mbd->elf_sec.size);
+
+	elf_shdr_t *elf_sections = 0;
+	if (mbd->elf_sec.size != 0) {
+		elf_sections = (elf_shdr_t*)(mbd->elf_sec.addr + K_HIGHHALF_ADDR);
+		ASSERT(mbd->elf_sec.size == 0 || sizeof(elf_shdr_t) == mbd->elf_sec.size);
+	}
 
 	dbglog_setup();
 

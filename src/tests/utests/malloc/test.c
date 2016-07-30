@@ -1,10 +1,10 @@
 #include <string.h>
 
-#include <malloc.h>
+#include <kogata/malloc.h>
 
-#include <syscall.h>
-#include <debug.h>
-#include <region_alloc.h>
+#include <kogata/syscall.h>
+#include <kogata/debug.h>
+#include <kogata/region_alloc.h>
 
 int main(int argc, char **argv) {
 	dbg_print("(BEGIN-USER-TEST malloc-test)\n");

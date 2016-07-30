@@ -50,9 +50,9 @@ typedef struct {
 #define IOCTL_BLOCKDEV_GET_BLOCK_COUNT  41
 
 
-#define SEL_READ	0x01
-#define	SEL_WRITE	0x02
-#define SEL_ERROR	0x04
+#define SEL_READ	(0x01)
+#define	SEL_WRITE	(0x02)
+#define SEL_ERROR	(0x04)
 
 typedef struct {
 	fd_t fd;
