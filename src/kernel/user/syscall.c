@@ -325,7 +325,6 @@ uint32_t select_sc(sc_args_t args) {
 			if (h) {
 				fds[i].got_flags = file_poll(h, &wait_objs[n_wait_objs]);
 				if (wait_objs[n_wait_objs]) n_wait_objs++;
-				dbg_printf("KERNEL fds[%d].got_flags = 0x%p  (fd %d)\n", i, fds[i].got_flags,fds[i].fd);
 				if (fds[i].got_flags & fds[i].req_flags) ret = true;
 			}
 		}

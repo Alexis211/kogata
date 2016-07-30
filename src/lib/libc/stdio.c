@@ -228,7 +228,8 @@ void setlinebuf(FILE *stream) {
 }
 int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
 	if (stream == NULL || stream->fd == 0
-		|| !(stream->file_mode & FM_WRITE)) return EOF;
+		|| !(stream->file_mode & FM_WRITE)
+		|| size == 0) return EOF;
 
 	if (fflush(stream) != 0) return EOF;
 

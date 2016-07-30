@@ -74,6 +74,8 @@ void kmain(multiboot_info_t *mbd, int32_t mb_magic) {
 	if (mbd->elf_sec.size != 0) {
 		elf_sections = (elf_shdr_t*)(mbd->elf_sec.addr + K_HIGHHALF_ADDR);
 		ASSERT(mbd->elf_sec.size == 0 || sizeof(elf_shdr_t) == mbd->elf_sec.size);
+	} else {
+		ASSERT(mbd->elf_sec.num == 0);
 	}
 
 	dbglog_setup();
