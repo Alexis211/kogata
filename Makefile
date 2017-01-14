@@ -1,3 +1,5 @@
+QEMU=qemu-system-x86_64
+
 all:
 	bam
 
@@ -27,13 +29,13 @@ run_tests:
 	bam test.dev
 
 run_qemu: all
-	qemu-system-i386 -cdrom cdrom.dev.iso -serial stdio -m 12 </dev/null
+	$(QEMU) -cdrom cdrom.dev.iso -serial stdio -m 12 </dev/null
 
 run_qemu_rel: rel
-	qemu-system-i386 -cdrom cdrom.rel.iso -serial stdio -m 12 </dev/null
+	$(QEMU) -cdrom cdrom.rel.iso -serial stdio -m 12 </dev/null
 
 run_qemu_debug: all
-	qemu-system-i386 -cdrom cdrom.dev.iso -serial stdio -m 12 -s -S </dev/null &	\
+	$(QEMU) -cdrom cdrom.dev.iso -serial stdio -m 12 -s -S </dev/null &	\
 	(sleep 0.1; gdb src/kernel/kernel.bin -x gdb_cmd)
 
 run_bochs_debug: all
