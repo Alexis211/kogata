@@ -15,13 +15,13 @@ FILE libc_tty_stdio, libc_stdin, libc_stdout, libc_stderr;
 
 void initialize_out_buffer(FILE* f, int buf_mode) {
 	f->buf_mode = 0;
-	f->out_buf = 0;
+	f->out_buf = NULL;
 	f->out_buf_size = f->out_buf_used = 0;
 	f->out_buf_owned = false;
 
 	if (buf_mode != 0) {
 		f->out_buf = malloc(BUFSIZ);
-		if (f->out_buf == 0) {
+		if (f->out_buf == NULL) {
 			f->file_mode &= ~FM_WRITE;
 			return;
 		}
@@ -33,13 +33,13 @@ void initialize_out_buffer(FILE* f, int buf_mode) {
 }
 
 void initialize_in_buffer(FILE* f) {
-	f->in_buf = 0;
+	f->in_buf = NULL;
 	f->in_buf_size = 0;
 	f->in_buf_begin = f->in_buf_end = 0;
 
 	if (f->file_mode & FM_READ) {
 		f->in_buf = malloc(BUFSIZ);
-		if (f->in_buf == 0) {
+		if (f->in_buf == NULL) {
 			f->file_mode &= ~FM_READ;
 			return;
 		}
@@ -52,6 +52,7 @@ void setup_libc_stdio() {
 		libc_tty_stdio.fd = STD_FD_TTY_STDIO;
 		libc_tty_stdio.file_mode = (libc_tty_stdio.st.access & (FM_READ | FM_WRITE));
 		libc_tty_stdio.pos = 0;
+		libc_tty_stdio.flags = 0;
 
 		initialize_out_buffer(&libc_tty_stdio, _IOLBF);
 		initialize_in_buffer(&libc_tty_stdio);
@@ -69,6 +70,7 @@ void setup_libc_stdio() {
 		ASSERT(libc_stdin.st.access & FM_READ);
 		libc_stdin.file_mode = FM_READ;
 		libc_stdin.pos = 0;
+		libc_stdin.flags = 0;
 
 		initialize_out_buffer(&libc_stdin, 0);
 		initialize_in_buffer(&libc_stdin);
@@ -83,6 +85,7 @@ void setup_libc_stdio() {
 		ASSERT(libc_stdout.st.access & FM_WRITE);
 		libc_stdout.file_mode = FM_WRITE;
 		libc_stdout.pos = 0;
+		libc_stdout.flags = 0;
 
 		initialize_out_buffer(&libc_stdout, _IOLBF);
 		initialize_in_buffer(&libc_stdout);
@@ -94,6 +97,7 @@ void setup_libc_stdio() {
 		ASSERT(libc_stderr.st.access & FM_WRITE);
 		libc_stderr.file_mode = FM_WRITE;
 		libc_stderr.pos = 0;
+		libc_stderr.flags = 0;
 
 		initialize_out_buffer(&libc_stderr, _IONBF);
 		initialize_in_buffer(&libc_stderr);
@@ -131,12 +135,49 @@ int printf(const char* fmt, ...) {
 
 
 FILE *fopen(const char *path, const char *mode) {
-	// TODO
-	return 0;
+	if (path == NULL) return NULL;
+	if (mode == NULL || strlen(mode) == 0) {
+		mode = "r";
+	}
+
+	int flags = 0;
+	if (mode[0] == 'r') flags |= FM_READ;
+	if (mode[0] == 'w') flags |= FM_WRITE | FM_CREATE | FM_TRUNC;
+	if (mode[0] == 'a') flags |= FM_WRITE | FM_CREATE | FM_APPEND;
+	if (mode[1] == '+' || (mode[1] == 'b' && mode[2] == '+'))
+		flags |= FM_READ | FM_WRITE;
+
+	FILE* f = (FILE*)malloc(sizeof(FILE));
+	if (f == NULL) return NULL;
+
+	f->fd = sc_open(path, flags);
+	dbg_printf("FOPEN %s %s: fd=%d\n", path, mode, f->fd);
+	if (f->fd == 0) goto error;
+
+	if (!sc_stat_open(f->fd, &f->st)) goto error;
+	dbg_printf("FOPEN %s %s: stat ok\n");
+	f->file_mode = flags;
+
+	f->flags = 0;
+	if ((flags & FM_APPEND) && f->st.type == FT_REGULAR) {
+		f->pos = f->st.size;
+	} else {
+		f->pos = 0;
+	}
+
+	initialize_out_buffer(f, (flags & FM_WRITE ? _IOLBF : 0));
+	initialize_in_buffer(f);
+
+	return f;
+
+error:
+	if (f->fd != 0) sc_close(f->fd);
+	free(f);
+	return NULL;
 }
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
 	// TODO
-	return 0;
+	return NULL;
 }
 int fclose(FILE* f) {
 	if (fflush(f) != 0) return EOF;
@@ -158,6 +199,8 @@ int fclose(FILE* f) {
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	ASSERT(size == 1);	//TODO all cases
+
+	if (fflush(stream) == EOF) return 0;
 
 	if (stream == NULL || stream->fd == 0) return 0;
 
@@ -203,8 +246,7 @@ char *fgets(char *s, int size, FILE *stream) {
 	return s;
 }
 int getc(FILE *stream) {
-	// TODO
-	return 0;
+	return fgetc(stream);
 }
 int ungetc(int c, FILE *stream) {
 	// TODO
@@ -362,20 +404,18 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
 }
 
 
-// ---------------------
-// COMPLICATED FUNCTIONS
-// ---------------------
+// ----------------------
+// FLAG-RELATED FUNCTIONS
+// ----------------------
 
 void clearerr(FILE *stream) {
-	// TODO
+	stream->flags = 0;
 }
 int feof(FILE *stream) {
-	// TODO
-	return 0;
+	return (stream->flags & STDIO_FL_EOF);
 }
 int ferror(FILE *stream) {
-	// TODO
-	return 0;
+	return (stream->flags & STDIO_FL_ERR);
 }
 int fileno(FILE *stream) {
 	return stream->fd;
@@ -388,23 +428,39 @@ int fileno(FILE *stream) {
 
 
 int fseek(FILE *stream, long offset, int whence) {
-	// TODO
-	return 0;
+	fpos_t pos;
+	if (whence == SEEK_SET) {
+		pos = offset;
+	} else if (whence == SEEK_CUR) {
+		pos = stream->pos + offset;
+	} else if (whence == SEEK_END) {
+		pos = stream->st.size + offset;
+	} else {
+		stream->flags |= STDIO_FL_ERR;
+		return -1;
+	}
+	return fsetpos(stream, &pos);
 }
 long ftell(FILE *stream) {
-	// TODO
-	return 0;
+	return stream->pos;
 }
 void rewind(FILE *stream) {
-	// TODO
+	fflush(stream);
+	stream->pos = 0;
 }
 int fgetpos(FILE *stream, fpos_t *pos) {
-	// TODO
+	*pos = ftell(stream);
 	return 0;
 }
 int fsetpos(FILE *stream, const fpos_t *pos) {
-	// TODO
-	return 0;
+	fflush(stream);
+	if (*pos <= stream->st.size) {
+		stream->pos = *pos;
+		return 0;
+	} else {
+		stream->flags |= STDIO_FL_EOF;
+		return -1;
+	}
 }
 
 // ---------------------

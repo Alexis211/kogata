@@ -12,6 +12,8 @@ void setup_libc_stdio();
 
 #define BUFSIZ 256
 
+#define STDIO_FL_EOF 1
+#define STDIO_FL_ERR 2
 
 struct file_t {
 	fd_t fd;
@@ -19,6 +21,7 @@ struct file_t {
 	int file_mode;
 
 	size_t pos;
+	int flags;
 
 	int buf_mode;
 	char *out_buf;
