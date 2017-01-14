@@ -12,7 +12,7 @@ int rand(void);
 //int rand_r(unsigned int *seedp);
 void srand(unsigned int seed);
 
-#define RAND_MAX 1
+#define RAND_MAX INT_MAX
 
 void abort() __attribute__((__noreturn__));
 

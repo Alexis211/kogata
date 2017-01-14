@@ -151,11 +151,11 @@ FILE *fopen(const char *path, const char *mode) {
 	if (f == NULL) return NULL;
 
 	f->fd = sc_open(path, flags);
-	dbg_printf("FOPEN %s %s: fd=%d\n", path, mode, f->fd);
+	dbg_printf("FOPEN %s %s: fd=%d, file=%p\n", path, mode, f->fd, f);
 	if (f->fd == 0) goto error;
 
 	if (!sc_stat_open(f->fd, &f->st)) goto error;
-	dbg_printf("FOPEN %s %s: stat ok\n");
+	dbg_printf("FOPEN %s %s: stat ok\n", path, mode);
 	f->file_mode = flags;
 
 	f->flags = 0;
@@ -176,10 +176,13 @@ error:
 	return NULL;
 }
 FILE *freopen(const char *path, const char *mode, FILE *stream) {
+	dbg_printf("FREOPEN %s %s %p (UNIMPLEMENTED)\n", path, mode, stream);
 	// TODO
 	return NULL;
 }
 int fclose(FILE* f) {
+	dbg_printf("FCLOSE %p\n", f);
+
 	if (fflush(f) != 0) return EOF;
 
 	sc_close(f->fd);
@@ -198,6 +201,8 @@ int fclose(FILE* f) {
 // ---------------
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+	dbg_printf("FREAD %d * %d, file=%p\n", size, nmemb, stream);
+
 	ASSERT(size == 1);	//TODO all cases
 
 	if (fflush(stream) == EOF) return 0;
@@ -209,19 +214,32 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	if (!(stream->st.type & (FT_CHARDEV | FT_CHANNEL | FT_DIR))) {
 		stream->pos += ret;
 	}
+
+	if (ret < size * nmemb) {
+		stream->flags |= STDIO_FL_EOF;
+	}
+
+	dbg_printf("fread = %d\n", ret);
+
 	return ret;
 }
 
 int fgetc(FILE *stream) {
+	dbg_printf("FGETC %p\n", stream);
+
 	// TODO buffering && ungetc
 	char x;
 	if (fread(&x, 1, 1, stream)) {
+		dbg_printf("fgetc = %d\n", x);
 		return x;
 	} else {
+		dbg_printf("fgetc = EOF\n");
 		return EOF;
 	}
 }
 char *fgets(char *s, int size, FILE *stream) {
+	dbg_printf("FGETS %p\n", stream);
+
 	int l = 0;
 	while (l < size - 1) {
 		int c = fgetc(stream);
@@ -249,6 +267,7 @@ int getc(FILE *stream) {
 	return fgetc(stream);
 }
 int ungetc(int c, FILE *stream) {
+	dbg_printf("UNGETC %p, %d (UNIMPLEMENTED)\n", stream, c);
 	// TODO
 	return 0;
 }
@@ -269,6 +288,8 @@ void setlinebuf(FILE *stream) {
 	setvbuf(stream, NULL, _IOLBF, 0);
 }
 int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
+	dbg_printf("SETVBUF %p, %p, %d, %d\n", stream, buf, mode, size);
+
 	if (stream == NULL || stream->fd == 0
 		|| !(stream->file_mode & FM_WRITE)
 		|| size == 0) return EOF;
@@ -298,8 +319,10 @@ int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
 }
 
 int fflush(FILE* stream) {
-	if (stream == NULL || stream->fd == 0
-		|| !(stream->file_mode & FM_WRITE)) return EOF;
+	dbg_printf("FFLUSH %p\n", stream);
+
+	if (!(stream->file_mode & FM_WRITE)) return 0;
+	if (stream == NULL || stream->fd == 0) return EOF;
 
 	if (stream->buf_mode != 0 && stream->out_buf_used > 0) {
 		size_t ret = sc_write(stream->fd, stream->pos, stream->out_buf_used, stream->out_buf);
@@ -329,6 +352,8 @@ int buffered_putc(int c, FILE* stream) {
 // real output functions
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+	dbg_printf("FWRITE %d * %d, %p\n", size, nmemb, stream);
+
 	if (stream == NULL || stream->fd == 0
 		|| !(stream->file_mode & FM_WRITE)) return 0;
 
@@ -342,6 +367,8 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
 }
 
 int fputc(int c, FILE *stream) {
+	dbg_printf("FPUTC %p %d\n", stream, c);
+
 	if (stream == NULL || stream->fd == 0
 		|| !(stream->file_mode & FM_WRITE)) return EOF;
 
@@ -352,6 +379,8 @@ int fputc(int c, FILE *stream) {
 	return c;
 }
 int fputs(const char *s, FILE *stream) {
+	dbg_printf("FPUTS %p\n", stream);
+
 	if (stream == NULL || stream->fd == 0
 		|| !(stream->file_mode & FM_WRITE)) return EOF;
 
@@ -412,9 +441,13 @@ void clearerr(FILE *stream) {
 	stream->flags = 0;
 }
 int feof(FILE *stream) {
+	dbg_printf("FEOF %p = %d\n", stream, (stream->flags & STDIO_FL_EOF));
+
 	return (stream->flags & STDIO_FL_EOF);
 }
 int ferror(FILE *stream) {
+	dbg_printf("FERROR %p = %d\n", stream, (stream->flags & STDIO_FL_ERR));
+
 	return (stream->flags & STDIO_FL_ERR);
 }
 int fileno(FILE *stream) {
@@ -428,6 +461,8 @@ int fileno(FILE *stream) {
 
 
 int fseek(FILE *stream, long offset, int whence) {
+	dbg_printf("FSEEK %p, %d, %d\n", stream, offset, whence);
+
 	fpos_t pos;
 	if (whence == SEEK_SET) {
 		pos = offset;
@@ -445,6 +480,8 @@ long ftell(FILE *stream) {
 	return stream->pos;
 }
 void rewind(FILE *stream) {
+	dbg_printf("REWIND %p\n", stream);
+
 	fflush(stream);
 	stream->pos = 0;
 }
@@ -453,6 +490,8 @@ int fgetpos(FILE *stream, fpos_t *pos) {
 	return 0;
 }
 int fsetpos(FILE *stream, const fpos_t *pos) {
+	dbg_printf("FSETPOS %p, %d\n", stream, pos);
+
 	fflush(stream);
 	if (*pos <= stream->st.size) {
 		stream->pos = *pos;

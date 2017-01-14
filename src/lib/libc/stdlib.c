@@ -3,12 +3,24 @@
 
 #include <kogata/debug.h>
 
+static unsigned long 
+x=123456789,y=362436069,z=521288629,w=88675123,v=886756453; 
+/* replace defaults with five random seed values in calling program */ 
+unsigned long xorshift(void) {
+	unsigned long t; 
+	t=(x^(x>>7)); x=y; y=z; z=w; w=v; 
+	v=(v^(v<<6))^(t^(t<<13));
+	return (y+y+1)*v;
+} 
+
 int rand(void) {
-	return 0;		// TODO
+	int i = xorshift();
+	if (i < 0) i = -i;
+	return i;
 }
 
 void srand(unsigned int seed) {
-	//TODO
+	x = seed;
 }
 
 void abort() {

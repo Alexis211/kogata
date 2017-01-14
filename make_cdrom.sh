@@ -46,6 +46,9 @@ mkdir -p cdrom/sys/keymaps
 cp build/keymaps/*.km cdrom/sys/keymaps
 cp build/keymaps/fr.km cdrom/sys/keymaps/default.km
 
+mkdir -p cdrom/sys/lua
+cp -r src/syslua/* cdrom/sys/lua
+
 cp README.md cdrom
 
 # Setup config files
