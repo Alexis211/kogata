@@ -238,7 +238,7 @@ int fgetc(FILE *stream) {
 	}
 }
 char *fgets(char *s, int size, FILE *stream) {
-	dbg_printf("FGETS %p\n", stream);
+	dbg_printf("FGETS %p %d\n", stream, size);
 
 	int l = 0;
 	while (l < size - 1) {
