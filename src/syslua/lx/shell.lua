@@ -3,28 +3,29 @@ local sysdef = require 'lx.sysdef'
 
 local _cwd = 'root:/'
 
+function explode_path(path)
+  local _, _, dr, p = string.find(path, '^(%w+):(.*)$')
+  if not dr or not p then
+    dr, p = nil, path
+  end
+  local pp = string.split(p, '/')
+  if #pp > 1 and pp[#pp] == '' then
+    table.remove(pp)
+  end
+  return dr, pp
+end
+
+function implode_path(dr, p)
+  assert(p[1] == '', 'bad first path component')
+  return dr .. ':' .. table.concat(p, '/')
+end
+
 function pathcat(path1, path2)
   assert(path1, "invalid argument")
   if not path2 then
     return path1
   end
 
-  function explode_path(path)
-    local _, _, dr, p = string.find(path, '^(%w+):(.*)$')
-    if not dr or not p then
-      dr, p = nil, path
-    end
-    local pp = string.split(p, '/')
-    if #pp > 1 and pp[#pp] == '' then
-      table.remove(pp)
-    end
-    return dr, pp
-  end
-
-  function implode_path(dr, p)
-    assert(p[1] == '', 'bad first path component')
-    return dr .. ':' .. table.concat(p, '/')
-  end
 
   local dr2, p2 = explode_path(path2)
   if dr2 then
@@ -86,3 +87,31 @@ function ls(path)
   end
 end
 
+function run(path)
+  path = pathcat(_cwd, path)
+  
+  local s = sys.stat(path)
+  if not s then
+    print("not found: " .. path)
+  elseif s.type & sysdef.FT_DIR == 0 then
+    print("not a directory: " .. s)
+  else
+    local mainlua = pathcat(path, 'main.lua')
+    local s2 = sys.stat(mainlua)
+    if not s2 then
+      print("not found: " .. mainlua)
+    else
+      local pid = sys.new_proc()
+      sys.bind_fs(pid, "sys", "sys")
+
+      local _, _, dr, p = string.find(path, '^(%w+):(.*)$')
+      sys.bind_subfs(pid, "app", dr, p, sysdef.FM_READ | sysdef.FM_READDIR)
+      sys.bind_fd(pid, sysdef.STD_FD_TTY_STDIO, sysdef.STD_FD_TTY_STDIO)
+
+      sys.proc_exec(pid, "sys:/bin/lx.bin")
+      local st = sys.proc_wait(pid, true)
+
+      print(st)
+    end
+  end
+end

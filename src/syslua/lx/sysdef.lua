@@ -1,6 +1,7 @@
--- Constant definitions based on common/include/proto/fs.h
 
 return {
+  -- Definitions from proto/fs.h
+
   -- FILE TYPES
   FT_REGULAR = 0,
   FT_DIR = 0x01,
@@ -33,4 +34,32 @@ return {
   SEL_READ = 0x01,
   SEL_WRITE = 0x02,
   SEL_ERROR = 0x04,
+
+
+  -- Definitions from proto/launch.h
+
+  -- STANDARD FILE DESCRIPTORS
+  STD_FD_TTY_STDIO = 1,
+  STD_FD_STDIN = 2,
+  STD_FD_STDOUT = 3,
+  STD_FD_STDERR = 4,
+  STD_FD_GIP = 5,
+  STD_FD_GIOSRV = 10,
+  STD_FD_TTYSRV = 11,
+
+  -- Definitions from proto/fb.h
+
+  -- FRAMEBUFFER TYPES : TODO
+
+  -- FRAMEBUFFER IOCTLs
+  IOCTL_FB_GET_INFO = 1,
+  IOCTL_FBDEV_GET_MODE_INFO = 10,
+  IOCTL_FBDEV_SET_MODE = 11,
+
+  -- Definitions from proto/proc.h
+  PS_LOADING = 1,
+  PS_RUNNING = 2,
+  PS_FINISHED = 3,
+  PS_FAILURE = 4,
+  PS_KILLED = 5,
 }

@@ -93,8 +93,6 @@
 #define GIPN_MOUSE_XY			31		// server: mouse moved at xy ; client: put mouse at xy
 #define GIPN_MOUSE_PRESSED		32		// server: button b pressed
 #define GIPN_MOUSE_RELEASED		33		// server: button b released
-#define GIPC_LOAD_CURSOR			34		// client: this is graphics for cursor #i
-#define GIPC_SET_CURSOR			35		// client: please use cursor #i (0 = hide cursor)
 
 typedef struct {
 	uint32_t code;		// message type

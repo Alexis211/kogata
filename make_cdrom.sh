@@ -2,6 +2,8 @@
 
 TY="$1"
 
+alias cp='cp -v'
+
 echo "Building cdrom type: $TY"
 
 if [ "$TY" != "dev" -a "$TY" != "rel" ]; then
@@ -46,6 +48,9 @@ cp build/keymaps/fr.km cdrom/sys/keymaps/default.km
 
 mkdir -p cdrom/sys/lua
 cp -r src/syslua/* cdrom/sys/lua
+
+mkdir -p cdrom/sys/app
+cp -r src/sysapp/* cdrom/sys/app
 
 cp README.md cdrom
 

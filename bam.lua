@@ -105,6 +105,7 @@ local function cdrom(name, settings)
 	AddJob(cdrom, "building ISO", "./make_cdrom.sh " .. name)
 	AddDependency(cdrom, kernel.bin, sysbin, fonts, keymaps)
 	AddDependency(cdrom, CollectRecursive('src/syslua/*.lua'))
+	AddDependency(cdrom, CollectRecursive('src/sysapp/*.lua'))
 
 	--
 	-- Script for running tests

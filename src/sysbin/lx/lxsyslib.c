@@ -22,6 +22,13 @@
 #include "lxlib.h"
 
 
+bool lx_checkboolean(lua_State *L, int arg) {
+  if (!lua_isboolean(L, arg)) {
+    luaL_argerror(L, arg, "expected boolean");
+  }
+  return lua_toboolean(L, arg);
+}
+
 
 static void setintfield (lua_State *L, const char *key, int value) {
   lua_pushinteger(L, value);
@@ -188,6 +195,172 @@ static int sys_select(lua_State *L) {
   return 0;
 }
 
+static int sys_make_channel(lua_State *L) {
+  bool blocking = lx_checkboolean(L, 1);
+  fd_pair_t pair = sc_make_channel(blocking);
+  lua_pushinteger(L, pair.a);
+  lua_pushinteger(L, pair.b);
+  return 2;
+}
+
+static int sys_make_shm(lua_State *L) {
+  int size = luaL_checkinteger(L, 1);
+  int fd = sc_make_shm(size);
+  if (fd) {
+    lua_pushinteger(L, fd);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int sys_gen_token(lua_State *L) {
+  int fd = luaL_checkinteger(L, 1);
+  token_t t;
+  if (sc_gen_token(fd, &t)) {
+    lua_pushlstring(L, t.bytes, TOKEN_LENGTH);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int sys_use_token(lua_State *L) {
+  const char* tok = luaL_checkstring(L, 1);
+  if (!(luaL_len(L, 1) == TOKEN_LENGTH)) {
+    luaL_argerror(L, 1, "invalid token length");
+  }
+  token_t t;
+  memcpy(t.bytes, tok, TOKEN_LENGTH);
+  fd_t f = sc_use_token(&t);
+  if (f) {
+    lua_pushinteger(L, f);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int sys_make_fs(lua_State *L) {
+  const char* name = luaL_checkstring(L, 1);
+  const char* driver = luaL_checkstring(L, 2);
+  int source = luaL_checkinteger(L, 3);
+  const char* options = luaL_checkstring(L, 4);
+  lua_pushboolean(L, sc_make_fs(name, driver, source, options));
+  return 1;
+}
+
+static int sys_fs_add_source(lua_State *L) {
+  const char* fs = luaL_checkstring(L, 1);
+  int source = luaL_checkinteger(L, 2);
+  const char* options = luaL_checkstring(L, 3);
+  lua_pushboolean(L, sc_fs_add_source(fs, source, options));
+  return 1;
+}
+
+static int sys_fs_subfs(lua_State *L) {
+  const char* name = luaL_checkstring(L, 1);
+  const char* orig_fs = luaL_checkstring(L, 2);
+  const char* root = luaL_checkstring(L, 3);
+  int ok_modes = luaL_checkinteger(L, 4);
+  lua_pushboolean(L, sc_fs_subfs(name, orig_fs, root, ok_modes));
+  return 1;
+}
+
+static int sys_fs_remove(lua_State *L) {
+  const char* name = luaL_checkstring(L, 1);
+  sc_fs_remove(name);
+  return 0;
+}
+
+static int sys_new_proc(lua_State *L) {
+  lua_pushinteger(L, sc_new_proc());
+  return 1;
+}
+
+static int sys_bind_fs(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  const char* new_name = luaL_checkstring(L, 2);
+  const char* name = luaL_checkstring(L, 3);
+  lua_pushboolean(L, sc_bind_fs(pid, new_name, name));
+  return 1;
+}
+
+static int sys_bind_subfs(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  const char* new_name = luaL_checkstring(L, 2);
+  const char* fs = luaL_checkstring(L, 3);
+  const char* root = luaL_checkstring(L, 4);
+  int ok_modes = luaL_checkinteger(L, 5);
+  lua_pushboolean(L, sc_bind_subfs(pid, new_name, fs, root, ok_modes));
+  return 1;
+}
+
+static int sys_bind_make_fs(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  const char* new_name = luaL_checkstring(L, 2);
+  const char* driver = luaL_checkstring(L, 3);
+  fd_t source = luaL_checkinteger(L, 4);
+  const char* options = luaL_checkstring(L, 5);
+  lua_pushboolean(L, sc_bind_make_fs(pid, new_name, driver, source, options));
+  return 1;
+}
+
+static int sys_bind_fd(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  int new_fd = luaL_checkinteger(L, 2);
+  int fd = luaL_checkinteger(L, 3);
+  lua_pushboolean(L, sc_bind_fd(pid, new_fd, fd));
+  return 1;
+}
+
+static int sys_proc_exec(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  const char *name = luaL_checkstring(L, 2);
+  lua_pushboolean(L, sc_proc_exec(pid, name));
+  return 1;
+}
+
+static int sys_proc_status(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  proc_status_t s;
+  if (sc_proc_status(pid, &s)) {
+    lua_createtable(L, 0, 3);
+    setintfield(L, "pid", s.pid);
+    setintfield(L, "status",s.status);
+    setintfield(L, "exit_code", s.exit_code);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int sys_proc_kill(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  proc_status_t s;
+  if (sc_proc_kill(pid, &s)) {
+    lua_createtable(L, 0, 3);
+    setintfield(L, "pid", s.pid);
+    setintfield(L, "status",s.status);
+    setintfield(L, "exit_code", s.exit_code);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int sys_proc_wait(lua_State *L) {
+  int pid = luaL_checkinteger(L, 1);
+  bool wait = lx_checkboolean(L, 2);
+  proc_status_t s;
+  sc_proc_wait(pid, wait, &s);
+  lua_createtable(L, 0, 3);
+  setintfield(L, "pid", s.pid);
+  setintfield(L, "status",s.status);
+  setintfield(L, "exit_code", s.exit_code);
+  return 1;
+}
+
 
 static const luaL_Reg syslib[] = {
   {"dbg_print", sys_dbg_print},
@@ -204,7 +377,27 @@ static const luaL_Reg syslib[] = {
   {"write",     sys_write},
   {"readdir",   sys_readdir},
   {"stat_open", sys_stat_open},
-
+  {"ioctl",     sys_ioctl},
+  {"fctl",      sys_fctl},
+  {"select",    sys_select},
+  {"make_channel",sys_make_channel},
+  {"make_shm",  sys_make_shm},
+  {"gen_token", sys_gen_token},
+  {"use_token", sys_use_token},
+  {"make_fs",   sys_make_fs},
+  {"fs_add_source",sys_fs_add_source},
+  {"fs_subfs",  sys_fs_subfs},
+  {"fs_remove", sys_fs_remove},
+  {"new_proc",  sys_new_proc},
+  {"bind_fs",   sys_bind_fs},
+  {"bind_subfs",sys_bind_subfs},
+  {"bind_make_fs",sys_bind_make_fs},
+  {"bind_fd",   sys_bind_fd},
+  {"proc_exec", sys_proc_exec},
+  {"proc_status",sys_proc_status},
+  {"proc_kill", sys_proc_kill},
+  {"proc_wait", sys_proc_wait},
+  
   {NULL, NULL}
 };
 
