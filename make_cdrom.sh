@@ -27,12 +27,12 @@ cp build/$TY/kernel.bin cdrom/boot; $STRIP cdrom/boot/kernel.bin
 cp build/$TY/sysbin/init.bin cdrom/boot; $STRIP cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
-for BIN in giosrv.bin login.bin terminal.bin shell.bin lua.bin luac.bin; do
+for BIN in giosrv.bin login.bin terminal.bin shell.bin lua.bin luac.bin lx.bin; do
 	if [ -e build/$TY/sysbin/$BIN ]; then
 		cp build/$TY/sysbin/$BIN cdrom/sys/bin
 		$STRIP cdrom/sys/bin/$BIN
 	else
-		print "Skipping binary $BIN: not found!"
+		echo "Skipping binary $BIN: not found!"
 	fi
 done
 

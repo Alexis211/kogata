@@ -76,10 +76,6 @@ double strtod(const char *nptr, char **endptr) {
 }
 
 char *getenv(const char *name) {
-	// HACK
-	if (!strcmp(name, "LUA_INIT")) {
-		return "require 'init'";
-	}
 	// TODO
 	return 0;
 }

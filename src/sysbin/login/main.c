@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 	if (!ok) PANIC("[login] Could not bind to shell process.");
 
 	// ok = sc_proc_exec(shell_pid, "sys:/bin/shell.bin");
-	ok = sc_proc_exec(shell_pid, "sys:/bin/lua.bin");
+	ok = sc_proc_exec(shell_pid, "sys:/bin/lx.bin");
 	if (!ok) PANIC("[login] Could not run shell.bin");
 
 	proc_status_t s;

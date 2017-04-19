@@ -174,8 +174,10 @@
 ** non-conventional directories.
 */
 #define LUA_ROOT	"sys:/lua/"
+#define LUA_APPROOT	"app:/"
 #define LUA_PATH_DEFAULT  \
 		LUA_ROOT"?.lua;"  LUA_ROOT"?/init.lua;" \
+    LUA_APPROOT"?.lua;" LUA_APPROOT"?/init.lua;" \
 		"./?.lua;" "./?/init.lua"
 #define LUA_CPATH_DEFAULT \
 		LUA_ROOT"?.so;" "./?.so"

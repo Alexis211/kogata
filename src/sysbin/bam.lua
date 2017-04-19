@@ -23,5 +23,6 @@ return function(s, lib)
 
 		sysbin_exe('lua', {lib.liblua}),
 		-- sysbin_exe('luac', {liblua}),
+		sysbin_exe('lx', {lib.liblua}),
 	}
 end

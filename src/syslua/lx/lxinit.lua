@@ -1,4 +1,4 @@
-print "Lua helpers for Kogata v1"
+print "Lua eXtended helpers for Kogata v1"
 
 do
 	local old_tostring = tostring
