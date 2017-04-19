@@ -322,15 +322,18 @@ int fflush(FILE* stream) {
 	dbg_printf("FFLUSH %p\n", stream);
 
 	if (!(stream->file_mode & FM_WRITE)) return 0;
-	if (stream == NULL || stream->fd == 0) return EOF;
+	if (stream == NULL || stream->fd == 0) {
+		return EOF;
+	}
 
 	if (stream->buf_mode != 0 && stream->out_buf_used > 0) {
 		size_t ret = sc_write(stream->fd, stream->pos, stream->out_buf_used, stream->out_buf);
-		stream->out_buf_used = 0;
 
 		if (ret != stream->out_buf_used) {
 			return EOF;
 		}
+
+		stream->out_buf_used = 0;
 		if (!(stream->st.type & (FT_CHARDEV | FT_CHANNEL | FT_DIR))) {
 			stream->pos += ret;
 		}

@@ -34,9 +34,10 @@ void cat(char* file) {
 		while (true) {
 			size_t r = sc_read(f, p, 128, buf);
 			p += r;
-			fwrite(buf, r, 1, stdout);
+			fwrite(buf, 1, r, stdout);
 			if (r < 128) break;
 		}
+		printf("\n -> %d bytes\n", p);
 		sc_close(f);
 	} else {
 		printf("Could not open file '%s'\n", file);

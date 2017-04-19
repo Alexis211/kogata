@@ -96,7 +96,6 @@ local function cdrom(name, settings)
 	local kernel = require('src/kernel/bam')(settings, common)
 	local lib = require('src/lib/bam')(settings, common)
 	local sysbin = require('src/sysbin/bam')(settings, lib)
-	local bin = require('src/bin/bam')(settings, lib)
 
 	if name == "dev" then
 		dev_kernel = kernel
@@ -104,7 +103,7 @@ local function cdrom(name, settings)
 
 	local cdrom = "cdrom." .. name .. ".iso"
 	AddJob(cdrom, "building ISO", "./make_cdrom.sh " .. name)
-	AddDependency(cdrom, kernel.bin, sysbin, bin, fonts, keymaps)
+	AddDependency(cdrom, kernel.bin, sysbin, fonts, keymaps)
 	AddDependency(cdrom, Collect('src/syslua/*.lua'))
 
 	--

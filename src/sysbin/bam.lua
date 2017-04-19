@@ -20,5 +20,8 @@ return function(s, lib)
 		sysbin_exe('login', {lib.libkogata}),
 		sysbin_exe('terminal', {lib.libkogata}),
 		sysbin_exe('shell', {lib.libkogata}),
+
+		sysbin_exe('lua', {lib.liblua}),
+		-- sysbin_exe('luac', {liblua}),
 	}
 end

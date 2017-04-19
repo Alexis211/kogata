@@ -27,15 +27,13 @@ cp build/$TY/kernel.bin cdrom/boot; $STRIP cdrom/boot/kernel.bin
 cp build/$TY/sysbin/init.bin cdrom/boot; $STRIP cdrom/boot/init.bin
 
 mkdir -p cdrom/sys/bin
-for BIN in giosrv.bin login.bin terminal.bin shell.bin; do
-	cp build/$TY/sysbin/$BIN cdrom/sys/bin
-	$STRIP cdrom/sys/bin/$BIN
-done
-
-mkdir -p cdrom/bin
-for BIN in lua.bin luac.bin; do
-	cp build/$TY/bin/$BIN cdrom/bin
-	$STRIP cdrom/bin/$BIN
+for BIN in giosrv.bin login.bin terminal.bin shell.bin lua.bin luac.bin; do
+	if [ -e build/$TY/sysbin/$BIN ]; then
+		cp build/$TY/sysbin/$BIN cdrom/sys/bin
+		$STRIP cdrom/sys/bin/$BIN
+	else
+		print "Skipping binary $BIN: not found!"
+	fi
 done
 
 mkdir -p cdrom/sys/fonts

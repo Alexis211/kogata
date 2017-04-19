@@ -11,7 +11,7 @@
 
 #define lua_c
 
-#include "lprefix.h"
+#include <lua/lprefix.h>
 
 
 #include <signal.h>
@@ -19,10 +19,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lua.h"
+#include <lua/lua.h>
 
-#include "lauxlib.h"
-#include "lualib.h"
+#include <lua/lauxlib.h>
+#include <lua/lualib.h>
 
 
 #if !defined(LUA_PROMPT)
