@@ -16,6 +16,8 @@
 #include <lua/lauxlib.h>
 #include <lua/lualib.h>
 
+#include "lxlib.h"
+
 
 #define LUA_PROMPT		"> "
 #define LUA_PROMPT2		">> "
@@ -183,20 +185,6 @@ int dostring (lua_State *L, const char *s, const char *name) {
 }
 
 
-/*
-** Calls 'require(name)' and stores the result in a global variable
-** with the given name.
-*/
-int dolibrary (lua_State *L, const char *name) {
-  int status;
-  lua_getglobal(L, "require");
-  lua_pushstring(L, name);
-  status = docall(L, 1, 1);  /* call 'require(name)' */
-  if (status == LUA_OK)
-    lua_setglobal(L, name);  /* global[name] = require return */
-  return report(L, status);
-}
-
 
 /*
 ** Returns the string to be used as a prompt by the interpreter.
@@ -349,36 +337,6 @@ void doREPL (lua_State *L) {
 }
 
 
-/*
-** Push on the stack the contents of table 'arg' from 1 to #arg
-*/
-int pushargs (lua_State *L) {
-  int i, n;
-  if (lua_getglobal(L, "arg") != LUA_TTABLE)
-    luaL_error(L, "'arg' is not a table");
-  n = (int)luaL_len(L, -1);
-  luaL_checkstack(L, n + 3, "too many arguments to script");
-  for (i = 1; i <= n; i++)
-    lua_rawgeti(L, -i, i);
-  lua_remove(L, -i);  /* remove table from the stack */
-  return n;
-}
-
-
-int handle_script (lua_State *L, char **argv) {
-  int status;
-  const char *fname = argv[0];
-  if (strcmp(fname, "-") == 0 && strcmp(argv[-1], "--") != 0)
-    fname = NULL;  /* stdin */
-  status = luaL_loadfile(L, fname);
-  if (status == LUA_OK) {
-    int n = pushargs(L);  /* push arguments to script */
-    status = docall(L, n, LUA_MULTRET);
-  }
-  return report(L, status);
-}
-
-
 
 int handle_luainit (lua_State *L) {
   const char *name = "=" LUA_INITVARVERSION;
@@ -395,10 +353,11 @@ int handle_luainit (lua_State *L) {
 int pmain (lua_State *L) {
   int status;
   luaL_checkversion(L);  /* check that interpreter has correct version */
-
+    
   print_version();
 
   luaL_openlibs(L);  /* open standard libraries */
+  lx_openlibs(L);
 
   if (handle_luainit(L) != LUA_OK)  /* run LUA_INIT */
     return 0;  /* error running LUA_INIT */
@@ -409,7 +368,6 @@ int pmain (lua_State *L) {
   if (status != LUA_OK) {
     // no main, launch a REPL
     if (lua_stdin_is_tty()) {  /* running in interactive mode? */
-      print_version();
       doREPL(L);  /* do read-eval-print loop */
     } else {
        dofile(L, NULL);  /* executes stdin as a file */
