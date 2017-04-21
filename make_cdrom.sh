@@ -64,8 +64,11 @@ cat > cdrom/boot/grub/menu.lst <<EOF
 timeout 10
 default 0
 
-title   kogata OS
+title   kogata OS, C terminal
 kernel  /boot/kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/boot/init.bin config=default
+
+title   kogata OS, Lua init
+kernel  /boot/kernel.bin root=io:/disk/atapi0 root_opts=l init=root:/boot/init.bin config=default lx_init_app=login loop_exec=false
 EOF
 
 # Generate CDROM image

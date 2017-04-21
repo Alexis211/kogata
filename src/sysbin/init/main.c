@@ -9,8 +9,8 @@
 
 #include <kogata/btree.h>
 
-pid_t giosrv_pid = 0, login_pid = 0;
-fd_pair_t root_gip_chan;
+bool loop_exec = true;
+pid_t giosrv_pid = 0, login_pid = 0, lx_init_pid = 0;
 
 void _parse_cmdline_iter(void* a, void* b) {
 	dbg_printf("  '%s'  ->  '%s'\n", a, b);
@@ -90,7 +90,7 @@ void setup_sys() {
 	if (!ok) PANIC("[init] Could not bind root:/sys to sys:/");
 }
 
-void launch_giosrv() {
+void launch_giosrv(fd_pair_t *root_gip_chan) {
 	if (giosrv_pid != 0) return;
 
 	giosrv_pid = sc_new_proc();
@@ -111,7 +111,7 @@ void launch_giosrv() {
 	ok = sc_bind_fs(giosrv_pid, "config", "config");
 	if (!ok) PANIC("[init] Could not bind config:/ to giosrv");
 
-	ok = sc_bind_fd(giosrv_pid, STD_FD_GIOSRV, root_gip_chan.a);
+	ok = sc_bind_fd(giosrv_pid, STD_FD_GIOSRV, root_gip_chan->a);
 	if (!ok) PANIC("[init] Could not bind root GIP channel FD to giosrv");
 
 	ok = sc_proc_exec(giosrv_pid, "sys:/bin/giosrv.bin");
@@ -120,7 +120,7 @@ void launch_giosrv() {
 	dbg_printf("[init] giosrv started.\n");
 }
 
-void launch_login() {
+void launch_login(fd_pair_t *root_gip_chan) {
 	if (login_pid != 0) return;
 
 	login_pid = sc_new_proc();
@@ -141,13 +141,143 @@ void launch_login() {
 	ok = sc_bind_fs(login_pid, "config", "config");
 	if (!ok) PANIC("[init] Could not bind config:/ to login");
 
-	ok = sc_bind_fd(login_pid, STD_FD_GIP, root_gip_chan.b);
+	ok = sc_bind_fd(login_pid, STD_FD_GIP, root_gip_chan->b);
 	if (!ok) PANIC("[init] Could not bind root GIP channel FD to login");
 
 	ok = sc_proc_exec(login_pid, "sys:/bin/login.bin");
 	if (!ok) PANIC("[init] Could not run login.bin");
 
 	dbg_printf("[init] login started.\n");
+}
+
+void launch_lx_init(const char* lx_init_app, fd_pair_t *io_chan) {
+	if (lx_init_pid != 0) return;
+
+	lx_init_pid = sc_new_proc();
+	if (lx_init_pid == 0) {
+		PANIC("[init] Could not create process for lx_init");
+	}
+
+	dbg_printf("[init] Setting up lx_init, pid: %d\n", lx_init_pid);
+
+	bool ok;
+
+	ok = sc_bind_fs(lx_init_pid, "io", "io");
+	if (!ok) PANIC("[init] Could not bind io:/ to lx_init");
+
+	ok = sc_bind_fs(lx_init_pid, "root", "root");
+	if (!ok) PANIC("[init] Could not bind root:/ to lx_init");
+
+	ok = sc_bind_fs(lx_init_pid, "sys", "sys");
+	if (!ok) PANIC("[init] Could not bind sys:/ to lx_init");
+
+	ok = sc_bind_fs(lx_init_pid, "config", "config");
+	if (!ok) PANIC("[init] Could not bind config:/ to lx_init");
+
+	char app_path[256];
+	snprintf(app_path, 256, "/app/%s", lx_init_app);
+
+	ok = sc_bind_subfs(lx_init_pid, "app", "sys", app_path, FM_ALL_MODES);
+	if (!ok) PANIC("[init] Could not bind app:/ to lx_init");
+
+	ok = sc_bind_fd(lx_init_pid, STD_FD_STDOUT, io_chan->b);
+	if (!ok) PANIC("[init] Could not bind stdout channel to lx_init");
+
+	ok = sc_bind_fd(lx_init_pid, STD_FD_STDERR, io_chan->b);
+	if (!ok) PANIC("[init] Could not bind stderr channel to lx_init");
+
+	ok = sc_proc_exec(lx_init_pid, "sys:/bin/lx.bin");
+	if (!ok) PANIC("[init] Could not run lx.bin");
+
+	dbg_printf("[init] lx_init started\n");
+}
+
+void dump_all(fd_t fd) {
+	char buf[256];
+	while(true){
+		int n = sc_read(fd, 0, 255, buf);
+		if (n > 0) {
+			buf[n] = 0;
+			sc_dbg_print(buf);
+		} else {
+			break;
+		}
+	}
+}
+
+int run_lua(const char* lx_init_app) {
+	// Setup a channel for stdout/stderr printing
+	fd_pair_t io_chan;
+	io_chan = sc_make_channel(false);
+	if (io_chan.a == 0 || io_chan.b == 0) {
+		PANIC("[init] Could not create Lua emergency I/O channel.");
+	}
+
+	launch_lx_init(lx_init_app, &io_chan);
+
+	while(true) {
+		dump_all(io_chan.a);
+
+		proc_status_t s;
+		sc_proc_wait(0, false, &s);
+		if (s.pid != 0) {
+			if (s.pid == lx_init_pid) {
+				if (!loop_exec) {
+					dump_all(io_chan.a);
+					PANIC("[init] lx_init died!\n");
+				}
+
+				lx_init_pid = 0;
+
+				dbg_printf("[init] lx_init_app died, restarting.\n");
+				launch_lx_init(lx_init_app, &io_chan);
+			} else {
+				ASSERT(false);
+			}
+		}
+
+		sc_usleep(100000);
+	}
+}
+
+int run_no_lua() {
+	fd_pair_t root_gip_chan;
+	
+	// Setup GIP channel for communication between giosrv and login
+	root_gip_chan = sc_make_channel(false);
+	if (root_gip_chan.a == 0 || root_gip_chan.b == 0) {
+		PANIC("[init] Could not create root GIP channel.");
+	}
+
+	// Launch giosrv && login
+	launch_giosrv(&root_gip_chan);
+	launch_login(&root_gip_chan);
+
+	// Make sure no one dies
+	while(true) {
+		proc_status_t s;
+		sc_proc_wait(0, false, &s);
+		if (s.pid != 0) {
+			if (s.pid == giosrv_pid) {
+				if (!loop_exec) PANIC("[init] giosrv died!\n");
+
+				giosrv_pid = 0;
+
+				dbg_printf("[init] giosrv died, restarting.\n");
+				launch_giosrv(&root_gip_chan);
+			} else if (s.pid == login_pid) {
+				if (!loop_exec) PANIC("[init] login died!\n");
+
+				login_pid = 0;
+
+				dbg_printf("[init] login died, restarting.\n");
+				launch_login(&root_gip_chan);
+			} else {
+				ASSERT(false);
+			}
+		}
+		sc_usleep(1000000);
+	}
 }
 
 int main(int argc, char **argv) {
@@ -174,36 +304,14 @@ int main(int argc, char **argv) {
 	// Setup sys:
 	setup_sys();
 
-	// Setup GIP channel for communication between giosrv and login
-	root_gip_chan = sc_make_channel(false);
-	if (root_gip_chan.a == 0 || root_gip_chan.b == 0) {
-		PANIC("[init] Could not create root GIP channel.");
-	}
+	if (btree_find(cmdline, "loop_exec") &&
+		strcmp(btree_find(cmdline, "loop_exec"), "true"))
+		loop_exec = false;
 
-	// Launch giosrv && login
-	launch_giosrv();
-	launch_login();
-
-	// Make sure no one dies
-	while(true) {
-		proc_status_t s;
-		sc_proc_wait(0, false, &s);
-		if (s.pid != 0) {
-			if (s.pid == giosrv_pid) {
-				giosrv_pid = 0;
-
-				dbg_printf("[init] giosrv died, restarting.\n");
-				launch_giosrv();
-			} else if (s.pid == login_pid) {
-				login_pid = 0;
-
-				dbg_printf("[init] login died, restarting.\n");
-				launch_login();
-			} else {
-				ASSERT(false);
-			}
-		}
-		sc_usleep(1000000);
+	if (btree_find(cmdline, "lx_init_app")) {
+		run_lua(btree_find(cmdline, "lx_init_app"));
+	} else {
+		run_no_lua();
 	}
 
 	return 0;

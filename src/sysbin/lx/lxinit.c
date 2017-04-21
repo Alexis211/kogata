@@ -35,6 +35,7 @@
 static const luaL_Reg loadedlibs[] = {
   {LX_SYSLIBNAME, lx_open_sys},
   {LX_MSGLIBNAME, lx_open_msg},
+  {LX_IOCTLLIBNAME, lx_open_ioctl},
   {NULL, NULL}
 };
 

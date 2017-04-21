@@ -225,6 +225,10 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 }
 
 int fgetc(FILE *stream) {
+	if (stream == NULL) {
+		return EOF;
+	}
+	
 	dbg_printf("FGETC %p\n", stream);
 
 	// TODO buffering && ungetc
@@ -321,10 +325,10 @@ int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
 int fflush(FILE* stream) {
 	dbg_printf("FFLUSH %p\n", stream);
 
-	if (!(stream->file_mode & FM_WRITE)) return 0;
 	if (stream == NULL || stream->fd == 0) {
 		return EOF;
 	}
+	if (!(stream->file_mode & FM_WRITE)) return 0;
 
 	if (stream->buf_mode != 0 && stream->out_buf_used > 0) {
 		size_t ret = sc_write(stream->fd, stream->pos, stream->out_buf_used, stream->out_buf);

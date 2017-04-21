@@ -346,12 +346,26 @@ int handle_luainit (lua_State *L) {
 }
 
 
-/*
-** Main body of stand-alone interpreter (to be called in protected mode).
-** Reads the options and handles them all.
-*/
+bool find_lua_main(lua_State *L) {
+  lua_getglobal(L, "package");
+  if (lua_getfield(L, -1, "searchers") != LUA_TTABLE)
+    luaL_error(L, "'package.searchers' must be a table");
+  lua_remove(L, -2);
+  for (int i = 1; ; i++) {
+    if (lua_rawgeti(L, -1, i) == LUA_TNIL) {  /* no more searchers? */
+      lua_pop(L, 2);  // pop nil & searchers table
+      return false;
+    }
+    lua_pushstring(L, "main");
+    lua_call(L, 1, 2);  /* call it */
+    if (lua_isfunction(L, -2))  /* did it find a loader? */
+      return true;  /* module loader found */
+    else
+      lua_pop(L, 2);  /* remove both returns */
+  }
+}
+
 int pmain (lua_State *L) {
-  int status;
   luaL_checkversion(L);  /* check that interpreter has correct version */
     
   print_version();
@@ -362,18 +376,20 @@ int pmain (lua_State *L) {
   if (handle_luainit(L) != LUA_OK)  /* run LUA_INIT */
     return 0;  /* error running LUA_INIT */
 
-  lua_getglobal(L, "require");
-  lua_pushstring(L, "main");
-  status = docall(L, 1, 1);  /* call 'require("main")' */
-  if (status != LUA_OK) {
+  if (find_lua_main(L)) {
+    // call loader
+    lua_pushstring(L, "main");
+    lua_insert(L, -2);
+    lua_call(L, 2, 1);
+  } else {
     // no main, launch a REPL
     if (lua_stdin_is_tty()) {  /* running in interactive mode? */
       doREPL(L);  /* do read-eval-print loop */
     } else {
-       dofile(L, NULL);  /* executes stdin as a file */
+      dofile(L, NULL);  /* executes stdin as a file */
     }
+    lua_pushboolean(L, 1);  /* signal no errors */
   }
-  lua_pushboolean(L, 1);  /* signal no errors */
   return 1;
 }
 

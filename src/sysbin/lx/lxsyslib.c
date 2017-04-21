@@ -22,25 +22,6 @@
 #include "lxlib.h"
 
 
-bool lx_checkboolean(lua_State *L, int arg) {
-  if (!lua_isboolean(L, arg)) {
-    luaL_argerror(L, arg, "expected boolean");
-  }
-  return lua_toboolean(L, arg);
-}
-
-
-static void setintfield (lua_State *L, const char *key, int value) {
-  lua_pushinteger(L, value);
-  lua_setfield(L, -2, key);
-}
-
-static void setstrfield (lua_State *L, const char *key, const char* value) {
-  lua_pushstring(L, value);
-  lua_setfield(L, -2, key);
-}
-
-
 static int sys_dbg_print(lua_State *L) {
   const char *str = luaL_checkstring(L, 1);
   sc_dbg_print(str);
@@ -68,6 +49,7 @@ static int sys_usleep(lua_State *L) {
     Missing syscalls :
     - sys_new_thread, exit_thread -> into specific threading library
     - mmap, mmap_file, mchmap, munmap -> into specific memory-related library ??
+    - ioctl, fctl -> into ioctl library
 */
 
 static int sys_create(lua_State *L) {
@@ -180,25 +162,10 @@ static int sys_stat_open(lua_State *L) {
   return 1;
 }
 
-static int sys_ioctl(lua_State *L) {
-  // TODO
-  return 0;
-}
-
-static int sys_fctl(lua_State *L) {
-  // TODO
-  return 0;
-}
-
 static int sys_select(lua_State *L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   int nfds = luaL_len(L, 1);
-  int timeout;
-  if (lua_isinteger(L, 2)) {
-    timeout = luaL_checkinteger(L, 2);
-  } else {
-    timeout = 0;
-  }
+  int timeout = luaL_checkinteger(L, 2);
 
   sel_fd_t *fds = (sel_fd_t*)malloc(nfds*sizeof(sel_fd_t));
   if (fds == NULL)
@@ -398,6 +365,7 @@ static int sys_proc_wait(lua_State *L) {
   return 1;
 }
 
+/* }====================================================== */
 
 static const luaL_Reg syslib[] = {
   {"dbg_print", sys_dbg_print},
@@ -414,8 +382,6 @@ static const luaL_Reg syslib[] = {
   {"write",     sys_write},
   {"readdir",   sys_readdir},
   {"stat_open", sys_stat_open},
-  {"ioctl",     sys_ioctl},
-  {"fctl",      sys_fctl},
   {"select",    sys_select},
   {"make_channel",sys_make_channel},
   {"make_shm",  sys_make_shm},
@@ -437,9 +403,6 @@ static const luaL_Reg syslib[] = {
   
   {NULL, NULL}
 };
-
-/* }====================================================== */
-
 
 
 LUAMOD_API int lx_open_sys (lua_State *L) {
