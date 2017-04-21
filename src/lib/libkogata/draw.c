@@ -244,6 +244,7 @@ typedef struct font {
 			uint32_t nchars;
 		} ascii_bitmap;
 	};
+	int nrefs;
 } font_t;
 
 font_t *g_load_ascii_bitmap_font(fd_t f) {
@@ -272,6 +273,8 @@ font_t *g_load_ascii_bitmap_font(fd_t f) {
 	size_t rd = sc_read(f, sizeof(h), h.ch * h.nchars, (char*)font->ascii_bitmap.data);
 	if (rd != h.ch * h.nchars) goto error;
 
+	font->nrefs = 1;
+
 	return font;
 
 error:
@@ -291,12 +294,19 @@ font_t *g_load_font(const char* fontname) {
 	return 0;
 }
 
-void g_free_font(font_t *f) {
-	if (f->type == FONT_ASCII_BITMAP) {
-		free(f->ascii_bitmap.data);
-	}
+void g_incref_font(font_t *f) {
+	f->nrefs++;
+}
 
-	free(f);
+void g_decref_font(font_t *f) {
+	f->nrefs--;
+
+	if (f->nrefs == 0) {
+		if (f->type == FONT_ASCII_BITMAP) {
+			free(f->ascii_bitmap.data);
+		}
+		free(f);
+	}
 }
 
 int g_text_width(font_t *font, const char* text) {

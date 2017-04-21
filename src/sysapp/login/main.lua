@@ -18,15 +18,35 @@ for x = 0, 255 do
 	end
 end
 
+local fnt = draw.load_font('default')
+
 local i = 1
 while true do
-	surface:plot(i % (vesa_info.width-3),
-				 i % (vesa_info.height-1),
+	surface:rect((i*3) % (vesa_info.width-3),
+				 (i*3) % (vesa_info.height-5),
+				 3, 3,
 				 surface:rgb(i % 256,
 				 			 (i + 96) % 256,
 				 			 (i + 2*96) % 256))
 	i = i + 1
-	if i % 100000 == 0 then print(i) end
+	if i % 10000 == 0 then
+		local x0 = math.random(vesa_info.width)-1
+		local x1 = math.random(vesa_info.width)-1
+		local y0 = math.random(vesa_info.height)-1
+		local y1 = math.random(vesa_info.height)-1
+		if x0 > x1 then x0, x1 = x1, x0 end
+		if y0 > y1 then y0, y1 = y1, y0 end
+		local c = surface:rgb(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+		surface:fillrect(x0, y0, x1-x0, y1-y0, c)
+	end
+	if i % 10000 == 0 then
+		print(i)
+		local txt = tostring(i)
+		surface:fillrect(0, 0, fnt:text_width(txt),
+							   fnt:text_height(txt),
+							   surface:rgb(0, 0, 0))
+		surface:write(0, 0, txt, fnt, surface:rgb(255, 0, 0))
+	end
 end
 
 os.exit()

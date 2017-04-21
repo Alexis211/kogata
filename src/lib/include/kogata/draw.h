@@ -57,7 +57,8 @@ void g_scroll_up(fb_t *fb, int l);
 //  ---- Text manipulation
 
 font_t *g_load_font(const char* fontname);
-void g_free_font(font_t *f);
+void g_incref_font(font_t *f);
+void g_decref_font(font_t *f);
 
 int g_text_width(font_t *f, const char* text);
 int g_text_height(font_t *f, const char* text);
