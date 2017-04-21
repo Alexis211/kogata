@@ -9,7 +9,7 @@ return function(s, common)
 
 	return {
 		libc = libc,
-		libkogata = {lib('libkogata'), libc},
-		liblua = {lib('lua'), libc}
+		libkogata = {lib('libkogata')},
+		liblua = {lib('lua')}
 	}
 end

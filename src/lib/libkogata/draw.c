@@ -22,6 +22,8 @@ fb_t *g_fb_from_file(fd_t file, fb_info_t *geom) {
 	bool map_ok = sc_mmap_file(file, 0, ret->data, geom->height * geom->pitch, MM_READ | MM_WRITE);
 	if (!map_ok) goto error;
 
+	ret->nrefs = 1;
+
 	return ret;
 
 error:
@@ -30,7 +32,7 @@ error:
 	return 0;
 }
 
-fb_t *g_fb_from_mem(uint8_t* data, fb_info_t *geom) {
+fb_t *g_fb_from_mem(uint8_t* data, fb_info_t *geom, bool own_data) {
 	fb_t *ret = (fb_t*)malloc(sizeof(fb_t));
 	if (ret == 0) return 0;
 
@@ -38,15 +40,27 @@ fb_t *g_fb_from_mem(uint8_t* data, fb_info_t *geom) {
 	ret->fd = 0;
 	ret->data = data;
 
+	ret->nrefs = 1;
+	ret->own_data = own_data;
+
 	return ret;
 }
 
-void g_delete_fb(fb_t *fb) {
-	if (fb->fd != 0) {
-		sc_munmap(fb->data);
-		region_free(fb->data);
+void g_incref_fb(fb_t *fb) {
+	fb->nrefs++;
+}
+
+void g_decref_fb(fb_t *fb) {
+	fb->nrefs--;
+	if (fb->nrefs == 0) {
+		if (fb->fd != 0) {
+			sc_munmap(fb->data);
+			region_free(fb->data);
+		} else if (fb->own_data) {
+			free(fb->data);
+		}
+		free(fb);
 	}
-	free(fb);
 }
 
 //  ---- Color management
@@ -168,11 +182,11 @@ void g_fillrect(fb_t *fb, int x, int y, int w, int h, color_t c) {
 	}
 }
 
-void g_rect_r(fb_t *fb, fb_region_t reg, color_t c) {
+void g_rectregion(fb_t *fb, fb_region_t reg, color_t c) {
 	g_rect(fb, reg.x, reg.y, reg.w, reg.h, c);
 }
 
-void g_fillrect_r(fb_t *fb, fb_region_t reg, color_t c) {
+void g_fillregion(fb_t *fb, fb_region_t reg, color_t c) {
 	g_fillrect(fb, reg.x, reg.y, reg.w, reg.h, c);
 }
 

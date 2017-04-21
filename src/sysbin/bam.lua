@@ -15,14 +15,14 @@ return function(s, lib)
 	end
 
 	return {
-		sysbin_exe('init', {lib.libkogata}),
-		sysbin_exe('giosrv', {lib.libkogata}),
-		sysbin_exe('login', {lib.libkogata}),
-		sysbin_exe('terminal', {lib.libkogata}),
-		sysbin_exe('shell', {lib.libkogata}),
+		sysbin_exe('init', {lib.libc, lib.libkogata}),
+		sysbin_exe('giosrv', {lib.libc, lib.libkogata}),
+		sysbin_exe('login', {lib.libc, lib.libkogata}),
+		sysbin_exe('terminal', {lib.libc, lib.libkogata}),
+		sysbin_exe('shell', {lib.libc, lib.libkogata}),
 
-		sysbin_exe('lua', {lib.liblua}),
+		sysbin_exe('lua', {lib.libc, lib.liblua}),
 		-- sysbin_exe('luac', {liblua}),
-		sysbin_exe('lx', {lib.liblua}),
+		sysbin_exe('lx', {lib.libc, lib.liblua, lib.libkogata}),
 	}
 end

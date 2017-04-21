@@ -12,6 +12,9 @@ typedef struct {
 
 	fd_t fd;
 	uint8_t* data;
+
+	int nrefs;
+	bool own_data;
 } fb_t;
 
 typedef struct font font_t;
@@ -21,9 +24,10 @@ typedef uint32_t color_t;	// a color is always linked to a FB on which it is to 
 //  ---- Buffer creation
 
 fb_t *g_fb_from_file(fd_t file, fb_info_t *geom);
-fb_t *g_fb_from_mem(uint8_t* region, fb_info_t *geom);
+fb_t *g_fb_from_mem(uint8_t* region, fb_info_t *geom, bool own_data);
 
-void g_delete_fb(fb_t *fb);
+void g_incref_fb(fb_t *fb);
+void g_decref_fb(fb_t *fb);
 
 //  ---- Color manipulation
 
@@ -39,8 +43,8 @@ void g_line(fb_t *fb, int x1, int y1, int x2, int y2, color_t c);
 
 void g_rect(fb_t *fb, int x, int y, int w, int h, color_t c);
 void g_fillrect(fb_t *fb, int x, int y, int w, int h, color_t c);
-void g_rect_r(fb_t *fb, fb_region_t reg, color_t c);
-void g_fillrect_r(fb_t *fb, fb_region_t reg, color_t c);
+void g_rectregion(fb_t *fb, fb_region_t reg, color_t c);
+void g_fillregion(fb_t *fb, fb_region_t reg, color_t c);
 
 void g_circle(fb_t *fb, int cx, int cy, int r, color_t c);
 void g_fillcircle(fb_t *fb, int cx, int cy, int r, color_t c);

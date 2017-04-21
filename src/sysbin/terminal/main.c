@@ -302,7 +302,7 @@ void gip_buffer_info(gip_handler_t *s, gip_msg_header *p, gip_buffer_info_msg *m
 	term_t *c = (term_t*)s->data;
 
 	if (c->fb != 0) {
-		g_delete_fb(c->fb);
+		g_decref_fb(c->fb);
 		c->fb = 0;
 	}
 	if (c->fd != 0) {

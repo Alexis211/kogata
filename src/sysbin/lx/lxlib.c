@@ -29,6 +29,13 @@ bool lx_checkboolean(lua_State *L, int arg) {
   return lua_toboolean(L, arg);
 }
 
+void* lx_checklightudata(lua_State *L, int arg) {
+	if (!lua_islightuserdata(L, arg)) {
+    luaL_argerror(L, arg, "expected light userdata");
+	}
+	return lua_touserdata(L, arg);
+}
+
 
 void setintfield (lua_State *L, const char *key, int value) {
   lua_pushinteger(L, value);
@@ -38,4 +45,11 @@ void setintfield (lua_State *L, const char *key, int value) {
 void setstrfield (lua_State *L, const char *key, const char* value) {
   lua_pushstring(L, value);
   lua_setfield(L, -2, key);
+}
+
+int getintfield(lua_State *L, int arg, const char *key) {
+	lua_getfield(L, arg, key);
+	int v = luaL_checkinteger(L, -1);
+	lua_pop(L, 1);
+	return v;
 }

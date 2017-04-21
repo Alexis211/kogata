@@ -132,7 +132,7 @@ local dev_cdrom = cdrom("dev", dev_settings)
 local rel_settings = TableDeepCopy(base_settings)
 for _, s in pairs(rel_settings) do
 	s.cc.flags:Add("-Os", "-flto")
-	s.link.flags:Add("-Os", "-flto", "-Wl,--gc-sections")
+	s.link.flags:Add("-O3", "-Os", "-flto", "-Wl,--gc-sections")
 	
 	-- Maybe do this, goes with --gc-sections
 	-- s.cc.flags:Add("-ffunction-sections", "-fdata-sections")
