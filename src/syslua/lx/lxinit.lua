@@ -38,3 +38,27 @@ function string.split(str, sep)
    str:gsub(pattern, function(c) fields[#fields+1] = c end)
    return fields
 end
+
+function hexdump(str)
+	for i = 1, #str, 16 do
+		local b = {string.byte(str, i, math.min(i+15, #str))}
+		local s = ""
+		for j = 1, 16 do
+			if b[j] then
+				s = s .. string.format("%02x ", b[j])
+			else
+				s = s .. '   '
+			end
+		end
+		s = s .. '|  '
+		for j = 1, #b do
+			ss = string.char(b[j])
+			if b[j] >= 32 and b[j] < 128 then
+				s = s .. string.char(b[j])
+			else
+				s = s .. '.'
+			end
+		end
+		print(s)
+	end
+end

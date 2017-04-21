@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 #include <kogata/debug.h>
 #include <kogata/printf.h>
@@ -59,8 +60,11 @@ int vcprintf(int (*putc_fun)(int c, void* p), void* p, const char* format, va_li
 	for(i = 0; format[i] != '\0' ; i++) {
 		if (format[i] == '%') {
 			i++;
+			int na = -1;
+			int nb = -1;
 			int u = 0;
 			int l = 0;
+			bool dotspec = false;
 			bool spec = true;
 			while (spec) {
 				if (format[i] == 'l') {
@@ -68,6 +72,18 @@ int vcprintf(int (*putc_fun)(int c, void* p), void* p, const char* format, va_li
 					i++;
 				} else if (format[i] == 'u') {
 					u = 1;
+					i++;
+				} else if (isdigit(format[i])) {
+					if (dotspec) {
+						if (nb == -1) nb = 0;
+						nb = nb * 10 + (format[i] - '0');
+					} else {
+						if (na == -1) na = 0;
+						na = na * 10 + (format[i] - '0');
+					}
+					i++;
+				} else if (format[i] == '.') {
+					dotspec = true;
 					i++;
 				} else {
 					spec = false;
@@ -112,7 +128,11 @@ int vcprintf(int (*putc_fun)(int c, void* p), void* p, const char* format, va_li
 				 for(; *string != '\0' ; string++)
 					 PUTCHAR(*string);
 			} else if (format[i] == 'x') {
-				unsigned int hexa = va_arg(ap,int);
+				unsigned long long int hexa;
+				if (l == 0) hexa = va_arg(ap, unsigned int);
+				if (l == 1) hexa = va_arg(ap, unsigned long int);
+				if (l == 2) hexa = va_arg(ap, unsigned long long int);
+
 				int had_nonzero = 0;
 				for(int j = 0; j < 8; j++) {
 					unsigned int nb = (unsigned int)(hexa << (j*4));

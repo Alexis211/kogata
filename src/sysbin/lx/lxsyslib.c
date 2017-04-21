@@ -191,8 +191,45 @@ static int sys_fctl(lua_State *L) {
 }
 
 static int sys_select(lua_State *L) {
-  // TODO
-  return 0;
+  luaL_checktype(L, 1, LUA_TTABLE);
+  int nfds = luaL_len(L, 1);
+  int timeout;
+  if (lua_isinteger(L, 2)) {
+    timeout = luaL_checkinteger(L, 2);
+  } else {
+    timeout = 0;
+  }
+
+  sel_fd_t *fds = (sel_fd_t*)malloc(nfds*sizeof(sel_fd_t));
+  if (fds == NULL)
+    luaL_error(L, "Out of memory, could not allocate %d sel_fd_t", nfds);
+
+  for (int i = 0; i < nfds; i++) {
+    lua_rawgeti(L, 1, i+1);
+    luaL_checktype(L, -1, LUA_TTABLE);
+
+    lua_rawgeti(L, -1, 1);
+    fds[i].fd = luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+    
+    lua_rawgeti(L, -1, 2);
+    fds[i].req_flags = luaL_checkinteger(L, -1);
+    lua_pop(L, 2);
+  }
+
+  bool result = sc_select(fds, nfds, timeout);
+
+  for (int i = 0; i < nfds; i++) {
+    lua_rawgeti(L, 1, i+1);
+    lua_pushinteger(L, fds[i].got_flags);
+    lua_rawseti(L, -2, 3);
+    lua_pop(L, 1);
+  }
+
+  free(fds);
+
+  lua_pushboolean(L, result);
+  return 1;
 }
 
 static int sys_make_channel(lua_State *L) {

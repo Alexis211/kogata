@@ -56,4 +56,6 @@ double exp(double x);
 double frexp(double x, int *exp);
 double pow(double x, double y);
 
+#define isinf(x) (0)
+
 /* vim: set sts=0 ts=4 sw=4 tw=0 noet :*/
