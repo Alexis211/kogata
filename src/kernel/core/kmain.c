@@ -25,7 +25,7 @@
 
 #include <prng.h>
 
-#include <dev/pckbd.h>
+#include <dev/pckbdmouse.h>
 #include <dev/pci.h>
 #include <dev/pciide.h>
 #include <dev/vesa.h>
@@ -180,6 +180,7 @@ void kernel_init_stage2(void* data) {
 
 	// Scan for devices
 	pckbd_setup(iofs);
+	pcmouse_setup(iofs);
 	vesa_detect(iofs);
 	pci_setup();
 	pciide_detect(iofs);
