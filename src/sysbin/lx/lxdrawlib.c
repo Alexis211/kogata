@@ -89,7 +89,7 @@ static int font_text_height(lua_State *L) {
 // ====================================================================
 //                            SURFACES
 
-static int draw_from_fd(lua_State *L) {
+static int draw_surface_from_fd(lua_State *L) {
   int fd = luaL_checkinteger(L, 1);
   luaL_checktype(L, 2, LUA_TTABLE);
 
@@ -267,7 +267,7 @@ static int surface_write(lua_State *L) {
 /* }====================================================== */
 
 static const luaL_Reg drawlib[] = {
-  {"from_fd",     draw_from_fd},
+  {"surface_from_fd",draw_surface_from_fd},
   {"load_font",    draw_loadfont},
   {NULL, NULL}
 };
