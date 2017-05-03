@@ -18,19 +18,39 @@ for x = 0, 255 do
 	end
 end
 
-local fnt = draw.load_font('default')
+local fnt = draw.load_font('sys:/fonts/default.bf')
 
 local mouse_fd = sys.open("io:/input/pcmouse", sysdef.FM_READ)
 print("mouse_fd = " .. mouse_fd)
 
+local cursor = draw.load_image('sys:/cursors/left_ptr.png')
+local csrbkp = draw.new_surface(cursor:width(), cursor:height(), vesa_info.bpp, false)
+csrbkp:blit(0, 0, surface:sub(0, 0, cursor:width(), cursor:height()))
+
 local i = 1
+local mouse_x, mouse_y = 0, 0
 while true do
 	local mouse_data, mouse_l = sys.read(mouse_fd, 0, 8)
 	if mouse_l > 0 then
 		print("mouse_l = ", mouse_l)
 		print("mouse_data = ", string.unpack("hhbBBB", mouse_data))
+		dx, dy = string.unpack("hhbBBB", mouse_data)
+
+		surface:blit(mouse_x, mouse_y, csrbkp)
+
+		mouse_x = mouse_x + dx
+		mouse_y = mouse_y - dy
+		if mouse_x < 0 then mouse_x = 0 end
+		if mouse_y < 0 then mouse_y = 0 end
+		if mouse_x >= vesa_info.width then mouse_x = vesa_info.width - 1 end
+		if mouse_y >= vesa_info.height then mouse_y = vesa_info.height - 1 end
+
+		csrbkp:blit(0, 0, surface:sub(mouse_x, mouse_y, cursor:width(), cursor:height()))
+		surface:blit(mouse_x, mouse_y, cursor)
 	end
 
+
+	--[[
 	surface:rect((i*3) % (vesa_info.width-3),
 				 (i*3) % (vesa_info.height-5),
 				 3, 3,
@@ -56,6 +76,7 @@ while true do
 							   surface:rgb(0, 0, 0))
 		surface:write(0, 0, txt, fnt, surface:rgb(255, 0, 0))
 	end
+	--]]
 end
 
 os.exit()

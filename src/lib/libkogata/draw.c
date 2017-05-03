@@ -9,6 +9,14 @@
 #include <kogata/syscall.h>
 #include <kogata/draw.h>
 
+// ----
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_HDR
+#include "stb/stb_image.h"
+
+// ----
+
 fb_t *g_fb_from_file(fd_t file, fb_info_t *geom) {
 	fb_t *ret = (fb_t*)malloc(sizeof(fb_t));
 	if (ret == 0) return 0;
@@ -44,6 +52,32 @@ fb_t *g_fb_from_mem(uint8_t* data, fb_info_t *geom, bool own_data) {
 	ret->own_data = own_data;
 
 	return ret;
+}
+
+fb_t *g_load_image(const char* filename) {
+	int w, h, n;
+	uint8_t *data = stbi_load(filename, &w, &h, &n, 0);
+	if (data == NULL) {
+		return NULL;
+	}
+
+	fb_info_t geom;
+	geom.width = w;
+	geom.height = h;
+	geom.pitch = w * n;
+	geom.bpp = n * 8;
+	if (n == 1) geom.memory_model = FB_MM_GREY8;
+	if (n == 2) geom.memory_model = FB_MM_GA16;
+	if (n == 3) geom.memory_model = FB_MM_RGB24;
+	if (n == 4) geom.memory_model = FB_MM_RGBA32;
+
+	fb_t *fb = g_fb_from_mem(data, &geom, true);
+	if (fb == NULL) {
+		free(data);
+		return NULL;
+	}
+
+	return fb;
 }
 
 void g_incref_fb(fb_t *fb) {
@@ -210,20 +244,75 @@ void g_blit(fb_t *dst, int x, int y, fb_t *src) {
 }
 
 void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg) {
-	if (src->geom.memory_model == dst->geom.memory_model) {
-		for (uint32_t i = 0; i < reg.h; i++) {
+	if (x < 0 || y < 0 || reg.x < 0 || reg.y < 0 || reg.w < 0 || reg.h < 0) return;	// invalid argument
+
+	if (reg.x + reg.w > src->geom.width) reg.w = src->geom.width - reg.x;
+	if (reg.y + reg.h > src->geom.height) reg.h = src->geom.height - reg.y;
+	if (reg.w <= 0 || reg.h <= 0) return;
+
+	if (x + reg.w > dst->geom.width) reg.w = dst->geom.width - x;
+	if (y + reg.h > dst->geom.height) reg.h = dst->geom.height - y;
+	if (reg.w <= 0 || reg.h <= 0) return;
+
+	dbg_printf("Src: 0x%p, dst: 0x%p, x: %d, y: %d, rx: %d, ry: %d, rw: %d, rh: %d\n",
+				src->data, dst->data, x,  y, reg.x, reg.y, reg.w, reg.h);
+
+	if (src->geom.memory_model == dst->geom.memory_model
+			&& src->geom.memory_model != FB_MM_RGBA32
+			&& src->geom.memory_model != FB_MM_GA16) {
+		for (int i = 0; i < reg.h; i++) {
 			memcpy(
 				dst->data + (y + i) * dst->geom.pitch + x * (dst->geom.bpp / 8),
 				src->data + (reg.y + i) * src->geom.pitch + reg.x * (src->geom.bpp / 8),
 				reg.w * (src->geom.bpp / 8));
 		}
+	} else if (src->geom.memory_model == FB_MM_RGBA32 && dst->geom.memory_model == FB_MM_RGB32) {
+		for (int i = 0; i < reg.h; i++) {
+			uint8_t *dln = dst->data + (y + i) * dst->geom.pitch + x * 4;
+			uint8_t *sln = src->data + (reg.y + i) * src->geom.pitch + reg.x * 4;
+			uint32_t *dln32 = (uint32_t*) dln;
+			uint32_t *sln32 = (uint32_t*) sln;
+			for (int j = 0; j < reg.w; j++) {
+				uint8_t a = sln[4*j+3];
+				if (a == 0xFF) {
+					dln32[j] = sln32[j];
+				} else if (a > 0) {
+					uint16_t r = (0x100 - a) * (uint16_t)dln[4*j] + a * (uint16_t)sln[4*j];
+					uint16_t g = (0x100 - a) * (uint16_t)dln[4*j+1] + a * (uint16_t)sln[4*j+1];
+					uint16_t b = (0x100 - a) * (uint16_t)dln[4*j+2] + a * (uint16_t)sln[4*j+2];
+					dln[4*j] = r >> 8;
+					dln[4*j+1] = g >> 8;
+					dln[4*j+2] = b >> 8;
+				}
+			}
+		}
+	} else if (src->geom.memory_model == FB_MM_RGBA32 && dst->geom.memory_model == FB_MM_RGB24) {
+		for (int i = 0; i < reg.h; i++) {
+			uint8_t *dln = dst->data + (y + i) * dst->geom.pitch + x * 4;
+			uint8_t *sln = src->data + (reg.y + i) * src->geom.pitch + reg.x * 4;
+			for (int j = 0; j < reg.w; j++) {
+				uint8_t a = sln[4*j+3];
+				if (a == 0xFF) {
+					dln[3*j] = sln[4*j];
+					dln[3*j+1] = sln[4*j+1];
+					dln[3*j+2] = sln[4*j+2];
+				} else if (a > 0) {
+					uint16_t r = (0x100 - a) * (uint16_t)dln[3*j] + a * (uint16_t)sln[4*j];
+					uint16_t g = (0x100 - a) * (uint16_t)dln[3*j+1] + a * (uint16_t)sln[4*j+1];
+					uint16_t b = (0x100 - a) * (uint16_t)dln[3*j+2] + a * (uint16_t)sln[4*j+2];
+					dln[3*j] = r >> 8;
+					dln[3*j+1] = g >> 8;
+					dln[3*j+2] = b >> 8;
+				}
+			}
+		}
 	} else {
-		dbg_printf("Unsupported blit between different memory models.\n");
+		dbg_printf("Unsupported blit between different memory models %d and %d.\n", src->geom.memory_model, dst->geom.memory_model);
 	}
 }
 
 void g_scroll_up(fb_t *dst, int l) {
-	for (unsigned y = 0; y < dst->geom.height - l; y++) {
+	for (int y = 0; y < dst->geom.height - l; y++) {
 		memcpy(dst->data + y * dst->geom.pitch,
 				dst->data + (y + l) * dst->geom.pitch,
 				dst->geom.pitch);
@@ -284,11 +373,8 @@ error:
 	return 0;
 }
 
-font_t *g_load_font(const char* fontname) {
-	char buf[128];
-
-	snprintf(buf, 128, "sys:/fonts/%s.bf", fontname);
-	fd_t f = sc_open(buf, FM_READ);
+font_t *g_load_font(const char* filename) {
+	fd_t f = sc_open(filename, FM_READ);
 	if (f != 0) return g_load_ascii_bitmap_font(f);
 
 	return 0;

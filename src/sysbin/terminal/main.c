@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
 	term.kb = init_keyboard();
 	ASSERT(term.kb != 0);
 
-	term.font = g_load_font("default");
+	term.font = g_load_font("sys:/fonts/default.bf");
 	ASSERT(term.font != 0);
 	term.cw = g_text_width(term.font, "#");
 	term.ch = g_text_height(term.font, "#");

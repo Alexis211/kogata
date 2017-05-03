@@ -26,6 +26,8 @@ typedef uint32_t color_t;	// a color is always linked to a FB on which it is to 
 fb_t *g_fb_from_file(fd_t file, fb_info_t *geom);
 fb_t *g_fb_from_mem(uint8_t* region, fb_info_t *geom, bool own_data);
 
+fb_t *g_load_image(const char* filename);
+
 void g_incref_fb(fb_t *fb);
 void g_decref_fb(fb_t *fb);
 
@@ -56,7 +58,7 @@ void g_scroll_up(fb_t *fb, int l);
 
 //  ---- Text manipulation
 
-font_t *g_load_font(const char* fontname);
+font_t *g_load_font(const char* filename);
 void g_incref_font(font_t *f);
 void g_decref_font(font_t *f);
 

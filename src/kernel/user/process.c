@@ -754,6 +754,33 @@ void dbg_dump_proc_memmap(process_t *proc) {
 	mutex_unlock(&proc->lock);
 }
 
+void dbg_proc_stacktrace(process_t *proc, uint32_t ebp, uint32_t eip) {
+	int i = 0;
+	while (true) {
+		char* sym = 0;
+		void* fn_ptr = 0;
+		// TODO use symbol map
+
+		dbg_printf("| 0x%p	EIP: 0x%p  %s  +%d\n", ebp, eip, sym, ((void*)eip - fn_ptr));
+
+		void *addr = (void*)ebp;
+
+		user_region_t *r = find_user_region(proc, addr);
+		if (r == 0 || addr + 8 > r->addr + r->size) {
+			break;
+		}
+
+		uint32_t *stack = (uint32_t*)addr;
+		ebp = stack[0];
+		eip = stack[1];
+		if (i++ == 20) {
+			dbg_printf("| ...");
+			break;
+		}
+		if (eip == 0) break;
+	}
+}
+
 // =============================== //
 // USER MEMORY PAGE FAULT HANDLERS //
 // =============================== //
@@ -770,12 +797,17 @@ void proc_usermem_pf(void* p, registers_t *regs, void* addr) {
 	if (r == 0) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not mapped) : exiting.\n", proc->pid, addr);
 		dbg_dump_registers(regs);
+		dbg_dump_proc_memmap(proc);
+		dbg_proc_stacktrace(proc, regs->ebp, regs->eip);
 		current_process_exit(PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
 	bool wr = ((regs->err_code & PF_WRITE_BIT) != 0);
 	if (wr && !(r->mode & MM_WRITE)) {
 		dbg_printf("Segmentation fault in process %d (0x%p : not allowed to write) : exiting.\n", proc->pid, addr);
+		dbg_dump_registers(regs);
+		dbg_dump_proc_memmap(proc);
+		dbg_proc_stacktrace(proc, regs->ebp, regs->eip);
 		current_process_exit(PS_FAILURE, (addr < (void*)PAGE_SIZE ? FAIL_ZEROPTR : FAIL_SEGFAULT));
 	}
 
@@ -825,4 +857,4 @@ void probe_for_write(const void* addr, size_t len) {
 	}
 }
 
-/* vim: set ts=4 sw=4 tw=0 noet :*/
+/* vim: set sts=4 ts=4 sw=4 tw=0 noet :*/

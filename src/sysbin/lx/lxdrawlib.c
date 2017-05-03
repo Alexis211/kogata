@@ -119,6 +119,82 @@ static int draw_surface_from_fd(lua_State *L) {
   return 1;
 }
 
+static int draw_new_surface(lua_State *L) {
+  int w = luaL_checkinteger(L, 1);
+  int h = luaL_checkinteger(L, 2);
+  int bpp = luaL_checkinteger(L, 3);
+  bool alpha = lx_checkboolean(L, 4);
+
+  if (bpp != 8 && bpp != 16 && bpp != 24 && bpp != 32) {
+    luaL_error(L, "Invalid BPP value %d, must be 8 16 24 or 32.", bpp);
+  }
+
+  if (alpha && (bpp == 8 || bpp == 24)) {
+    luaL_error(L, "Invalid BPP value %d with alpha, must be 16 or 32.", bpp);
+  }
+
+  if (w < 0 || h < 0) {
+    luaL_error(L, "Invalid dimensions (%d %d)", w, h);
+  }
+
+  fb_info_t geom;
+  geom.width = w;
+  geom.height =  h;
+  geom.bpp = bpp;
+  geom.pitch = w * bpp / 8;
+  if (bpp == 8) geom.memory_model = FB_MM_GREY8;
+  if (bpp == 16 && alpha) geom.memory_model = FB_MM_GA16;
+  if (bpp == 16 && !alpha) geom.memory_model = FB_MM_RGB16;
+  if (bpp == 24) geom.memory_model = FB_MM_RGB24;
+  if (bpp == 32 && alpha) geom.memory_model = FB_MM_RGBA32;
+  if (bpp == 32 && !alpha) geom.memory_model = FB_MM_RGB32;
+
+  uint8_t *buf = (uint8_t*)malloc(geom.height * geom.pitch);
+  if (buf == NULL) {
+    luaL_error(L, "Buffer allocation failed");
+  }
+  memset(buf, 0, geom.height * geom.pitch);
+
+  fb_t *fb = g_fb_from_mem(buf, &geom, true);
+  if (fb == NULL) {
+    luaL_error(L, "fb_t allocation failed");
+  }
+
+  drawlib_surface *s = (drawlib_surface*)lua_newuserdata(L, sizeof(drawlib_surface));
+  luaL_getmetatable(L, SURFACE);
+  lua_setmetatable(L, -2);
+
+  s->fb = fb;
+  s->subregion.x = s->subregion.y = 0;
+  s->subregion.w = geom.width;
+  s->subregion.h = geom.height;
+  s->has_subregion = false;
+
+  return 1;
+}
+
+static int draw_load_image(lua_State *L) {
+  const char* filename = luaL_checkstring(L, 1);
+
+  fb_t *img = g_load_image(filename);
+  if (img == NULL) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  drawlib_surface *s = (drawlib_surface*)lua_newuserdata(L, sizeof(drawlib_surface));
+  luaL_getmetatable(L, SURFACE);
+  lua_setmetatable(L, -2);
+
+  s->fb = img;
+  s->subregion.x = s->subregion.y = 0;
+  s->subregion.w = img->geom.width;
+  s->subregion.h = img->geom.height;
+  s->has_subregion = false;
+
+  return 1;
+}
+
 static int surface_gc(lua_State *L) {
   drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
 
@@ -149,20 +225,36 @@ static int surface_sub(lua_State *L) {
 
   if (x < 0 || y < 0 || w < 0 || h < 0)
     luaL_error(L, "negative argument is invalid");
-  if (x+w > (int)s->subregion.w) luaL_error(L, "w too big");
-  if (y+h > (int)s->subregion.h) luaL_error(L, "h too big");
+  if (x > s->subregion.w || y > s->subregion.h)
+    luaL_error(L, "out of bounds");
+
+  if (x+w > (int)s->subregion.w) w = s->subregion.w - x;
+  if (y+h > (int)s->subregion.h) h = s->subregion.h - y;
 
   drawlib_surface *s2 = (drawlib_surface*)lua_newuserdata(L, sizeof(drawlib_surface));
   luaL_getmetatable(L, SURFACE);
   lua_setmetatable(L, -2);
 
   s2->fb = s->fb;
+  g_incref_fb(s->fb);
   s2->has_subregion = true;
   s2->subregion.x = s->subregion.x + x;
   s2->subregion.y = s->subregion.y + y;
   s2->subregion.w = w;
   s2->subregion.h = h;
 
+  return 1;
+}
+
+static int surface_width(lua_State *L) {
+  drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
+  lua_pushinteger(L, s->subregion.w);
+  return 1;
+}
+
+static int surface_height(lua_State *L) {
+  drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
+  lua_pushinteger(L, s->subregion.h);
   return 1;
 }
 
@@ -251,6 +343,41 @@ static int surface_fillrect(lua_State *L) {
   return 0;
 }
 
+static int surface_circle(lua_State *L) {
+  drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
+  int x = luaL_checkinteger(L, 2);
+  int y = luaL_checkinteger(L, 3);
+  int r = luaL_checkinteger(L, 4);
+  color_t c = (color_t)lx_checklightudata(L, 5);
+
+  // TODO: relative to subregion!
+  g_circle(s->fb, x, y, r, c);
+  return 0;
+}
+
+static int surface_fillcircle(lua_State *L) {
+  drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
+  int x = luaL_checkinteger(L, 2);
+  int y = luaL_checkinteger(L, 3);
+  int r = luaL_checkinteger(L, 4);
+  color_t c = (color_t)lx_checklightudata(L, 5);
+
+  // TODO: relative to subregion!
+  g_fillcircle(s->fb, x, y, r, c);
+  return 0;
+}
+
+static int surface_blit(lua_State *L) {
+  drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
+  int x = luaL_checkinteger(L, 2);
+  int y = luaL_checkinteger(L, 3);
+  drawlib_surface *s2 = (drawlib_surface*)luaL_checkudata(L, 4, SURFACE);
+
+  // TODO: relative to subregion!
+  g_blit_region(s->fb, x, y, s2->fb, s2->subregion);
+  return 0;
+}
+
 static int surface_write(lua_State *L) {
   drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
   int x = luaL_checkinteger(L, 2);
@@ -268,12 +395,16 @@ static int surface_write(lua_State *L) {
 
 static const luaL_Reg drawlib[] = {
   {"surface_from_fd",draw_surface_from_fd},
+  {"new_surface",  draw_new_surface},
+  {"load_image",   draw_load_image},
   {"load_font",    draw_loadfont},
   {NULL, NULL}
 };
 
 static const luaL_Reg surface_meta[] = {
   {"sub",         surface_sub},
+  {"width",       surface_width},
+  {"height",      surface_height},
   {"rgb",         surface_rgb},
   {"plot",        surface_plot},
   {"hline",       surface_hline},
@@ -281,6 +412,9 @@ static const luaL_Reg surface_meta[] = {
   {"line",        surface_line},
   {"rect",        surface_rect},
   {"fillrect",    surface_fillrect},
+  {"circle",      surface_circle},
+  {"fillcircle",  surface_fillcircle},
+  {"blit",        surface_blit},
   {"write",       surface_write},
   {"__gc",        surface_gc},
   {NULL, NULL}

@@ -15,16 +15,19 @@
 #define FB_MM_BGR32		8		// 4 bytes (32 bits) per pixel, red 0-7, green 8-15, blue 16-23
 #define FB_MM_GREY8		10		// 1 byte (8 bits) per pixel greyscale
 
+#define FB_MM_RGBA32	20		// 4 bytes (32 bits), red, green, blue, alpha
+#define FB_MM_GA16		21		// 2 bytes (16 bits), grey, alpha
+
 typedef struct {
-	uint32_t width, height;
-	uint32_t pitch;		// bytes per line
-	uint32_t bpp;
-	uint32_t memory_model;
+	int32_t width, height;
+	int32_t pitch;		// bytes per line
+	int32_t bpp;
+	int32_t memory_model;
 } fb_info_t;
 
 typedef struct {
-	uint32_t x, y;
-	uint32_t w, h;
+	int32_t x, y;
+	int32_t w, h;
 } fb_region_t;
 
 
