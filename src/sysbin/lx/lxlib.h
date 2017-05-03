@@ -28,6 +28,9 @@ LUAMOD_API int (luaopen_cmsgpack) (lua_State *L);
 #define LX_DRAWLIBNAME "lx.draw"
 LUAMOD_API int (lx_open_draw) (lua_State *L);
 
+#define LX_KBDLIBNAME "lx.kbd"
+LUAMOD_API int (lx_open_kbd) (lua_State *L);
+
 /* open all previous libraries */
 LUALIB_API void (lx_openlibs) (lua_State *L);
 

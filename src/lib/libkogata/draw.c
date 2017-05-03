@@ -101,9 +101,9 @@ void g_decref_fb(fb_t *fb) {
 
 color_t g_color_rgb(fb_t *f, uint8_t r, uint8_t g, uint8_t b) {
 	int m = f->geom.memory_model;
-	if (m == FB_MM_RGB24 || m == FB_MM_RGB32) return (r << 16) | (g << 8) | b;
+	if (m == FB_MM_RGB24 || m == FB_MM_RGB32 || m == FB_MM_RGBA32) return (r << 16) | (g << 8) | b;
 	if (m == FB_MM_BGR24 || m == FB_MM_BGR32) return (b << 16) | (g << 8) | r;
-	if (m == FB_MM_GREY8) return ((r + g + b) / 3) & 0xFF;
+	if (m == FB_MM_GREY8 || m == FB_MM_GA16) return ((r + g + b) / 3) & 0xFF;
 	if (m == FB_MM_RGB16 || m == FB_MM_RGB15) return ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
 	if (m == FB_MM_BGR16 || m == FB_MM_BGR15) return ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
 	return 0;	// unknown?
@@ -253,9 +253,6 @@ void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg) {
 	if (x + reg.w > dst->geom.width) reg.w = dst->geom.width - x;
 	if (y + reg.h > dst->geom.height) reg.h = dst->geom.height - y;
 	if (reg.w <= 0 || reg.h <= 0) return;
-
-	dbg_printf("Src: 0x%p, dst: 0x%p, x: %d, y: %d, rx: %d, ry: %d, rw: %d, rh: %d\n",
-				src->data, dst->data, x,  y, reg.x, reg.y, reg.w, reg.h);
 
 	if (src->geom.memory_model == dst->geom.memory_model
 			&& src->geom.memory_model != FB_MM_RGBA32
@@ -416,7 +413,9 @@ void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, color_t c) 
 			if (id < font->ascii_bitmap.nchars) {
 				uint8_t *d = font->ascii_bitmap.data + (id * font->ascii_bitmap.ch);
 				for (int r = 0; r < font->ascii_bitmap.ch; r++) {
+					if (y + r >= fb->geom.height) continue;
 					for (int j = 0; j < 8; j++) {
+						if (x + j >= fb->geom.width) continue;
 						if (d[r] & (0x80 >> j)) {
 							g_plot(fb, x + j, y + r, c);
 						}

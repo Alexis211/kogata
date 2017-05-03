@@ -21,6 +21,7 @@ function new_fd(fd, error_cb)
 	function fd:expect(len, cb)
 		table.insert(self.rd_expect, {len, "", cb})
 	end
+	return fd
 end
 
 function mainloop.add_fd(fd, error_cb)
@@ -55,7 +56,7 @@ function mainloop.run()
 
 		local res = sys.select(sel_fds, -1)
 		assert(res, "select() call failed")
-		for i, fd = pairs(fds) do
+		for i, fd in pairs(fds) do
 			local flags = sel_fds[i][3]
 			if flags & sysdef.SEL_ERROR ~= 0 then
 				fd.error_cb(fd)

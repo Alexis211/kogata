@@ -41,7 +41,7 @@ keyboard_t *init_keyboard() {
 	keyboard_t *kb = (keyboard_t*)malloc(sizeof(keyboard_t));
 	if (kb == 0) return 0;
 
-	if (!load_keymap(kb, "default")) {
+	if (!load_keymap(kb, "sys:/keymaps/default.km")) {
 		free(kb);
 		return 0;
 	}
@@ -54,12 +54,9 @@ void free_keyboard(keyboard_t *t) {
 }
 
 bool load_keymap(keyboard_t *kb, const char* kmname) {
-	char buf[128];
-	snprintf(buf, 128, "sys:/keymaps/%s.km", kmname);
-
-	fd_t f = sc_open(buf, FM_READ);
+	fd_t f = sc_open(kmname, FM_READ);
 	if (f == 0) {
-		dbg_printf("Failed to open keymap %s\n", buf);
+		dbg_printf("Failed to open keymap %s\n", kmname);
 		return false;
 	}
 
