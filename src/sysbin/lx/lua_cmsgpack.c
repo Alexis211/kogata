@@ -19,6 +19,7 @@
 #endif
 
 /* Check if float or double can be an integer without loss of precision */
+#define isinf(x) (false)
 #define IS_INT_TYPE_EQUIVALENT(x, T) (!isinf(x) && (T)(x) == (x))
 
 #define IS_INT64_EQUIVALENT(x) IS_INT_TYPE_EQUIVALENT(x, int64_t)

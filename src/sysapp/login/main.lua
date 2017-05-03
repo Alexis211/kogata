@@ -19,14 +19,18 @@ end
 
 gui.show_cursor()
 
-local fnt = draw.load_font('sys:/fonts/default.bf')
+local fnt = draw.load_ttf_font('sys:/fonts/vera.ttf')
+if fnt == nil then
+	print("Could not load vera.ttf!")
+	os.exit()
+end
 
 local txt_x, txt_y = 0, 0
 
 gui.on_mouse_down = function (lb, rb, mb)
 	if lb then
 		gui.hide_cursor()
-		gui.surface:write(gui.mouse_x, gui.mouse_y, string.format("Click at %d, %d", gui.mouse_x, gui.mouse_y), fnt, gui.surface:rgb(0, 0, 255))
+		gui.surface:write(gui.mouse_x, gui.mouse_y, string.format("Click at %d, %d", gui.mouse_x, gui.mouse_y), fnt, 16, gui.surface:rgb(0, 0, 255))
 		txt_x = gui.mouse_x
 		txt_y = gui.mouse_y + fnt:text_height(" ")
 		gui.show_cursor()
@@ -35,7 +39,7 @@ end
 
 gui.on_text_input = function(chr)
 	gui.hide_cursor()
-	gui.surface:write(txt_x, txt_y, chr, fnt, gui.surface:rgb(0, 0, 255))
+	gui.surface:write(txt_x, txt_y, chr, fnt, 16, gui.surface:rgb(0, 0, 255))
 	txt_x = txt_x + fnt:text_width(chr)
 	gui.show_cursor()
 end

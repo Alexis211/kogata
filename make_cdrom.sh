@@ -41,6 +41,7 @@ done
 mkdir -p cdrom/sys/fonts
 cp build/fonts/*.bf cdrom/sys/fonts
 cp build/fonts/pcvga.bf cdrom/sys/fonts/default.bf
+cp res/fonts/*.ttf cdrom/sys/fonts
 
 mkdir -p cdrom/sys/keymaps
 cp build/keymaps/*.km cdrom/sys/keymaps

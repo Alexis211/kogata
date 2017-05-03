@@ -60,6 +60,7 @@ common_settings.cc.flags:Add("-m32",
 							 "-ffreestanding",
 							 "-std=gnu99",
 							 "-Wall", "-Wextra", "-Werror",
+	             "-Wno-error=strict-aliasing",
 							 "-Wno-unused-parameter",
 							 "-Wno-unused-function")
 

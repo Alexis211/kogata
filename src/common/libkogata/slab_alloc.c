@@ -313,7 +313,7 @@ size_t slab_find_getsize(mem_allocator_t *a, void* addr) {
 			return i->region_size;
 		}
 	}
-	ASSERT(false);
+	PANIC("should never come here");
 }
 
 void* slab_realloc(mem_allocator_t* a, void* ptr, size_t sz) {

@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
 	term.kb = init_keyboard();
 	ASSERT(term.kb != 0);
 
-	term.font = g_load_font("sys:/fonts/default.bf");
+	term.font = g_load_ascii_bitmap_font("sys:/fonts/default.bf");
 	ASSERT(term.font != 0);
 	term.cw = g_text_width(term.font, "#");
 	term.ch = g_text_height(term.font, "#");
@@ -138,7 +138,7 @@ void term_draw_c(term_t *t, int l, int c) {
 
 	if (t->fb) {
 		g_fillrect(t->fb, c * t->cw, l * t->ch, t->cw, t->ch, bg);
-		g_write(t->fb, c * t->cw, l * t->ch, ss, t->font, t->fg);
+		g_write(t->fb, c * t->cw, l * t->ch, ss, t->font, 16, t->fg);
 	}
 }
 

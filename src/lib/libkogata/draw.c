@@ -15,6 +15,9 @@
 #define STBI_NO_HDR
 #include "stb/stb_image.h"
 
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb/stb_truetype.h"
+
 // ----
 
 fb_t *g_fb_from_file(fd_t file, fb_info_t *geom) {
@@ -319,6 +322,7 @@ void g_scroll_up(fb_t *dst, int l) {
 //  ---- Text manipulation
 
 #define FONT_ASCII_BITMAP	1
+#define FONT_STBTT			2
 // more font types to come
 
 typedef struct font {
@@ -329,11 +333,19 @@ typedef struct font {
 			uint8_t cw, ch;		// width, height of a character
 			uint32_t nchars;
 		} ascii_bitmap;
+		struct {
+			uint8_t* data;
+			stbtt_fontinfo info;
+			float scale;
+		} stbtt;
 	};
 	int nrefs;
 } font_t;
 
-font_t *g_load_ascii_bitmap_font(fd_t f) {
+font_t *g_load_ascii_bitmap_font(const char* filename) {
+	fd_t f = sc_open(filename, FM_READ);
+	if (f == 0) return NULL;
+
 	font_t *font = 0;
 
 	ascii_bitmap_font_header h;
@@ -367,14 +379,43 @@ error:
 	if (font && font->ascii_bitmap.data) free(font->ascii_bitmap.data);
 	if (font) free(font);
 	sc_close(f);
-	return 0;
+	return NULL;
 }
 
-font_t *g_load_font(const char* filename) {
+font_t *g_load_ttf_font(const char* filename) {
 	fd_t f = sc_open(filename, FM_READ);
-	if (f != 0) return g_load_ascii_bitmap_font(f);
+	if (f == 0) return NULL;
 
-	return 0;
+	font_t *font = 0;
+	font = malloc(sizeof(font_t));
+	if (font == 0) goto error;
+
+	font->type = FONT_STBTT;
+	font->stbtt.data = NULL;
+
+	stat_t st;
+	bool ok = sc_stat_open(f, &st);
+	if (!ok) goto error;
+
+	font->stbtt.data = malloc(st.size);
+	if (font->stbtt.data == NULL) goto error;
+
+	size_t ret = sc_read(f, 0, st.size, (void*)font->stbtt.data);
+	if (ret < st.size) goto error;
+
+	if (!stbtt_InitFont(&font->stbtt.info, font->stbtt.data, 0)) {
+		goto error;
+	}
+
+	font->nrefs = 1;
+	return font;
+
+
+error:
+	if (font->stbtt.data) free(font->stbtt.data);
+	if (font) free(font);
+	sc_close(f);
+	return NULL;
 }
 
 void g_incref_font(font_t *f) {
@@ -406,7 +447,7 @@ int g_text_height(font_t *font, const char* text) {
 	return 0;
 }
 
-void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, color_t c) {
+void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, color_t c) {
 	if (font->type == FONT_ASCII_BITMAP) {
 		while (*text != 0) {
 			uint8_t id = (uint8_t)*text;
@@ -425,6 +466,72 @@ void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, color_t c) 
 			text++;
 			x += font->ascii_bitmap.cw;
 		}
+	} else if (font->type == FONT_STBTT) {
+		float scale = stbtt_ScaleForPixelHeight(&font->stbtt.info, size);
+		float xpos = 1;
+
+		dbg_printf("Write TTF %s %d\n", text, size);
+
+		uint8_t *tmp = (uint8_t*)malloc(size*size*2);
+		size_t tmp_size = size*size*2;
+		if (tmp == NULL) return;
+
+		while (*text != 0) {
+			int codepoint = *text;	// TODO utf8
+			text++;
+
+			int advance, lsb;
+			int x0, y0, x1, y1;
+			float x_shift = xpos - (float)floor(xpos);
+			stbtt_GetCodepointHMetrics(&font->stbtt.info, codepoint, &advance, &lsb);
+			stbtt_GetCodepointBitmapBoxSubpixel(&font->stbtt.info, codepoint, scale, scale, x_shift, 0, &x0, &y0, &x1, &y1);
+
+			int w = x1 - x0, h = y1 - y0;
+			dbg_printf("%d %d %d %d\n", x0, y0, x1, y1);
+
+			if (tmp_size < (size_t)w*h) {
+				free(tmp);
+				tmp_size = 2*w*h;
+				tmp = (uint8_t*)malloc(tmp_size);
+				if (tmp == NULL) return;
+			}
+
+			stbtt_MakeCodepointBitmapSubpixel(&font->stbtt.info, tmp, w, h, w, scale, scale, x_shift, 0, codepoint);
+			if (fb->geom.memory_model == FB_MM_RGB32 || fb->geom.memory_model == FB_MM_RGB24) {
+				int sx = (fb->geom.memory_model == FB_MM_RGB32 ? 4 : 3);
+
+				for (int i = 0; i < h; i++) {
+					int yy = y + y0 + i;
+					if (yy < 0) continue;
+					if (yy >= fb->geom.height) continue;
+					uint8_t *line = fb->data + yy * fb->geom.pitch;
+
+					for (int j = 0; j < w; j++) {
+						int xx = x + x0 + (int)xpos + j;
+						if (xx < 0) continue;
+						if (xx >= fb->geom.width) continue;
+
+						uint8_t a = tmp[i*w+j];
+						uint8_t *px = line + sx * xx;
+						if (a == 0xFF) {
+							g_plot24(px, c);
+						} else if (a > 0) {
+							uint16_t r = a * (c & 0xFF) + (0x100 - a) * px[0];
+							uint16_t g = a * ((c>>8) & 0xFF) + (0x100 - a) * px[1];
+							uint16_t b = a * ((c>>16) & 0xFF) + (0x100 - a) * px[2];
+							px[0] = r>>8;
+							px[1] = g>>8;
+							px[2] = b>>8;
+						}
+					}
+				}
+			}
+			xpos += scale * advance;
+			if (*(text+1))
+				xpos += scale * stbtt_GetCodepointKernAdvance(&font->stbtt.info, *text, *(text+1));
+		}
+
+		free(tmp);
 	}
 }
 

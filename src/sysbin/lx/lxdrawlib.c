@@ -41,9 +41,26 @@ typedef struct {
 // ====================================================================
 //                            FONTS
 
-static int draw_loadfont(lua_State *L) {
+static int draw_load_bitmap_font(lua_State *L) {
   const char* name = luaL_checkstring(L, 1);
-  font_t *f = g_load_font(name);
+  font_t *f = g_load_ascii_bitmap_font(name);
+  if (f == NULL) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  drawlib_font *ff = (drawlib_font*)lua_newuserdata(L, sizeof(drawlib_font));
+  luaL_getmetatable(L, FONT);
+  lua_setmetatable(L, -2);
+
+  ff->font = f;
+
+  return 1;
+}
+
+static int draw_load_ttf_font(lua_State *L) {
+  const char* name = luaL_checkstring(L, 1);
+  font_t *f = g_load_ttf_font(name);
   if (f == NULL) {
     lua_pushnil(L);
     return 1;
@@ -384,10 +401,11 @@ static int surface_write(lua_State *L) {
   int y = luaL_checkinteger(L, 3);
   const char *text = luaL_checkstring(L, 4);
   drawlib_font *f = (drawlib_font*)luaL_checkudata(L, 5, FONT);
-  color_t c = (color_t)lx_checklightudata(L, 6);
+  int size = luaL_checkinteger(L, 6);
+  color_t c = (color_t)lx_checklightudata(L, 7);
 
   // TODO: relative to subregion!
-  g_write(s->fb, x, y, text, f->font, c);
+  g_write(s->fb, x, y, text, f->font, size, c);
   return 0;
 }
 
@@ -397,7 +415,8 @@ static const luaL_Reg drawlib[] = {
   {"surface_from_fd",draw_surface_from_fd},
   {"new_surface",  draw_new_surface},
   {"load_image",   draw_load_image},
-  {"load_font",    draw_loadfont},
+  {"load_bitmap_font",draw_load_bitmap_font},
+  {"load_ttf_font",draw_load_ttf_font},
   {NULL, NULL}
 };
 

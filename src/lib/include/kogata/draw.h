@@ -58,14 +58,15 @@ void g_scroll_up(fb_t *fb, int l);
 
 //  ---- Text manipulation
 
-font_t *g_load_font(const char* filename);
+font_t *g_load_ascii_bitmap_font(const char* filename);
+font_t *g_load_ttf_font(const char* filename);
 void g_incref_font(font_t *f);
 void g_decref_font(font_t *f);
 
 int g_text_width(font_t *f, const char* text);
 int g_text_height(font_t *f, const char* text);
 
-void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, color_t c);
+void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, color_t c);
 
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

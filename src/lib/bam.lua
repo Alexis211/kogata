@@ -1,7 +1,7 @@
 return function(s, common)
 	local function lib(name)
-		local source = {Collect('src/lib/' .. name .. '/*.c'),
-						Collect('src/lib/' .. name .. '/*.s')}
+		local source = {CollectRecursive('src/lib/' .. name .. '/*.c'),
+						CollectRecursive('src/lib/' .. name .. '/*.s')}
 		return Compile(s.user_settings, source)
 	end
 	
