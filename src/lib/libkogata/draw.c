@@ -112,7 +112,7 @@ color_t g_color_rgb(fb_t *f, uint8_t r, uint8_t g, uint8_t b) {
 	return 0;	// unknown?
 }
 
-//  ---- Plot
+//  ---- Drawing functions
 
 static inline void g_plot24(uint8_t* p, color_t c) {
 	p[0] = c & 0xFF;
@@ -120,7 +120,11 @@ static inline void g_plot24(uint8_t* p, color_t c) {
 	p[2] = (c >> 16) & 0xFF;
 }
 
-void g_plot(fb_t *fb, int x, int y, color_t c) {
+// # Plot #
+
+inline void g_plot(fb_t *fb, int x, int y, color_t c) {
+	if (x < 0 || y < 0 || x >= fb->geom.width || y >= fb->geom.height) return;
+
 	if (fb->geom.bpp == 8) {
 		fb->data[y * fb->geom.pitch + x] = (c & 0xFF);
 	} else if (fb->geom.bpp == 15 || fb->geom.bpp == 16) {
@@ -134,7 +138,22 @@ void g_plot(fb_t *fb, int x, int y, color_t c) {
 	}
 }
 
-void g_hline(fb_t *fb, int x, int y, int w, color_t c) {
+inline void g_region_plot(fb_t *fb, fb_region_t *reg, int x, int y, color_t c) {
+	if (x < 0 || y < 0 || x >= reg->w || y >= reg->h) return;
+	g_plot(fb, x + reg->x, y + reg->y, c);
+}
+
+
+// # Horizontal line #
+
+inline void g_hline(fb_t *fb, int x, int y, int w, color_t c) {
+	if (x < 0) w = w + x, x = 0;
+	if (x >= fb->geom.width) return;
+	if (x + w < 0) return;
+	if (x + w > fb->geom.width) w = fb->geom.width - x;
+	if (y < 0 || y >= fb->geom.height) return;
+	if (w <= 0) return;
+
 	if (fb->geom.bpp == 8) {
 		for (int u = x; u < x + w; u++) {
 			fb->data[y * fb->geom.pitch + u] = (c & 0xFF);
@@ -151,12 +170,33 @@ void g_hline(fb_t *fb, int x, int y, int w, color_t c) {
 	} else if (fb->geom.bpp == 32) {
 		for (int u = x; u < x + w; u++) {
 			uint32_t *p = (uint32_t*)(fb->data + y * fb->geom.pitch + 4 * u);
-			*p = c;
+			*p = c | 0xFF000000;	// alpha = 0xFF
 		}
 	}
 }
 
-void g_vline(fb_t *fb, int x, int y, int h, color_t c) {
+inline void g_region_hline(fb_t *fb, fb_region_t *reg, int x, int y, int w, color_t c) {
+	if (x < 0) w = w + x, x = 0;
+	if (x >= reg->w) return;
+	if (x + w < 0) return;
+	if (x + w > reg->w) w = reg->w - x;
+	if (y < 0 || y >= reg->h) return;
+	if (w <= 0) return;
+
+	g_hline(fb, reg->x + x, reg->y + y, w, c);
+}
+
+
+// # Vertical line #
+
+inline void g_vline(fb_t *fb, int x, int y, int h, color_t c) {
+	if (y < 0) h = h + y, y = 0;
+	if (y >= fb->geom.height) return;
+	if (y + h < 0) return;
+	if (y + h > fb->geom.width) h = fb->geom.height - y;
+	if (x < 0 || x >= fb->geom.width) return;
+	if (h <= 0) return;
+
 	if (fb->geom.bpp == 8) {
 		for (int v = y; v < y + h; v++) {
 			fb->data[v * fb->geom.pitch + x] = (c & 0xFF);
@@ -178,9 +218,30 @@ void g_vline(fb_t *fb, int x, int y, int h, color_t c) {
 	}
 }
 
+inline void g_region_vline(fb_t *fb, fb_region_t *reg, int x, int y, int h, color_t c) {
+	if (y < 0) h = h + y, y = 0;
+	if (y >= reg->h) return;
+	if (y + h < 0) return;
+	if (y + h > reg->h) h = reg->h - y;
+	if (x < 0 || x >= reg->h) return;
+	if (h <= 0) return;
+
+	g_vline(fb, reg->x + x, reg->y + y, h, c);
+}
+
+
+// # Line #
+
 void g_line(fb_t *fb, int x1, int y1, int x2, int y2, color_t c) {
 	// TODO
 }
+
+void g_region_line(fb_t *fb, fb_region_t *reg, int x1, int y1, int x2, int y2, color_t c) {
+	// TODO
+}
+
+
+// # Rectangle #
 
 void g_rect(fb_t *fb, int x, int y, int w, int h, color_t c) {
 	g_hline(fb, x, y, w, c);
@@ -189,7 +250,25 @@ void g_rect(fb_t *fb, int x, int y, int w, int h, color_t c) {
 	g_vline(fb, x+w-1, y, h, c);
 }
 
+void g_region_rect(fb_t *fb, fb_region_t *reg, int x, int y, int w, int h, color_t c) {
+	g_region_hline(fb, reg, x, y, w, c);
+	g_region_hline(fb, reg, x, y+h-1, w, c);
+	g_region_vline(fb, reg, x, y, h, c);
+	g_region_vline(fb, reg, x+w-1, y, h, c);
+}
+
+
+// # Filled rectangle #
+
 void g_fillrect(fb_t *fb, int x, int y, int w, int h, color_t c) {
+	if (x < 0) w = w + x, x = 0;
+	if (y < 0) h = h + y, y = 0;
+
+	if (x + w > fb->geom.width) w = fb->geom.width - x;
+	if (y + h > fb->geom.height) h = fb->geom.height - y;
+
+	if (w <= 0 || h <= 0) return;
+
 	if (fb->geom.bpp == 8) {
 		for (int v = y; v < y + h; v++) {
 			for (int u = x; u < x + w; u++) {
@@ -219,21 +298,42 @@ void g_fillrect(fb_t *fb, int x, int y, int w, int h, color_t c) {
 	}
 }
 
-void g_rectregion(fb_t *fb, fb_region_t reg, color_t c) {
-	g_rect(fb, reg.x, reg.y, reg.w, reg.h, c);
+void g_region_fillrect(fb_t *fb, fb_region_t *reg, int x, int y, int w, int h, color_t c) {
+	if (x < 0) w = w + x, x = 0;
+	if (y < 0) h = h + y, y = 0;
+
+	if (x + w > reg->w) w = reg->w - x;
+	if (y + h > reg->h) h = reg->h - y;
+
+	if (w <= 0 || h <= 0) return;
+
+	g_fillrect(fb, x + reg->x, y + reg->y, w, h, c);
 }
 
-void g_fillregion(fb_t *fb, fb_region_t reg, color_t c) {
-	g_fillrect(fb, reg.x, reg.y, reg.w, reg.h, c);
-}
+
+// # Circle #
 
 void g_circle(fb_t *fb, int cx, int cy, int r, color_t c) {
 	// TODO
 }
 
+void g_region_circle(fb_t *fb, fb_region_t *reg, int cx, int cy, int r, color_t c) {
+	// TODO
+}
+
+
+// # Filled circle #
+
 void g_fillcircle(fb_t *fb, int cx, int cy, int r, color_t c) {
 	// TODO
 }
+
+void g_region_fillcircle(fb_t *fb, fb_region_t *reg, int cx, int cy, int r, color_t c) {
+	// TODO
+}
+
+
+// # Blit #
 
 void g_blit(fb_t *dst, int x, int y, fb_t *src) {
 	fb_region_t r;
@@ -244,6 +344,17 @@ void g_blit(fb_t *dst, int x, int y, fb_t *src) {
 	r.h = src->geom.height;
 
 	g_blit_region(dst, x, y, src, r);
+}
+
+void g_region_blit(fb_t *dst, fb_region_t *reg, int x, int y, fb_t *src) {
+	fb_region_t r;
+
+	r.x = 0;
+	r.y = 0;
+	r.w = src->geom.width;
+	r.h = src->geom.height;
+
+	g_region_blit_region(dst, reg, x, y, src, r);
 }
 
 void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg) {
@@ -311,12 +422,25 @@ void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg) {
 	}
 }
 
+void g_region_blit_region(fb_t *dst, fb_region_t *reg, int x, int y, fb_t *src, fb_region_t r) {
+	if (x + r.w > reg->w) r.w = reg->w - x;
+	if (y + r.h > reg->h) r.h = reg->h - y;
+
+	g_blit_region(dst, x + reg->x, y + reg->y, src, r);
+}
+
+// # Scroll #
+
 void g_scroll_up(fb_t *dst, int l) {
 	for (int y = 0; y < dst->geom.height - l; y++) {
 		memcpy(dst->data + y * dst->geom.pitch,
 				dst->data + (y + l) * dst->geom.pitch,
 				dst->geom.pitch);
 	}
+}
+
+void g_region_scroll_up(fb_t *fb, fb_region_t *reg, int l) {
+	// TODO
 }
 
 //  ---- Text manipulation
@@ -560,6 +684,10 @@ void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, c
 
 		free(tmp);
 	}
+}
+
+void g_region_write(fb_t *fb, fb_region_t *reg, int x, int y, const char* text, font_t *font, int size, color_t c) {
+	// TODO
 }
 
 

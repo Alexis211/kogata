@@ -288,14 +288,15 @@ static int surface_rgb(lua_State *L) {
   return 1;
 }
 
+// ############################# DRAWING PRIMITIVES ##############
+
 static int surface_plot(lua_State *L) {
   drawlib_surface *s = (drawlib_surface*)luaL_checkudata(L, 1, SURFACE);
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
   color_t c = (color_t)lx_checklightudata(L, 4);
 
-  // TODO: relative to subregion!
-  g_plot(s->fb, x, y, c);
+  g_region_plot(s->fb, &s->subregion, x, y, c);
   return 0;
 }
 
@@ -306,8 +307,7 @@ static int surface_hline(lua_State *L) {
   int w = luaL_checkinteger(L, 4);
   color_t c = (color_t)lx_checklightudata(L, 5);
 
-  // TODO: relative to subregion!
-  g_hline(s->fb, x, y, w, c);
+  g_region_hline(s->fb, &s->subregion, x, y, w, c);
   return 0;
 }
 
@@ -318,8 +318,7 @@ static int surface_vline(lua_State *L) {
   int h = luaL_checkinteger(L, 4);
   color_t c = (color_t)lx_checklightudata(L, 5);
 
-  // TODO: relative to subregion!
-  g_vline(s->fb, x, y, h, c);
+  g_region_vline(s->fb, &s->subregion, x, y, h, c);
   return 0;
 }
 
@@ -331,8 +330,7 @@ static int surface_line(lua_State *L) {
   int y2 = luaL_checkinteger(L, 5);
   color_t c = (color_t)lx_checklightudata(L, 6);
 
-  // TODO: relative to subregion!
-  g_line(s->fb, x, y, x2, y2, c);
+  g_region_line(s->fb, &s->subregion, x, y, x2, y2, c);
   return 0;
 }
 
@@ -344,8 +342,7 @@ static int surface_rect(lua_State *L) {
   int h = luaL_checkinteger(L, 5);
   color_t c = (color_t)lx_checklightudata(L, 6);
 
-  // TODO: relative to subregion!
-  g_rect(s->fb, x, y, w, h, c);
+  g_region_rect(s->fb, &s->subregion, x, y, w, h, c);
   return 0;
 }
 
@@ -357,8 +354,7 @@ static int surface_fillrect(lua_State *L) {
   int h = luaL_checkinteger(L, 5);
   color_t c = (color_t)lx_checklightudata(L, 6);
 
-  // TODO: relative to subregion!
-  g_fillrect(s->fb, x, y, w, h, c);
+  g_region_fillrect(s->fb, &s->subregion, x, y, w, h, c);
   return 0;
 }
 
@@ -369,8 +365,7 @@ static int surface_circle(lua_State *L) {
   int r = luaL_checkinteger(L, 4);
   color_t c = (color_t)lx_checklightudata(L, 5);
 
-  // TODO: relative to subregion!
-  g_circle(s->fb, x, y, r, c);
+  g_region_circle(s->fb, &s->subregion, x, y, r, c);
   return 0;
 }
 
@@ -381,8 +376,7 @@ static int surface_fillcircle(lua_State *L) {
   int r = luaL_checkinteger(L, 4);
   color_t c = (color_t)lx_checklightudata(L, 5);
 
-  // TODO: relative to subregion!
-  g_fillcircle(s->fb, x, y, r, c);
+  g_region_fillcircle(s->fb, &s->subregion, x, y, r, c);
   return 0;
 }
 
@@ -392,8 +386,7 @@ static int surface_blit(lua_State *L) {
   int y = luaL_checkinteger(L, 3);
   drawlib_surface *s2 = (drawlib_surface*)luaL_checkudata(L, 4, SURFACE);
 
-  // TODO: relative to subregion!
-  g_blit_region(s->fb, x, y, s2->fb, s2->subregion);
+  g_region_blit_region(s->fb, &s->subregion, x, y, s2->fb, s2->subregion);
   return 0;
 }
 
@@ -406,8 +399,7 @@ static int surface_write(lua_State *L) {
   int size = luaL_checkinteger(L, 6);
   color_t c = (color_t)lx_checklightudata(L, 7);
 
-  // TODO: relative to subregion!
-  g_write(s->fb, x, y, text, f->font, size, c);
+  g_region_write(s->fb, &s->subregion, x, y, text, f->font, size, c);
   return 0;
 }
 

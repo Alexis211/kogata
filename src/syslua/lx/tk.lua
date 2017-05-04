@@ -79,12 +79,14 @@ function tk.image_widget(img)
 		local buf = self:get_draw_buffer(x0, y0, w, h)
 		if buf == nil then return end
 
-		for x = x0 - (x0 % 32), x0 + w, 32 do
-			for y = y0 - (y0 % 32), y0 + h, 32 do
-				buf:fillrect(x - x0, y - y0, 16, 16, buf:rgb(150, 150, 150))
-				buf:fillrect(x - x0 + 16, y - y0 + 16, 16, 16, buf:rgb(150, 150, 150))
-				buf:fillrect(x - x0 + 16, y - y0, 16, 16, buf:rgb(200, 200, 200))
-				buf:fillrect(x - x0, y - y0 + 16, 16, 16, buf:rgb(200, 200, 200))
+		local step = 20
+		local halfstep = 10
+		for x = x0 - (x0 % step), x0 + w, step do
+			for y = y0 - (y0 % step), y0 + h, step do
+				buf:fillrect(x - x0, y - y0, halfstep, halfstep, buf:rgb(150, 150, 150))
+				buf:fillrect(x - x0 + halfstep, y - y0 + halfstep, halfstep, halfstep, buf:rgb(150, 150, 150))
+				buf:fillrect(x - x0 + halfstep, y - y0, halfstep, halfstep, buf:rgb(170, 170, 170))
+				buf:fillrect(x - x0, y - y0 + halfstep, halfstep, halfstep, buf:rgb(170, 170, 170))
 			end
 		end
 		buf:blit(0, 0, self.img:sub(x0, y0, self.img:width(), self.img:height()))

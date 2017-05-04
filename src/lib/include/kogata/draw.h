@@ -45,8 +45,6 @@ void g_line(fb_t *fb, int x1, int y1, int x2, int y2, color_t c);
 
 void g_rect(fb_t *fb, int x, int y, int w, int h, color_t c);
 void g_fillrect(fb_t *fb, int x, int y, int w, int h, color_t c);
-void g_rectregion(fb_t *fb, fb_region_t reg, color_t c);
-void g_fillregion(fb_t *fb, fb_region_t reg, color_t c);
 
 void g_circle(fb_t *fb, int cx, int cy, int r, color_t c);
 void g_fillcircle(fb_t *fb, int cx, int cy, int r, color_t c);
@@ -55,6 +53,25 @@ void g_blit(fb_t *dst, int x, int y, fb_t *src);
 void g_blit_region(fb_t *dst, int x, int y, fb_t *src, fb_region_t reg);
 
 void g_scroll_up(fb_t *fb, int l);
+
+//  ---- Drawing primitives, in a subregion
+
+void g_region_plot(fb_t *fb, fb_region_t *reg, int x, int y, color_t c);
+
+void g_region_hline(fb_t *fb, fb_region_t *reg, int x, int y, int w, color_t c);		// horizontal line
+void g_region_vline(fb_t *fb, fb_region_t *reg, int x, int y, int h, color_t c);		// vertical line
+void g_region_line(fb_t *fb, fb_region_t *reg, int x1, int y1, int x2, int y2, color_t c);
+
+void g_region_rect(fb_t *fb, fb_region_t *reg, int x, int y, int w, int h, color_t c);
+void g_region_fillrect(fb_t *fb, fb_region_t *reg, int x, int y, int w, int h, color_t c);
+
+void g_region_circle(fb_t *fb, fb_region_t *reg, int cx, int cy, int r, color_t c);
+void g_region_fillcircle(fb_t *fb, fb_region_t *reg, int cx, int cy, int r, color_t c);
+
+void g_region_blit(fb_t *dst, fb_region_t *reg, int x, int y, fb_t *src);
+void g_region_blit_region(fb_t *dst, fb_region_t *dstreg, int x, int y, fb_t *src, fb_region_t srcreg);
+
+void g_region_scroll_up(fb_t *fb, fb_region_t *reg, int l);
 
 //  ---- Text manipulation
 
@@ -67,6 +84,7 @@ int g_text_width(font_t *f, const char* text, int size);
 int g_text_height(font_t *f, const char* text, int size);
 
 void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, color_t c);
+void g_region_write(fb_t *fb, fb_region_t *reg, int x, int y, const char* text, font_t *font, int size, color_t c);
 
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/
