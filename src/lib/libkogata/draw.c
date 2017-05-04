@@ -633,8 +633,6 @@ void g_region_write(fb_t *fb, fb_region_t *reg, int x, int y, const char* text, 
 		float scale = stbtt_ScaleForPixelHeight(&font->stbtt.info, size);
 		float xpos = 1;
 
-		dbg_printf("Write TTF %s %d\n", text, size);
-
 		uint8_t *tmp = (uint8_t*)malloc(size*size*2);
 		size_t tmp_size = size*size*2;
 		if (tmp == NULL) return;
@@ -650,8 +648,6 @@ void g_region_write(fb_t *fb, fb_region_t *reg, int x, int y, const char* text, 
 			stbtt_GetCodepointBitmapBoxSubpixel(&font->stbtt.info, codepoint, scale, scale, x_shift, 0, &x0, &y0, &x1, &y1);
 
 			int w = x1 - x0, h = y1 - y0;
-			dbg_printf("%d %d %d %d\n", x0, y0, x1, y1);
-
 			if (tmp_size < (size_t)w*h) {
 				free(tmp);
 				tmp_size = 2*w*h;
