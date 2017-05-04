@@ -121,6 +121,8 @@ end
 
 function gui.on_mouse(dx, dy, dw, lb, rb, mb)
 	if dx ~= 0 or dy ~= 0 then
+		local prev_x, prev_y = gui.mouse_x, gui.mouse_y
+
 		local csr = gui.cursor_visible
 		if csr then gui.hide_cursor() end
 
@@ -133,7 +135,7 @@ function gui.on_mouse(dx, dy, dw, lb, rb, mb)
 
 		if csr then gui.show_cursor() end
 
-		gui.on_mouse_move(gui.mouse_x, gui.mouse_y)
+		gui.on_mouse_move(prev_x, prev_y, gui.mouse_x, gui.mouse_y)
 	end
 
 	if lb == 1 and not gui.mouse_lbtn then
@@ -153,7 +155,7 @@ function gui.on_mouse(dx, dy, dw, lb, rb, mb)
 	end
 end
 
-function gui.on_mouse_move(x, y)
+function gui.on_mouse_move(prev_x, prev_y, x, y)
 	-- Nothing, can be replaced :)
 end
 

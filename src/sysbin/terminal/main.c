@@ -101,10 +101,10 @@ int main(int argc, char **argv) {
 	term.kb = init_keyboard();
 	ASSERT(term.kb != 0);
 
-	term.font = g_load_ascii_bitmap_font("sys:/fonts/default.bf");
+	term.font = g_load_ascii_bitmap_font("sys:/fonts/pcvga.bf");
 	ASSERT(term.font != 0);
-	term.cw = g_text_width(term.font, "#");
-	term.ch = g_text_height(term.font, "#");
+	term.cw = g_text_width(term.font, "#", 8);
+	term.ch = g_text_height(term.font, "#", 8);
 
 	gip_handler_t *h = new_gip_handler(&term_gip_cb, &term);
 	ASSERT(h != 0);

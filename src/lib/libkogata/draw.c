@@ -433,16 +433,43 @@ void g_decref_font(font_t *f) {
 	}
 }
 
-int g_text_width(font_t *font, const char* text) {
+int g_text_width(font_t *font, const char* text, int size) {
 	if (font->type == FONT_ASCII_BITMAP) {
 		return font->ascii_bitmap.cw * strlen(text);
+	} else if (font->type == FONT_STBTT) {
+		float scale = stbtt_ScaleForPixelHeight(&font->stbtt.info, size);
+		float xpos = 1;
+		while (*text != 0) {
+			int codepoint = *text;	// TODO utf8
+			text++;
+
+			int advance, lsb;
+			stbtt_GetCodepointHMetrics(&font->stbtt.info, codepoint, &advance, &lsb);
+			xpos += scale * advance;
+			if (*(text+1))
+				xpos += scale * stbtt_GetCodepointKernAdvance(&font->stbtt.info, *text, *(text+1));
+		}
+		return ceil(xpos);
+
 	}
 	return 0;
 }
 
-int g_text_height(font_t *font, const char* text) {
+int g_text_height(font_t *font, const char* text, int size) {
 	if (font->type == FONT_ASCII_BITMAP) {
 		return font->ascii_bitmap.ch;
+	} else if (font->type == FONT_STBTT) {
+		float scale = stbtt_ScaleForPixelHeight(&font->stbtt.info, size);
+		int max_h = 0;
+		while (*text != 0) {
+			int codepoint = *text;	// TODO utf8
+			text++;
+
+			int x0, y0, x1, y1;
+			stbtt_GetCodepointBitmapBox(&font->stbtt.info, codepoint, scale, scale, &x0, &y0, &x1, &y1);
+			if (y1 - y0 > max_h) max_h = y1 - y0;
+		}
+		return max_h;
 	}
 	return 0;
 }
@@ -501,7 +528,7 @@ void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, c
 				int sx = (fb->geom.memory_model == FB_MM_RGB32 ? 4 : 3);
 
 				for (int i = 0; i < h; i++) {
-					int yy = y + y0 + i;
+					int yy = y + size + y0 + i;
 					if (yy < 0) continue;
 					if (yy >= fb->geom.height) continue;
 					uint8_t *line = fb->data + yy * fb->geom.pitch;

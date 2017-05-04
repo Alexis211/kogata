@@ -40,7 +40,6 @@ done
 
 mkdir -p cdrom/sys/fonts
 cp build/fonts/*.bf cdrom/sys/fonts
-cp build/fonts/pcvga.bf cdrom/sys/fonts/default.bf
 cp res/fonts/*.ttf cdrom/sys/fonts
 
 mkdir -p cdrom/sys/keymaps
@@ -56,6 +55,7 @@ mkdir -p cdrom/sys/app
 cp -r src/sysapp/* cdrom/sys/app
 
 cp README.md cdrom
+cp res/kogata-logo.png cdrom/logo.png
 
 # Setup config files
 

@@ -90,16 +90,18 @@ static int font_gc(lua_State *L) {
 static int font_text_width(lua_State *L) {
   drawlib_font *f = (drawlib_font*)luaL_checkudata(L, 1, FONT);
   const char* txt = luaL_checkstring(L, 2);
+  int size = luaL_checkinteger(L, 3);
 
-  lua_pushinteger(L, g_text_width(f->font, txt));
+  lua_pushinteger(L, g_text_width(f->font, txt, size));
   return 1;
 }
 
 static int font_text_height(lua_State *L) {
   drawlib_font *f = (drawlib_font*)luaL_checkudata(L, 1, FONT);
   const char* txt = luaL_checkstring(L, 2);
+  int size = luaL_checkinteger(L, 3);
 
-  lua_pushinteger(L, g_text_height(f->font, txt));
+  lua_pushinteger(L, g_text_height(f->font, txt, size));
   return 1;
 }
 
