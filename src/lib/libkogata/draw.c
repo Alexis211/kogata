@@ -599,17 +599,29 @@ int g_text_height(font_t *font, const char* text, int size) {
 }
 
 void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, color_t c) {
+	fb_region_t r;
+	r.x = 0;
+	r.y = 0;
+	r.w = fb->geom.width;
+	r.h = fb->geom.height;
+
+	g_region_write(fb, &r, x, y, text, font, size, c);
+}
+
+void g_region_write(fb_t *fb, fb_region_t *reg, int x, int y, const char* text, font_t *font, int size, color_t c) {
 	if (font->type == FONT_ASCII_BITMAP) {
 		while (*text != 0) {
 			uint8_t id = (uint8_t)*text;
 			if (id < font->ascii_bitmap.nchars) {
 				uint8_t *d = font->ascii_bitmap.data + (id * font->ascii_bitmap.ch);
 				for (int r = 0; r < font->ascii_bitmap.ch; r++) {
-					if (y + r >= fb->geom.height) continue;
+					int yy = y + reg->y + r;
+					if (y + r >= reg->h || yy >= fb->geom.height) continue;
 					for (int j = 0; j < 8; j++) {
-						if (x + j >= fb->geom.width) continue;
+						int xx = x + reg->x + j;
+						if (x + j >= reg->w || xx >= fb->geom.width) continue;
 						if (d[r] & (0x80 >> j)) {
-							g_plot(fb, x + j, y + r, c);
+							g_plot(fb, xx, yy, c);
 						}
 					}
 				}
@@ -654,11 +666,17 @@ void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, c
 				for (int i = 0; i < h; i++) {
 					int yy = y + size + y0 + i;
 					if (yy < 0) continue;
+					if (yy >= reg->h) continue;
+					yy += reg->y;
+					if (yy < 0) continue;
 					if (yy >= fb->geom.height) continue;
 					uint8_t *line = fb->data + yy * fb->geom.pitch;
 
 					for (int j = 0; j < w; j++) {
 						int xx = x + x0 + (int)xpos + j;
+						if (xx < 0) continue;
+						if (xx >= reg->w) continue;
+						xx += reg->x;
 						if (xx < 0) continue;
 						if (xx >= fb->geom.width) continue;
 
@@ -686,9 +704,6 @@ void g_write(fb_t *fb, int x, int y, const char* text, font_t *font, int size, c
 	}
 }
 
-void g_region_write(fb_t *fb, fb_region_t *reg, int x, int y, const char* text, font_t *font, int size, color_t c) {
-	// TODO
-}
 
 
 /* vim: set ts=4 sw=4 tw=0 noet :*/

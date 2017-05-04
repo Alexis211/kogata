@@ -60,6 +60,22 @@ function gui.open_io()
 	gui.pcmouse_mainloop_fd = mainloop.add_fd(gui.pcmouse_fd, function() error("pcmouse fd error") end)
 	local function pcmouse_handler(ev)
 		local dx, dy, dw, lb, rb, mb = string.unpack("hhbBBB", ev)
+		local change_but = false
+
+		while not change_but do
+			local bytes, n = sys.read(gui.pcmouse_fd, 1, 8)
+			if n == 8 then
+				local dx2, dy2, dw2, lb2, rb2, mb2 = string.unpack("hhbBBB", ev)
+				change_but = change_but or (lb2 ~= lb) or (rb2 ~= rb) or (mb2 ~= mb)
+				dx = dx + dx2
+				dy = dy + dy2
+				lb = lb2
+				rb = rb2
+				mb = mb2
+			else
+				break
+			end
+		end
 		gui.on_mouse(dx, dy, dw, lb, rb, mb)
 
 		gui.pcmouse_mainloop_fd:expect(8, pcmouse_handler)

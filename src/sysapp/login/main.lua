@@ -20,8 +20,13 @@ for x = 0, 255, 16 do
 end
 
 local f = draw.load_image('root:/logo.png')
+local wm = tk.wm_widget()
+tk.init(gui, wm)
+
 local img = tk.image_widget(f)
-tk.init(gui, img)
+wm:add(img, "Window 1", 100, 16)
+local img2 = tk.image_widget(f)
+wm:add(img2, "Window 2", 16, 100)
 
 gui.show_cursor()
 
