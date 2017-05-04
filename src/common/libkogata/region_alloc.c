@@ -35,7 +35,7 @@ static descriptor_t base_descriptors[N_BASE_DESCRIPTORS];
 static descriptor_t *first_unused_descriptor; 
 uint32_t n_unused_descriptors;
 static descriptor_t *first_free_region_by_addr, *first_free_region_by_size;
-static descriptor_t *first_used_region;
+static descriptor_t *first_used_region;	// by address
 
 static map_page_fun_t region_alloc_map_page_fun;
 
@@ -45,18 +45,18 @@ STATIC_MUTEX(ra_mutex);	// region allocator mutex
 // HELPER FUNCTIONS FOR THE MANIPULATION OF THE REGION LISTS //
 // ========================================================= //
 
-void add_unused_descriptor(descriptor_t *d) {
+void add_unused_region_descriptor(descriptor_t *d) {
 	n_unused_descriptors++;
 	d->unused_descriptor.next = first_unused_descriptor;
 	first_unused_descriptor = d;
 }
 
-descriptor_t *get_unused_descriptor() {
+descriptor_t *get_unused_region_descriptor() {
 	descriptor_t *r = first_unused_descriptor;
-	if (r != 0) {
-		first_unused_descriptor = r->unused_descriptor.next;
-		n_unused_descriptors--;
-	}
+	ASSERT(r != 0);
+
+	first_unused_descriptor = r->unused_descriptor.next;
+	n_unused_descriptors--;
 	return r;
 }
 
@@ -86,122 +86,116 @@ void remove_free_region(descriptor_t *d) {
 	}
 }
 
-descriptor_t *_region_alloc_rec_check_first_bigger(descriptor_t *it, size_t sz) {
-	if (it == 0) return 0;
-	ASSERT(_region_alloc_rec_check_first_bigger(it->free.next_by_size, it->free.size) == it->free.first_bigger);
-	if (it->free.size > sz) return it;
-	return it->free.first_bigger;
+void _region_alloc_rec_check_first_bigger() {
+	descriptor_t *it = first_free_region_by_size;
+
+	descriptor_t *supposed_first_bigger = it->free.first_bigger;
+	size_t sz = it->free.size;
+
+	while (it != NULL) {
+		it = it->free.next_by_size;
+		if (it == NULL) {
+			ASSERT(supposed_first_bigger == NULL);
+		} else if (it->free.size == sz) {
+			ASSERT(it->free.first_bigger == supposed_first_bigger);
+		} else if (it->free.size > sz) {
+			ASSERT(it == supposed_first_bigger);
+			supposed_first_bigger = it->free.first_bigger;
+			sz = it->free.size;
+		} else {
+			ASSERT(false);
+		}
+	}
 }
 
 void add_free_region(descriptor_t *d) {
-	/*dbg_printf("Add free region 0x%p - 0x%p\n", d->free.addr, d->free.size + d->free.addr);*/
-	// Find position of region in address-ordered list
-	// Possibly concatenate free region
-	descriptor_t *i = first_free_region_by_addr;
+	// dbg_printf("Add free region 0x%p - 0x%p\n", d->free.addr, d->free.size + d->free.addr);
 
-	if (i == 0) {
-		// we are the only free region, this is easy
-		ASSERT(first_free_region_by_size == 0);
+	for (descriptor_t *it = first_free_region_by_addr; it != NULL; it = it->free.next_by_addr) {
+		if (it->free.addr + it->free.size == d->free.addr) {
+			// ----- PREV-CONCATENATE -----
+			descriptor_t *prev_free = it;
+			// dbg_printf("Prev-concatenate 0x%p - 0x%p\n", prev_free->free.addr, prev_free->free.size + prev_free->free.addr);
 
-		first_free_region_by_addr = first_free_region_by_size = d;
-		d->free.next_by_size = d->free.next_by_addr = 0;
-		d->free.first_bigger = 0;
+			remove_free_region(prev_free);
+			prev_free->free.size += d->free.size;
+			add_unused_region_descriptor(d);
+			add_free_region(prev_free);
+			return;
+		} else if (it->free.addr == d->free.addr + d->free.size) {
+			// ----- NEXT-CONCATENATE -----
+			descriptor_t *next_free = it;
+			// dbg_printf("Next-concatenate 0x%p - 0x%p\n", next_free->free.addr, next_free->free.size + next_free->free.addr);
 
+			remove_free_region(next_free);
+			d->free.size += next_free->free.size;
+			add_unused_region_descriptor(next_free);
+			add_free_region(d);
+			return;
+		} else if (it->free.addr > d->free.addr) {
+			break;
+		}
+	}
+
+	// We must insert this region in the two lists
+
+	if (first_free_region_by_addr == NULL) {
+		ASSERT(first_free_region_by_size == NULL);
+		d->free.next_by_addr = NULL;
+		first_free_region_by_addr = d;
+
+		d->free.next_by_size = NULL;
+		d->free.first_bigger = NULL;
+		first_free_region_by_size = d;
 		return;
 	}
-	
-	if (d->free.addr + d->free.size == i->free.addr) {
-		// concatenate d . i
-		d->free.size += i->free.size;
 
-		remove_free_region(i);
-		add_unused_descriptor(i);
+	ASSERT(first_free_region_by_addr != NULL && first_free_region_by_size != NULL);
 
-		add_free_region(d);	// restart from beginning
-		return;
-	}
-	
-	if (i->free.addr > d->free.addr) {
-		// insert before i
-		d->free.next_by_addr = i;
+	// First, the by-address list
+	if (first_free_region_by_addr->free.addr > d->free.addr) {
+		d->free.next_by_addr = first_free_region_by_addr;
 		first_free_region_by_addr = d;
 	} else {
-		while (true) {
-			ASSERT(i != 0);
-			ASSERT(d->free.addr > i->free.addr);
-			if (i->free.addr + i->free.size == d->free.addr) {
-				// concatenate i . d
-				i->free.size += d->free.size;
-
-				remove_free_region(i);
-				add_unused_descriptor(d);
-
-				add_free_region(i);	// restart from beginning
-				return;
-			} else if (i->free.next_by_addr == 0 || i->free.next_by_addr->free.addr > d->free.addr) {
-				// this is where we want to add
+		for (descriptor_t *it = first_free_region_by_addr; it != NULL; it = it->free.next_by_addr) {
+			if (it->free.next_by_addr == NULL || it->free.next_by_addr->free.addr > d->free.addr) {
+				d->free.next_by_addr = it->free.next_by_addr;;
+				it->free.next_by_addr = d;
 				break;
-			} else if (d->free.addr + d->free.size == i->free.next_by_addr->free.addr) {
-				// concatenate d . i->next_by_addr
-				descriptor_t *j = i->free.next_by_addr;
-
-				d->free.size += j->free.size;
-
-				remove_free_region(j);
-				add_unused_descriptor(j);
-
-				add_free_region(d);	// restart from beginning
-				return;
-			} else {
-				// continue
-				i = i->free.next_by_addr;
 			}
 		}
-
-		d->free.next_by_addr = i->free.next_by_addr;
-		i->free.next_by_addr = d;
 	}
-
-	// Now add it in size-ordered list
-	i = first_free_region_by_size;
-	ASSERT(i != 0);
-	if (d->free.size <= i->free.size) {
-		d->free.next_by_size = i;
-		d->free.first_bigger = (i->free.size > d->free.size ? i : i->free.first_bigger);
+	// Now, the by-size list
+	// If we have many of this size, insert as the first
+	if (first_free_region_by_size->free.size >= d->free.size) {
+		d->free.next_by_size = first_free_region_by_size;
+		d->free.first_bigger = (first_free_region_by_size->free.size > d->free.size
+									? first_free_region_by_size : first_free_region_by_size->free.first_bigger);
 		first_free_region_by_size = d;
 	} else {
-		while (i != 0) {
-			ASSERT(d->free.size > i->free.size);
-			if (i->free.next_by_size == 0) {
-				d->free.next_by_size = 0;
-				d->free.first_bigger = 0;
-
-				i->free.next_by_size = d;
-				i->free.first_bigger = d;
+		for (descriptor_t *it = first_free_region_by_size; it != NULL; it = it->free.next_by_size) {
+			ASSERT(it->free.size < d->free.size);
+			// Maybee we are the new first_bigger of it ?
+			if (it->free.first_bigger == NULL || it->free.first_bigger->free.size >= d->free.size) {
+				it->free.first_bigger = d;
+			}
+			// Maybee insert after here ?
+			if (it->free.next_by_size == NULL) {
+				d->free.next_by_size = NULL;
+				it->free.next_by_size = d;
+				d->free.first_bigger = NULL;
 				break;
-			} else if (i->free.next_by_size->free.size >= d->free.size) {
-				d->free.next_by_size = i->free.next_by_size;
-				d->free.first_bigger =
-					(i->free.next_by_size->free.size > d->free.size
-						? i->free.next_by_size
-						: i->free.next_by_size->free.first_bigger);
-				i->free.next_by_size = d;
-				if (d->free.size > i->free.size) i->free.first_bigger = d;
+			} else if (it->free.next_by_size->free.size >= d->free.size) {
+				descriptor_t *next = it->free.next_by_size;
+				d->free.next_by_size = next;
+				it->free.next_by_size = d;
+				d->free.first_bigger = (next->free.size > d->free.size ? next : next->free.first_bigger);
 				break;
-			} else {
-				if (i->free.first_bigger == 0 || i->free.first_bigger->free.size > d->free.size)
-					i->free.first_bigger = d;
-				// continue
-				i = i->free.next_by_size;
 			}
 		}
 	}
 
-	// Sanity check, could be deleted for performance but this doesn't necessarily cost much at the moment.
-	// Explanation: the first_bigger field is meant to point at the first free descriptor with strictly
-	// superior size, intending to make the finding a suitable free region faster, but this field
-	// is a bit complicated to keep up to date (see the messy code above...)
-	ASSERT(_region_alloc_rec_check_first_bigger(first_free_region_by_size, 0) == first_free_region_by_size);
+	_region_alloc_rec_check_first_bigger();
 }
 
 descriptor_t *find_used_region(void* addr) {
@@ -256,21 +250,21 @@ void region_allocator_init(void* begin, void* rsvd_end, void* end, map_page_fun_
 	n_unused_descriptors = 0;
 	first_unused_descriptor = 0;
 	for (int i = 0; i < N_BASE_DESCRIPTORS; i++) {
-		add_unused_descriptor(&base_descriptors[i]);
+		add_unused_region_descriptor(&base_descriptors[i]);
 	}
 
 	ASSERT(PAGE_ALIGNED(begin));
 	ASSERT(PAGE_ALIGNED(rsvd_end));
 	ASSERT(PAGE_ALIGNED(end));
 
-	descriptor_t *f0 = get_unused_descriptor();
+	descriptor_t *f0 = get_unused_region_descriptor();
 	f0->free.addr = rsvd_end;
 	f0->free.size = ((void*)end - rsvd_end);
-	first_free_region_by_size = first_free_region_by_addr = 0;
+	first_free_region_by_size = first_free_region_by_addr = NULL;
 	add_free_region(f0);
 
 	if (rsvd_end > begin) {
-		descriptor_t *u0 = get_unused_descriptor();
+		descriptor_t *u0 = get_unused_region_descriptor();
 		u0->used.i.addr = begin;
 		u0->used.i.size = rsvd_end - begin;
 		u0->used.i.type = "Reserved";
@@ -316,7 +310,7 @@ void* region_alloc_inner(size_t size, char* type, bool use_reserve) {
 				// is called less than N_RESERVE_DESCRIPTORS times with
 				// the use_reserve flag before more descriptors
 				// are allocated.
-				x = get_unused_descriptor();
+				x = get_unused_region_descriptor();
 				ASSERT(x != 0);
 
 				x->free.size = i->free.size - size;
@@ -362,7 +356,7 @@ void* region_alloc(size_t size, char* type) {
 		for (descriptor_t *d = (descriptor_t*)descriptor_region;
 				(void*)(d+1) <= (descriptor_region + PAGE_SIZE);
 				d++) {
-			add_unused_descriptor(d);
+			add_unused_region_descriptor(d);
 		}
 	}
 	try_anyway:
