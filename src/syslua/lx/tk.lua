@@ -82,6 +82,11 @@ function tk.widget(width, height)
 		-- Replaced by parent by a function that returns the buffer for
 		return nil
 	end
+	function w:finalize_draw_buffer()
+		if self.parent ~= nil then
+			self.parent:finalize_draw_buffer()
+		end
+	end
 
 	function w:redraw(x0, y0, buf)
 		-- Replaced by widget code by a function that does the actual drawing
@@ -144,7 +149,19 @@ function tk.init(gui, root_widget)
 	gui.on_mouse_up = function(lb, rb, mb) root_widget:on_mouse_up(gui.mouse_x, gui.mouse_y, lb, rb, mb) end
 
 	function root_widget:get_draw_buffer(x0, y0, w, h)
+		if gui.cursor_visible and #region_inter({x=x0, y=y0, w=w, h=h},
+												{x=gui.mouse_x, y=gui.mouse_y, w=gui.cursor:width(), h=gui.cursor:height()})>0
+		then
+			tk.must_reshow_cursor_on_finalize = true
+			gui.hide_cursor()
+		end
 		return gui.surface:sub(x0, y0, w, h)
+	end
+	function root_widget:finalize_draw_buffer()
+		if tk.must_reshow_cursor_on_finalize then
+			tk.must_reshow_cursor_on_finalize = false
+			gui.show_cursor()
+		end
 	end
 
 	root_widget:redraw(0, 0, gui.surface)
@@ -265,6 +282,7 @@ function tk.wm_widget()
 								{x = x, y = y, w = w, h = h})
 		for _, r in pairs(ok) do
 			self:redraw(r.x, r.y, self:get_draw_buffer(r.x, r.y, r.w, r.h))
+			self:finalize_draw_buffer()
 		end
 	end
 
