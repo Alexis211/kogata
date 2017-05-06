@@ -223,7 +223,7 @@ inline void g_region_vline(fb_t *fb, fb_region_t *reg, int x, int y, int h, colo
 	if (y >= reg->h) return;
 	if (y + h < 0) return;
 	if (y + h > reg->h) h = reg->h - y;
-	if (x < 0 || x >= reg->h) return;
+	if (x < 0 || x >= reg->w) return;
 	if (h <= 0) return;
 
 	g_vline(fb, reg->x + x, reg->y + y, h, c);

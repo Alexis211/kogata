@@ -69,6 +69,8 @@ end
 
 function tk.widget(width, height)
 	local w = {
+		x = 0,
+		y = 0,
 		width = width,
 		height = height,
 	}
@@ -248,8 +250,7 @@ function tk.wm_widget()
 				self.x = self.x + nx - px
 				self.y = self.y + ny - py
 				local reg2 = {x = self.x, y = self.y, w = self.width, h = self.height}
-				local pieces = region_diff(reg1, reg2)
-				table.insert(pieces, reg2)
+				local pieces = region_union(reg1, reg2)
 				for _, p in pairs(pieces) do
 					wm:redraw_region(p.x, p.y, p.w, p.h)
 				end
