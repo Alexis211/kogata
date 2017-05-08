@@ -338,7 +338,7 @@ function tk.box(a, b)
 	opts.center_content = opts.center_content or false
 	opts.constrain_size = opts.constrain_size or nil
 	opts.background_color = opts.background_color or tk.rgb(190, 190, 190)
-	opts.control_size = 8
+	opts.control_size = 12
 
 	local box = tk.widget(content.width, content.height, opts)
 	box.content = content
@@ -416,20 +416,20 @@ function tk.box(a, b)
 											   {x = self.content.x, y = self.content.y,
 												w = self.content.width, h = self.content.height})
 		for _, s in pairs(background_surface) do
-			buf:fillrect(s.x, s.y, s.w, s.h, self.background_color)
+			buf:fillrect(s.x - x0, s.y - y0, s.w, s.h, self.background_color)
 		end
 
 		if self.vresize or self.hresize then
-			buf:rect(self.width - csz, self.height - csz, csz, csz, buf:rgb(0, 0, 0))
-			buf:fillrect(self.width - csz + 1, self.height - csz + 1, csz - 2, csz - 2, buf:rgb(255, 255, 255))
+			buf:rect(self.width - csz - x0, self.height - csz - y0, csz, csz, buf:rgb(0, 0, 0))
+			buf:fillrect(self.width - csz + 1 - x0, self.height - csz + 1 - y0, csz - 2, csz - 2, buf:rgb(255, 255, 255))
 		end
 		if self.hscroll and self.width < self.content.width then
 			local barsize, barpos = self:barcalc(self.content.x, self.content.width, self.width)
-			buf:fillrect(barpos + 4, self.height - csz + 2, barsize - 8, csz - 4, buf:rgb(0, 0, 0))
+			buf:fillrect(barpos + 4 - x0, self.height - csz + 2 - y0, barsize - 8, csz - 4, buf:rgb(0, 0, 0))
 		end
 		if self.vscroll and self.height < self.content.height then
 			local barsize, barpos = self:barcalc(self.content.y, self.content.height, self.height)
-			buf:fillrect(self.width - csz + 2, barpos + 4, csz - 4, barsize - 8, buf:rgb(0, 0, 0))
+			buf:fillrect(self.width - csz + 2 - x0, barpos + 4 - y0, csz - 4, barsize - 8, buf:rgb(0, 0, 0))
 		end
 	end
 
