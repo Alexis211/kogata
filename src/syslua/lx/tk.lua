@@ -3,6 +3,62 @@ local sys = require 'lx.sys'
 
 local tk = {}
 
+--[[
+
+	Widgets:
+
+	window manager widget
+	Window manager
+	Widows are any widget which determine their own size
+
+	box widget
+	A box that can be:
+	- scrollable (H/V)
+	- resizable (H/V)
+	Has a single child. Can either:
+	a. constrain the size of the child to the size of the box
+	b. let the child widget determine its size
+	Can have a margin (outer margin) with associated outer background color,
+	         a padding (inner margin) with associated background color,
+			 a border with its color
+	Can have onclick events to implement buttons.
+
+	grid widget
+	A grid widget, organizes its children in a grid, which can make a table or any kind of layout. It:
+	- resizes its childs and repositions them to make a grid
+	- accepts when its childs are resized and changes the width of columns
+	  or the height of lines accordingly
+	- draws borders/spacing between elements
+
+	text widget
+
+	image widget
+
+	border widget
+
+	centered widget
+
+	text input
+
+	text box
+
+
+
+	text_layout_widget
+	Positions text widgets and images widgets in a subtle and intelligent manner (lol)
+
+
+How to make a table:
+
+	widget = tk.grid({},
+		{ { tk.box({h_resizable = true, width = 200}, tk.text("name")),
+		    tk.box({h_resizable = true, width = 100}, tk.text("actions")) },
+		  { tk.box({padding = 4}, tk.text("file A")),
+		    tk.grid({}, {{ tk.box({padding = 4, border = 1, border_color = red,
+			 			   on_click = function() do something end}, tk.text("open")) }}) } }
+
+--]]
+
 -- UTIL
 
 function region_operation(reg1, reg2, sel_fun)
@@ -67,17 +123,25 @@ end
 
 
 
-function tk.widget(width, height)
+-- ACTUAL TK STUFF
+
+
+function tk.widget(width, height, opts)
 	local w = {
 		x = 0,
 		y = 0,
 		width = width,
 		height = height,
 	}
+	if opts then
+		for k, v in pairs(opts) do
+			w[k] = v
+		end
+	end
 
 	function w:resize(width, height)
-		w.width = width
-		w.height = height
+		if width then w.width = width end
+		if width then w.height = height end
 	end
 
 	function w:get_draw_buffer(x0, y0, w, h)
@@ -104,15 +168,25 @@ function tk.widget(width, height)
 	end
 
 	function w:on_mouse_down(x, y, lb, rb, mb)
+		if lb then
 		-- Handler for mouse down event
+			self.left_click_valid = true
+		end
 	end
 
 	function w:on_mouse_up(x, y, lb, rb, mb)
 		-- Handler for mouse up event
+		if lb and self.left_click_valid then
+			self:on_click()
+		end
 	end
 
 	function w:on_mouse_move(prev_x, prev_y, new_x, new_y)
 		-- Handler for mouse move event
+		self.left_click_valid = false
+	end
+
+	function w:on_click()
 	end
 
 	function w:on_text_input(char)
@@ -138,8 +212,15 @@ function tk.init(gui, root_widget)
 	root_widget.parent = gui
 	
 	tk.fonts = {
-		default = draw.load_ttf_font("sys:/fonts/vera.ttf")
+		["vera.ttf"] = draw.load_ttf_font("sys:/fonts/vera.ttf"),
+		["veraserif.ttf"] = draw.load_ttf_font("sys:/fonts/veraserif.ttf"),
+		["veramono.ttf"] = draw.load_ttf_font("sys:/fonts/veramono.ttf"),
 	}
+	tk.fonts.default = tk.fonts["vera.ttf"]
+
+	function tk.rgb(r, g, b)
+		return gui.surface:rgb(r, g, b)
+	end
 
 	root_widget:resize(gui.surface:width(), gui.surface:height())
 
@@ -166,12 +247,29 @@ function tk.init(gui, root_widget)
 		end
 	end
 
-	root_widget:redraw(0, 0, gui.surface)
+	root_widget:redraw(0, 0, root_widget:get_draw_buffer(0, 0, root_widget.width, root_widget.height))
+	root_widget:finalize_draw_buffer()
 end
 
-function tk.image_widget(img)
-	local image = tk.widget(img:width(), img:height())
+-- #### #### STANDARD WIDGETS #### ####
+
+function tk.image(a, b)
+	local img = b or a
+	local opts = b and a or {}
+
+	local image = tk.widget(img:width(), img:height(), opts)
 	image.img = img
+
+	function image:resize(width, height)
+		if width then 
+			self.width = width
+			if self.width < self.img:width() then self.width = self.img:width() end
+		end
+		if height then
+			self.height = height
+			if self.height < self.img:height() then self.height = self.img:height() end
+		end
+	end
 
 	function image:redraw(x0, y0, buf)
 		local step = 20
@@ -184,15 +282,237 @@ function tk.image_widget(img)
 				buf:fillrect(x - x0, y - y0 + halfstep, halfstep, halfstep, buf:rgb(170, 170, 170))
 			end
 		end
-		buf:blit(0, 0, self.img:sub(x0, y0, self.img:width(), self.img:height()))
+		if x0 < self.img:width() and y0 < self.img:height() then
+			buf:blit(0, 0, self.img:sub(x0, y0, self.img:width(), self.img:height()))
+		end
 	end
 
 	return image
 end
 
-function tk.wm_widget()
+function tk.text(a, b)
+	local text = b or a
+	local opts = b and a or {}
+
+	-- Some defaults
+	opts.text_size = opts.text_size or 16
+	opts.padding = opts.padding or 2
+	opts.background = opts.background or tk.rgb(255, 255, 255)
+	opts.color = opts.color or tk.rgb(0, 0, 0)
+	opts.line_spacing = opts.line_spacing or 1
+	if opts.word_wrap == nil then opts.word_wrap = true end
+	opts.font = opts.font or tk.fonts.default
+	opts.dy = opts.dy or -(opts.text_size//8)
+
+	local txt = tk.widget(100, #string.split(text, "\n")*(opts.text_size + opts.line_spacing) - opts.line_spacing + 2*opts.padding, opts)
+	txt.text = text
+
+	function txt:redraw(x0, y0, buf)
+		local lines = string.split(self.text, "\n")
+
+		buf:fillrect(0, 0, buf:width(), buf:height(), self.background)
+		local acceptable_surface = region_inter({x = x0, y = y0, w = buf:width(), h = buf:height()},
+												{x = self.padding, y = self.padding, w = self.width - 2*self.padding, h = self.height - 2*self.padding})
+		for _, s in pairs(acceptable_surface) do
+			local buf2 = buf:sub(s.x - x0, s.y - y0, s.w, s.h)
+			for i = 1, #lines do
+				-- TODO word wrap
+				buf2:write(self.padding - s.x, (i-1) * (self.text_size + self.line_spacing) + self.padding - s.y + self.dy,
+						   lines[i], self.font, self.text_size, self.color)
+			end
+		end
+	end
+	
+	return txt
+end
+
+function tk.box(a, b)
+	local content = b or a
+	local opts = b and a or {}
+
+	-- Some defaults
+	opts.hresize = opts.hresize or false
+	opts.vresize = opts.vresize or false
+	opts.hscroll = opts.hscroll or false
+	opts.vscroll = opts.vscroll or false
+	opts.center_content = opts.center_content or false
+	opts.constrain_size = opts.constrain_size or nil
+	opts.background_color = opts.background_color or tk.rgb(190, 190, 190)
+	opts.control_size = 8
+
+	local box = tk.widget(content.width, content.height, opts)
+	box.content = content
+	if box.center_content then
+		if box.width > box.content.width then
+			box.content.x = (box.width - box.content.width) // 2
+		else
+			box.content.x = 0
+		end
+		if box.height > box.content.height then
+			box.content.y = (box.height - box.content.height) // 2
+		else
+			box.content.y = 0
+		end
+	else
+		box.content.x = 0
+		box.content.y = 0
+	end
+
+	function box:resize(width, height)
+		local ow, oh = self.width, self.height
+		if self.constrain_size then
+			self.content:resize(width, height)
+			self.width = content.width
+			self.height = content.height
+		else
+			if width then self.width = width end
+			if height then self.height = height end
+			if self.center_content then
+				if self.width > self.content.width then
+					self.content.x = (self.width - self.content.width) // 2
+				else
+					self.content.x = math.min(0, math.max(-(self.content.width - self.width), self.content.x))
+				end
+				if self.height > self.content.height then
+					self.content.y = (self.height - self.content.height) // 2
+				else
+					self.content.y = math.min(0, math.max(-(self.content.height - self.height), self.content.y))
+				end
+			end
+		end
+		if self.parent and (self.width ~= ow or self.height ~= oh) then
+			self.parent:child_resized(self)
+		end
+	end
+
+	function box:move_content(x, y)
+		local ox, oy = self.content.x, self.content.y
+		if x then self.content.x = math.min(0, math.max(-(self.content.width - self.width), x)) end
+		if y then self.content.y = math.min(0, math.max(-(self.content.height - self.height), y)) end
+		if self.parent and (self.content.x ~= ox or self.content.y ~= oy) then
+			self.parent:child_resized(self)
+		end
+	end
+
+	function box:barcalc(pos, insize, outsize)
+		local csz = self.control_size
+		local barsize = (outsize - csz) * outsize // insize
+		local baravail = outsize - csz - barsize
+		local barpos = -pos * baravail // (insize - outsize)
+		return barsize, barpos, baravail
+	end
+
+	function box:redraw(x0, y0, buf)
+		local csz = self.control_size
+
+		local acceptable_surface = region_inter({x = x0, y = y0, w = buf:width(), h = buf:height()},
+												{x = self.content.x, y = self.content.y,
+												 w = self.content.width, h = self.content.height})
+		for _, s in pairs(acceptable_surface) do
+			local buf2 = buf:sub(s.x - x0, s.y - y0, s.w, s.h)
+			self.content:redraw(s.x - self.content.x, s.y - self.content.y, buf2)
+		end
+		local background_surface = region_diff({x = x0, y = y0, w = buf:width(), h = buf:height()},
+											   {x = self.content.x, y = self.content.y,
+												w = self.content.width, h = self.content.height})
+		for _, s in pairs(background_surface) do
+			buf:fillrect(s.x, s.y, s.w, s.h, self.background_color)
+		end
+
+		if self.vresize or self.hresize then
+			buf:rect(self.width - csz, self.height - csz, csz, csz, buf:rgb(0, 0, 0))
+			buf:fillrect(self.width - csz + 1, self.height - csz + 1, csz - 2, csz - 2, buf:rgb(255, 255, 255))
+		end
+		if self.hscroll and self.width < self.content.width then
+			local barsize, barpos = self:barcalc(self.content.x, self.content.width, self.width)
+			buf:fillrect(barpos + 4, self.height - csz + 2, barsize - 8, csz - 4, buf:rgb(0, 0, 0))
+		end
+		if self.vscroll and self.height < self.content.height then
+			local barsize, barpos = self:barcalc(self.content.y, self.content.height, self.height)
+			buf:fillrect(self.width - csz + 2, barpos + 4, csz - 4, barsize - 8, buf:rgb(0, 0, 0))
+		end
+	end
+
+	function box:on_mouse_down(x, y, lb, mb, rb)
+		local csz = self.control_size
+
+		if lb and (self.vresize or self.hresize) and x >= self.width - csz and y >= self.height - csz then
+			self.resizing = true
+			self.resize_initw = self.width
+			self.resize_inith = self.height
+			self.resize_initmx = x
+			self.resize_initmy = y
+		elseif lb and self.vscroll and x >= self.width - csz and self.height < self.content.height then
+			local barsize, barpos = self:barcalc(self.content.y, self.content.height, self.height)
+			if y < barpos then
+				self:move_content(nil, self.content.y + self.height * 2 // 3)
+			elseif y >= barpos + barsize then
+				self:move_content(nil, self.content.y - self.height * 2 // 3)
+			else
+				self.vscrolling = true
+				self.vscrolling_inity = self.content.y
+				self.vscrolling_initmy = y
+			end
+		elseif lb and self.hscroll and y >= self.height - csz and self.width < self.content.width then
+			local barsize, barpos = self:barcalc(self.content.x, self.content.width, self.width)
+			if x < barpos then
+				self:move_content(self.content.x + self.width * 2 // 3, nil)
+			elseif x >= barpos + barsize then
+				self:move_content(self.content.x - self.width * 2 // 3, nil)
+			else
+				self.hscrolling = true
+				self.hscrolling_initx = self.content.x
+				self.hscrolling_initmx = x
+			end
+		else
+			self.content:on_mouse_down(x - self.content.x, y - self.content.y, lb, mb, rb)
+		end
+	end
+
+	function box:on_mouse_up(x, y, lb, mb, rb)
+		if lb and self.resizing then
+			self.resizing = false
+		elseif lb and self.vscrolling then
+			self.vscrolling = false
+		elseif lb and self.hscrolling then
+			self.hscrolling = false
+		else
+			self.content:on_mouse_up(x - self.content.x, y - self.content.y, lb, mb, rb)
+		end
+	end
+
+	function box:on_mouse_move(px, py, nx, ny)
+		if self.resizing then
+			local w = self.hresize and self.resize_initw + nx - self.resize_initmx
+			local h = self.vresize and self.resize_inith + ny - self.resize_initmy
+			self:resize(w, h)
+		elseif self.vscrolling then
+			local barsize, barpos, baravail = self:barcalc(self.content.y, self.content.height, self.height)
+			self:move_content(nil, self.vscrolling_inity - (ny - self.vscrolling_initmy) * (self.content.height - self.height) // baravail)
+		elseif self.hscrolling then
+			local barsize, barpos, baravail = self:barcalc(self.content.x, self.content.width, self.width)
+			self:move_content(self.hscrolling_initx - (nx - self.hscrolling_initmx) * (self.content.width - self.width) // baravail)
+		else
+			self.content:on_mouse_move(px - self.content.x, py - self.content.y, nx - self.content.x, ny - self.content.y)
+		end
+	end
+
+
+	return box
+end
+
+
+-- #### #### WINDOW MANAGER WIDGET #### ####
+
+function tk.window_manager()
 	local wm = tk.widget(100, 100)
 	wm.windows = {}		-- Last = on top
+	wm.window_pos = {}
+
+	wm.mouse_lb = false
+	wm.mouse_rb = false
+	wm.mouse_mb = false
+	wm.mouse_win = nil
 
 	function wm:add(content, title, x, y)
 		local win = tk.widget(content.width + 2, content.height + 22)
@@ -202,6 +522,7 @@ function tk.wm_widget()
 		win.title = title
 		win.visible = true
 		table.insert(self.windows, win)
+		self.window_pos[win] = {x = win.x, y = win.y, h = win.height, w = win.width}
 
 		win.content = content
 		content.parent = win
@@ -216,6 +537,20 @@ function tk.wm_widget()
 
 		function win:get_draw_buffer(x0, y0, w, h)
 			-- TODO clipping etc
+		end
+
+		function win:child_resized(c)
+			assert(c == self.content)
+
+			local reg1 = wm.window_pos[self]
+			self.width = c.width + 2
+			self.height = c.height + 22
+			wm.window_pos[self] = {x = self.x, y = self.y, w = self.width, h = self.height}
+			local reg2 = wm.window_pos[self]
+			local pieces = region_union(reg1, reg2)
+			for _, p in pairs(pieces) do
+				wm:redraw_region(p.x, p.y, p.w, p.h)
+			end
 		end
 
 		function win:redraw(x0, y0, buf)
@@ -246,16 +581,17 @@ function tk.wm_widget()
 
 		function win:on_mouse_move(px, py, nx, ny)
 			if self.moving then
-				local reg1 = {x = self.x, y = self.y, w = self.width, h = self.height}
+				local reg1 = wm.window_pos[self]
 				self.x = self.x + nx - px
 				self.y = self.y + ny - py
-				local reg2 = {x = self.x, y = self.y, w = self.width, h = self.height}
+				wm.window_pos[self] = {x = self.x, y = self.y, w = self.width, h = self.height}
+				local reg2 = wm.window_pos[self]
 				local pieces = region_union(reg1, reg2)
 				for _, p in pairs(pieces) do
 					wm:redraw_region(p.x, p.y, p.w, p.h)
 				end
 			else
-				self.content:on_mouse_move(px-1, py-21, px-1, py-21)
+				self.content:on_mouse_move(px-1, py-21, nx-1, ny-21)
 			end
 		end
 
@@ -347,7 +683,17 @@ function tk.wm_widget()
 	end
 
 	function wm:on_mouse_down(x, y, lb, rb, mb)
+		self.mouse_lb = self.mouse_lb or lb
+		self.mouse_rb = self.mouse_rb or rb
+		self.mouse_mb = self.mouse_mb or mb
+
 		local on_win = self:find_win(x, y)
+		if self.mouse_win then
+			on_win = self.mouse_win
+		else
+			self.mouse_win = on_win
+		end
+
 		if on_win then
 			sys.dbg_print(string.format("Mouse down on window %s\n", on_win.title))
 
@@ -366,14 +712,20 @@ function tk.wm_widget()
 	end
 
 	function wm:on_mouse_up(x, y, lb, rb, mb)
-		local on_win = self:find_win(x, y)
+		local on_win = self.mouse_win or self:find_win(x, y)
 		if on_win then
 			on_win:on_mouse_up(x - on_win.x, y - on_win.y, lb, rb, mb)
+		end
+		self.mouse_lb = self.mouse_lb and not lb
+		self.mouse_rb = self.mouse_rb and not rb
+		self.mouse_mb = self.mouse_mb and not mb
+		if not (self.mouse_lb or self.mouse_mb or self.mouse_rb) then
+			self.mouse_win = nil
 		end
 	end
 
 	function wm:on_mouse_move(prev_x, prev_y, new_x, new_y)
-		local on_win = self:find_win(prev_x, prev_y)
+		local on_win = self.mouse_win or self:find_win(prev_x, prev_y)
 		if on_win then
 			on_win:on_mouse_move(prev_x - on_win.x, prev_y - on_win.y, new_x - on_win.x, new_y - on_win.y)
 		end

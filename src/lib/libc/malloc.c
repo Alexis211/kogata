@@ -27,13 +27,13 @@ static void heap_free_pages(void* addr) {
 static mem_allocator_t *mem_allocator;
 static slab_type_t slab_sizes[] = {
 	{ "8B malloc objects", 8, 2 },
-	{ "16B malloc objects", 16, 2 },
-	{ "32B malloc objects", 32, 2 },
+	{ "16B malloc objects", 16, 4 },
+	{ "32B malloc objects", 32, 4 },
 	{ "64B malloc objects", 64, 4 },
-	{ "128B malloc objects", 128, 4 },
-	{ "256B malloc objects", 256, 4 },
+	{ "128B malloc objects", 128, 8 },
+	{ "256B malloc objects", 256, 8 },
 	{ "512B malloc objects", 512, 8 },
-	{ "1KB malloc objects", 1024, 8 },
+	{ "1KB malloc objects", 1024, 16 },
 	{ "2KB malloc objects", 2048, 16 },
 	{ "4KB malloc objects", 4096, 16 },
 	{ 0, 0, 0 }

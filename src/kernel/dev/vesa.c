@@ -343,7 +343,7 @@ void vesa_init_driver(fs_t *iofs, vesa_mode_t *mode_data, int mode_data_c) {
 
 	// Lookup a valid mode and set it
 	for (int i = 0; i < mode_data_c; i++) {
-		if (mode_data[i].info.bpp == 32 && mode_data[i].info.width <= 800 && mode_data[i].info.width >= 600) {
+		if (mode_data[i].info.bpp == 32 && mode_data[i].info.width == 800) {
 			if (vesa_set_mode(d, i)) break;
 		}
 	}

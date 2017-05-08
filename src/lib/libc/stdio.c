@@ -215,7 +215,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 		stream->pos += ret;
 	}
 
-	if (ret < size * nmemb) {
+	if (ret < size * nmemb || stream->pos >= stream->st.size) {
 		stream->flags |= STDIO_FL_EOF;
 	}
 
